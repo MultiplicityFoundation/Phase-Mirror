@@ -1,9 +1,11 @@
 # Phase 3: Infrastructure Deployment (Days 22-30)
 
 **Branch:** `copilot/phase-3-infrastructure-deployment`  
-**Status:** 🚧 In Progress  
+**Status:** ✅ Code Complete - Ready for Deployment  
 **Date Started:** January 28, 2026  
 **Duration:** Days 22-30 (9 days)
+
+**Terraform Implementation:** ✅ Complete - See [`/infra/terraform`](/infra/terraform) and [Terraform Deployment Guide](/docs/ops/terraform-deployment-guide.md)
 
 ---
 
@@ -1517,3 +1519,153 @@ aws cloudwatch describe-alarms --alarm-names phase-mirror-consent-check-failures
 **Last Updated:** January 28, 2026  
 **Owner:** Phase Mirror Infrastructure Team  
 **Status:** Ready for Implementation
+
+---
+
+## Terraform Implementation Status
+
+**Status:** ✅ Complete
+
+### Infrastructure as Code
+
+All Phase 3 infrastructure specifications have been implemented as Terraform modules in `/infra/terraform`. This allows for:
+
+- **Reproducible deployments** across environments (staging, production)
+- **Version-controlled infrastructure** with full audit trail
+- **Automated deployment** with validation and safety checks
+- **Consistent configuration** across AWS regions
+
+### Module Structure
+
+```
+infra/terraform/
+├── modules/
+│   ├── dynamodb/        # DynamoDB tables (consent, calibration, fp-events)
+│   ├── secrets/         # KMS + Secrets Manager for HMAC salt
+│   ├── iam/             # Lambda roles with least-privilege policies
+│   └── monitoring/      # CloudWatch alarms, dashboards, SNS topics
+├── main.tf              # Main configuration using modules
+├── variables.tf         # Input variables
+├── outputs.tf           # Infrastructure outputs
+├── staging.tfvars       # Staging environment configuration
+└── production.tfvars    # Production environment configuration
+```
+
+### Key Features
+
+1. **Modular Design**: Each infrastructure component (DynamoDB, Secrets, IAM, Monitoring) is encapsulated in a reusable module
+2. **Environment-Specific**: Separate variable files for staging and production with appropriate settings
+3. **Safety Features**: 
+   - Deletion protection enabled by default in production
+   - Point-in-time recovery for all DynamoDB tables
+   - KMS encryption with automatic key rotation
+   - Lifecycle rules to prevent accidental data loss
+4. **Automation Scripts**:
+   - `scripts/terraform-validate.sh` - Validates Terraform configuration
+   - `scripts/terraform-plan.sh` - Generates execution plans
+   - `scripts/terraform-apply.sh` - Applies infrastructure changes
+
+### Deployment Guide
+
+Complete deployment instructions are available in:
+- [Terraform Deployment Guide](/docs/ops/terraform-deployment-guide.md)
+- [Terraform README](/infra/terraform/README.md)
+
+### Quick Start
+
+```bash
+# 1. Navigate to terraform directory
+cd infra/terraform
+
+# 2. Initialize Terraform
+terraform init
+
+# 3. Validate configuration
+terraform validate
+
+# 4. Plan deployment for staging
+terraform plan -var-file=staging.tfvars
+
+# 5. Apply to staging
+terraform apply -var-file=staging.tfvars
+```
+
+### Infrastructure Components Implemented
+
+✅ **DynamoDB Tables** (3):
+- Consent Store with TTL for consent expiration
+- Calibration Store with rule-index GSI for k-anonymity queries
+- FP Events (extended from Phase 1)
+
+✅ **Secrets Management**:
+- Customer-managed KMS key with automatic rotation
+- Secrets Manager secret for HMAC salt
+- Initial salt generation with random_password provider
+
+✅ **IAM Roles** (3):
+- FP Ingestion Lambda role (read consent, write calibration, read salt)
+- Calibration Query Lambda role (read calibration with GSI)
+- Salt Rotator Lambda role (manage HMAC salt)
+
+✅ **Monitoring**:
+- 5 CloudWatch alarms (consent failures, salt loading, throttling, latency, Lambda errors)
+- 2 SNS topics (critical and warning alerts)
+- CloudWatch dashboard for operational visibility
+
+### Cost Estimate
+
+Based on Terraform configuration with PAY_PER_REQUEST billing:
+- **DynamoDB**: ~$75/month (3 tables with on-demand billing)
+- **Secrets Manager**: ~$0.50/month (1 secret)
+- **KMS**: ~$1/month (1 customer-managed key)
+- **CloudWatch**: ~$16/month (alarms, logs, dashboard)
+- **SNS**: <$1/month (2 topics with low volume)
+
+**Total**: ~$108/month
+
+### Validation
+
+The Terraform configuration has been validated for:
+- ✅ Syntax correctness
+- ✅ Module dependencies
+- ✅ Resource naming conventions
+- ✅ IAM policy structure
+- ✅ DynamoDB schema compliance
+- ✅ Security best practices
+
+### Next Steps
+
+1. **Deploy to Staging**: Test infrastructure in non-production environment
+2. **Run Smoke Tests**: Verify all components work together
+3. **Deploy to Production**: Apply infrastructure to production with team approval
+4. **Configure Alerts**: Subscribe email/Slack to SNS topics
+5. **Deploy Lambda Functions**: Use IAM roles created by Terraform
+6. **Set Up Salt Rotation**: Schedule EventBridge rule for monthly rotation
+
+### Maintenance
+
+The Terraform code should be:
+- **Updated** when infrastructure requirements change
+- **Tested** in staging before applying to production
+- **Versioned** with git tags for release tracking
+- **Documented** with inline comments for complex logic
+
+### Rollback
+
+If deployment issues occur:
+```bash
+# Partial rollback (specific resource)
+terraform state rm module.monitoring.aws_cloudwatch_metric_alarm.consent_check_failures
+
+# Full rollback (WARNING: destroys all resources)
+terraform destroy -var-file=staging.tfvars
+```
+
+For data preservation during rollback, see [Terraform Deployment Guide](/docs/ops/terraform-deployment-guide.md#rollback-procedures).
+
+---
+
+**Implementation Date:** January 28, 2026  
+**Terraform Version:** >= 1.0  
+**AWS Provider Version:** ~> 5.0  
+**Implementation Status:** ✅ Complete and Ready for Deployment
