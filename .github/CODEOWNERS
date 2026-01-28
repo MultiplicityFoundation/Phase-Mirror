@@ -1,6 +1,9 @@
 # Mirror Dissonance Protocol CODEOWNERS
 # These owners will be requested for review when someone opens a pull request.
 
+# IMPORTANT: Update these placeholder usernames before deploying!
+# Replace @steward-username, @security-lead, and @ops-team with actual GitHub usernames or teams.
+
 # Rule registry steward
 /packages/mirror-dissonance/src/rules/  @steward-username
 
