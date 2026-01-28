@@ -1,0 +1,20 @@
+# Mirror Dissonance Protocol CODEOWNERS
+# These owners will be requested for review when someone opens a pull request.
+
+# Rule registry steward
+/packages/mirror-dissonance/src/rules/  @steward-username
+
+# Policy decisions (requires steward and security lead)
+/packages/mirror-dissonance/src/policy/ @steward-username @security-lead
+
+# Schema definitions
+/packages/mirror-dissonance/schemas/    @steward-username
+
+# Infrastructure (operations team)
+/infra/                                 @ops-team
+
+# GitHub Actions workflows
+/.github/workflows/                     @ops-team @steward-username
+
+# Documentation
+/docs/                                  @steward-username
