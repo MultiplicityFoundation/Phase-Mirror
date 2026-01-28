@@ -2,7 +2,7 @@
  * MD-003: Probabilistic Output Management
  * Detects issues with probabilistic vs deterministic requirements
  */
-import { RuleViolation, OracleInput } from '../../schemas/types';
+import { RuleViolation, OracleInput } from '../../schemas/types.js';
 
 export async function checkMD003(input: OracleInput): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];

@@ -1,6 +1,7 @@
 {
   "name": "@mirror-dissonance/cli",
   "version": "1.0.0",
+  "type": "module",
   "description": "CLI wrapper for Mirror Dissonance Protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

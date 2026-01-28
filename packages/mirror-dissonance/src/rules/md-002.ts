@@ -2,7 +2,7 @@
  * MD-002: Compliance and Autonomy Tension Detection
  * Identifies conflicts between agent autonomy and compliance requirements
  */
-import { RuleViolation, OracleInput } from '../../schemas/types';
+import { RuleViolation, OracleInput } from '../../schemas/types.js';
 
 export async function checkMD002(input: OracleInput): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];

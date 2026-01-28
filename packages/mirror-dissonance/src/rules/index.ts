@@ -1,12 +1,12 @@
 /**
  * Rule registry and orchestration
  */
-import { RuleViolation, OracleInput } from '../../schemas/types';
-import { checkMD001 } from './md-001';
-import { checkMD002 } from './md-002';
-import { checkMD003 } from './md-003';
-import { checkMD004 } from './md-004';
-import { checkMD005 } from './md-005';
+import { RuleViolation, OracleInput } from '../../schemas/types.js';
+import { checkMD001 } from './md-001.js';
+import { checkMD002 } from './md-002.js';
+import { checkMD003 } from './md-003.js';
+import { checkMD004 } from './md-004.js';
+import { checkMD005 } from './md-005.js';
 
 export type RuleChecker = (input: OracleInput) => Promise<RuleViolation[]>;
 

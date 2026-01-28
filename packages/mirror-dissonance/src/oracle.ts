@@ -4,11 +4,11 @@
  * The Oracle analyzes agentic domain-specific reasoning tensions and provides
  * machine decisions on whether to allow, block, or warn on changes.
  */
-import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types';
-import { evaluateAllRules } from './rules';
-import { makeDecision } from './policy';
-import { MemoryBlockCounter } from './block-counter';
-import { NoOpFPStore } from './fp-store';
+import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
+import { evaluateAllRules } from './rules/index.js';
+import { makeDecision } from './policy/index.js';
+import { MemoryBlockCounter } from './block-counter/index.js';
+import { NoOpFPStore } from './fp-store/index.js';
 
 export class Oracle {
   private blockCounter: MemoryBlockCounter;
@@ -66,12 +66,15 @@ export class Oracle {
     // Count by severity
     const criticalCount = realViolations.filter(v => v.severity === 'critical').length;
 
+    // Count rules checked (5 rules: MD-001 through MD-005)
+    const rulesChecked = 5;
+
     return {
       machineDecision,
       violations: realViolations,
       summary,
       report: {
-        rulesChecked: Object.keys(require('./rules').RULES).length,
+        rulesChecked,
         violationsFound: realViolations.length,
         criticalIssues: criticalCount,
       },

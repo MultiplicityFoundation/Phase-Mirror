@@ -1,1 +1,1 @@
-export { BlockCounter, MemoryBlockCounter, BlockCounterConfig } from './counter';
+export { BlockCounter, MemoryBlockCounter, BlockCounterConfig } from './counter.js';

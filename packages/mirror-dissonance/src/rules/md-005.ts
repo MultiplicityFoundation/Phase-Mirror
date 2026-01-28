@@ -2,7 +2,7 @@
  * MD-005: Drift Detection and Baseline Validation
  * Detects drift from established baselines
  */
-import { RuleViolation, OracleInput } from '../../schemas/types';
+import { RuleViolation, OracleInput } from '../../schemas/types.js';
 
 export async function checkMD005(input: OracleInput): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];

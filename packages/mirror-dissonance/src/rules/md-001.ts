@@ -2,7 +2,7 @@
  * MD-001: Branch Protection Validation
  * Ensures branch protection contexts match workflow job names
  */
-import { RuleViolation, OracleInput } from '../../schemas/types';
+import { RuleViolation, OracleInput } from '../../schemas/types.js';
 
 export interface BranchProtectionConfig {
   requiredContexts: string[];

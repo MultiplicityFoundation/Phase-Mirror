@@ -2,7 +2,7 @@
  * Nonce loader and validator for redaction
  */
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import { NonceConfig } from '../../schemas/types';
+import { NonceConfig } from '../../schemas/types.js';
 
 export class NonceLoader {
   private client: SSMClient;

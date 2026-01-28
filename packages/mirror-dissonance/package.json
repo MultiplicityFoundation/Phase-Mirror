@@ -1,6 +1,7 @@
 {
   "name": "@mirror-dissonance/core",
   "version": "1.0.0",
+  "type": "module",
   "description": "Core Mirror Dissonance Protocol library",
   "main": "dist/oracle.js",
   "types": "dist/oracle.d.ts",

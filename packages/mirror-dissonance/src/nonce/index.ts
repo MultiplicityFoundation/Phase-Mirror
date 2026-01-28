@@ -1,1 +1,1 @@
-export { NonceLoader, nonceLoader } from './loader';
+export { NonceLoader, nonceLoader } from './loader.js';

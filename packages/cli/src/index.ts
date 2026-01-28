@@ -3,10 +3,12 @@
  * CLI for Mirror Dissonance Protocol Oracle
  */
 import { Command } from 'commander';
-import { analyze } from '@mirror-dissonance/core/src/oracle';
-import { OracleInput } from '@mirror-dissonance/core/schemas/types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const program = new Command();
 
@@ -30,9 +32,13 @@ program
   .option('--output <file>', 'Output file for results')
   .action(async (options) => {
     try {
+      // Dynamically import the oracle module
+      const oraclePath = path.join(__dirname, '../../mirror-dissonance/dist/src/oracle.js');
+      const { analyze } = await import(oraclePath);
+      
       // Build input
-      const input: OracleInput = {
-        mode: options.mode as any,
+      const input = {
+        mode: options.mode,
         strict: options.strict,
         dryRun: options.dryRun,
         baselineFile: options.baseline,

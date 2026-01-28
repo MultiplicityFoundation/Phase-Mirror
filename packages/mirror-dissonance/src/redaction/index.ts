@@ -1,1 +1,1 @@
-export { Redactor, createRedactor, RedactionRule } from './redactor';
+export { Redactor, createRedactor, RedactionRule } from './redactor.js';
