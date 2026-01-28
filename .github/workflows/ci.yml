@@ -9,6 +9,10 @@ jobs:
   oracle-check:
     name: Mirror Dissonance Oracle
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
     
     steps:
       - name: Checkout code

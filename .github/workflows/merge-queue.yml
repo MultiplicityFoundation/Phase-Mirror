@@ -8,6 +8,9 @@ jobs:
   oracle-strict:
     name: Oracle Strict Mode
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     
     steps:
       - name: Checkout code
