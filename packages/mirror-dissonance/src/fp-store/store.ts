@@ -37,6 +37,8 @@ export class DynamoDBFPStore implements IFPStore {
           timestamp: event.timestamp,
           resolvedBy: event.resolvedBy,
           context: event.context,
+          orgIdHash: event.orgIdHash,
+          consent: event.consent,
         },
       });
 

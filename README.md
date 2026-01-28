@@ -30,7 +30,12 @@ Design goal: replace vibe-based review with mechanisms, artifacts, and governanc
 ├── packages/
 │   ├── mirror-dissonance/       # Core library
 │   │   └── src/
-│   │       └── l0-invariants/   # Foundation-tier validation (L0)
+│   │       ├── l0-invariants/   # Foundation-tier validation (L0)
+│   │       ├── consent-store/   # Organization consent management
+│   │       ├── anonymizer/      # HMAC-SHA256 anonymization
+│   │       ├── calibration-store/ # k-Anonymity queries
+│   │       ├── ingest-handler/  # FP ingestion pipeline
+│   │       └── fp-store/        # False positive storage
 │   └── cli/                     # CLI wrapper around library
 ├── docs/
 │   ├── governance/              # Articles, Bylaws, Succession Planning
@@ -48,6 +53,7 @@ Design goal: replace vibe-based review with mechanisms, artifacts, and governanc
 - **ADRs:** [docs/adr/](/docs/adr/) - All architectural decisions with rationale
 - **Contributing:** [CONTRIBUTING.md](/CONTRIBUTING.md) - How to contribute, ADR process
 - **Phase 1 Completion:** [docs/PHASE_1_COMPLETION_CHECKLIST.md](/docs/PHASE_1_COMPLETION_CHECKLIST.md)
+- **Phase 2 Status:** Phase 2 FP Calibration Service implementation in progress
 - **L0 Benchmarks:** [docs/benchmarks/L0_BENCHMARK_REPORT.md](/docs/benchmarks/L0_BENCHMARK_REPORT.md)
 
 ## Key Architecture Decisions
