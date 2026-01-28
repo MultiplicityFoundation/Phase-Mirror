@@ -444,3 +444,224 @@ redactor.addCustomRule({
 6. **A/B Testing**: Experiment with rule changes
 7. **Audit API**: Query historical decisions
 8. **Multi-tenant**: Support multiple organizations
+
+---
+
+## Phase 2: FP Calibration Service (Implemented)
+
+Phase 2 introduces a privacy-respecting false positive calibration service that enables aggregate data collection while protecting individual organization privacy.
+
+### Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────┐
+│              FP Calibration Pipeline                      │
+│                                                           │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌───────┐│
+│  │  Ingest  │ → │ Consent  │ → │Anonymizer│ → │  FP   ││
+│  │  Event   │   │  Check   │   │ (HMAC)   │   │ Store ││
+│  └──────────┘   └──────────┘   └──────────┘   └───────┘│
+│                                                           │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         Calibration Store (k-Anonymity)          │   │
+│  │  - aggregateFPsByRule() [k ≥ 10]                │   │
+│  │  - getRuleFPRate() [k ≥ 10]                     │   │
+│  │  - getAllRuleFPRates() [k ≥ 10]                 │   │
+│  └──────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+#### 1. Consent Store (`consent-store/index.ts`)
+
+Manages organization consent for data collection.
+
+**Interface:**
+```typescript
+interface IConsentStore {
+  checkConsent(orgId: string): Promise<ConsentType>
+  recordConsent(record: ConsentRecord): Promise<void>
+  hasValidConsent(orgId: string): Promise<boolean>
+}
+```
+
+**Consent Types:**
+- `explicit`: Organization has explicitly opted in
+- `implicit`: Organization implicitly agrees via usage
+- `none`: No consent granted, data not collected
+
+**Storage:** DynamoDB with orgId as partition key
+
+#### 2. Anonymizer Service (`anonymizer/index.ts`)
+
+Implements HMAC-SHA256 anonymization per ADR-004.
+
+**Key Features:**
+- HMAC-SHA256 with rotating salt (loaded from AWS Secrets Manager)
+- Salt rotates monthly for forward secrecy
+- Deterministic hashing (same orgId + same salt = same hash)
+- Never stores raw organization IDs
+
+**Interface:**
+```typescript
+class Anonymizer {
+  async loadSalt(): Promise<void>
+  async anonymizeOrgId(orgId: string): Promise<string>
+  getSaltRotationMonth(): string | null
+  isSaltLoaded(): boolean
+}
+```
+
+#### 3. Ingest Handler (`ingest-handler/index.ts`)
+
+Orchestrates the FP ingestion pipeline.
+
+**Pipeline:**
+1. Check consent for organization
+2. If no consent, reject ingestion
+3. Anonymize organization ID using HMAC-SHA256
+4. Randomize timestamp within batch window (anti-timing attack)
+5. Store anonymized event in FP store
+
+**Interface:**
+```typescript
+class IngestHandler {
+  async ingest(event: IngestEvent): Promise<IngestResult>
+  async ingestBatch(events: IngestEvent[]): Promise<IngestResult[]>
+}
+```
+
+**Timestamp Randomization:**
+- Default delay window: 1 hour
+- Prevents timing-based de-anonymization attacks
+- Randomizes within [timestamp, timestamp + window]
+
+#### 4. Calibration Store (`calibration-store/index.ts`)
+
+Provides k-anonymity enforced queries per ADR-004.
+
+**k-Anonymity Threshold:** k = 10 (configurable)
+
+**Query Methods:**
+```typescript
+interface ICalibrationStore {
+  aggregateFPsByRule(ruleId: string): Promise<CalibrationResult | KAnonymityError>
+  getRuleFPRate(ruleId: string, startDate?, endDate?): Promise<CalibrationResult | KAnonymityError>
+  getAllRuleFPRates(): Promise<CalibrationResult[] | KAnonymityError>
+}
+```
+
+**k-Anonymity Enforcement:**
+- Every query checks: `COUNT(DISTINCT orgIdHash) >= k`
+- If fewer than k organizations, returns `KAnonymityError`
+- Prevents queries that could identify individual organizations
+
+**CalibrationResult:**
+```typescript
+{
+  ruleId: string,
+  totalFPs: number,
+  orgCount: number,
+  averageFPsPerOrg: number,
+  meetsKAnonymity: boolean
+}
+```
+
+### Data Flow
+
+```
+1. Client → IngestEvent { orgId, ruleId, isFalsePositive }
+2. IngestHandler → ConsentStore.checkConsent(orgId)
+3. If consent = 'none' → Reject
+4. IngestHandler → Anonymizer.anonymizeOrgId(orgId) → orgIdHash
+5. IngestHandler → Randomize timestamp
+6. IngestHandler → FPStore.recordFalsePositive(anonymizedEvent)
+7. Calibration queries → CalibrationStore → k-Anonymity check → Results
+```
+
+### Privacy Guarantees
+
+1. **HMAC Anonymization:**
+   - Organization IDs hashed with secret salt before storage
+   - Even database administrators cannot reverse hashes
+   - Salt rotates monthly for forward secrecy
+
+2. **k-Anonymity:**
+   - All queries require ≥10 organizations
+   - Prevents identification of individual organizations
+   - Protects against statistical inference attacks
+
+3. **Timestamp Randomization:**
+   - Prevents timing-based correlation attacks
+   - Batch window randomization (default 1 hour)
+
+4. **Consent Management:**
+   - Organizations can opt out completely
+   - Consent can expire or be revoked
+   - No data collected without consent
+
+### Security Considerations
+
+- **Salt Storage:** Stored in AWS Secrets Manager (encrypted at rest)
+- **Salt Rotation:** Monthly rotation, old data purged or re-hashed
+- **No Raw IDs:** Organization IDs never stored in FP or calibration stores
+- **Fail-Closed:** On consent store failure, reject ingestion (fail-safe)
+
+### Integration Example
+
+```typescript
+// Create services
+const consentStore = createConsentStore({ tableName: 'consent-store' });
+const anonymizer = createAnonymizer({ saltParameterName: '/fp-calibration/salt' });
+const fpStore = createFPStore({ tableName: 'fp-events' });
+
+// Initialize ingest handler
+const ingestHandler = createIngestHandler({
+  consentStore,
+  anonymizer,
+  fpStore,
+  batchDelayMs: 3600000 // 1 hour
+});
+
+// Ingest false positive
+const result = await ingestHandler.ingest({
+  orgId: 'org-abc123',
+  ruleId: 'MD-003',
+  isFalsePositive: true,
+  timestamp: new Date().toISOString()
+});
+
+// Query calibration data (k-anonymity enforced)
+const calibrationStore = createCalibrationStore({ tableName: 'calibration-store' });
+const fpRate = await calibrationStore.getRuleFPRate('MD-003');
+
+if ('error' in fpRate) {
+  // Insufficient data (k < 10)
+  console.log('Privacy threshold not met:', fpRate.message);
+} else {
+  // Success
+  console.log(`Rule MD-003: ${fpRate.totalFPs} FPs from ${fpRate.orgCount} orgs`);
+}
+```
+
+### ADR References
+
+- **ADR-004:** [FP Anonymization with HMAC + k-Anonymity](/docs/adr/ADR-004-fp-anonymization-with-hmac-k-anonymity.md)
+- **ADR-005:** [Nonce Rotation & Fail-Closed Availability](/docs/adr/ADR-005-nonce-rotation-fail-closed-availability.md)
+
+### Implementation Status
+
+- ✅ Type definitions extended
+- ✅ Consent store implemented
+- ✅ Anonymizer service implemented
+- ✅ Calibration store with k-anonymity implemented
+- ✅ Ingest handler pipeline implemented
+- ✅ FP store updated for Phase 2 fields
+- ✅ Documentation updated
+
+**Next Steps:**
+- Infrastructure deployment (DynamoDB tables, Secrets Manager)
+- Integration with oracle pipeline
+- Salt rotation automation
+- Monitoring and alerting
