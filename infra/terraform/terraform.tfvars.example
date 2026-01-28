@@ -1,0 +1,12 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and customize for your environment
+
+aws_region  = "us-east-1"
+environment = "production"
+
+# DynamoDB settings
+enable_point_in_time_recovery = true
+enable_deletion_protection    = true
+
+# Lambda function name (if deployed)
+# fp_ingestion_lambda_name = "phase-mirror-fp-ingestion-production"
