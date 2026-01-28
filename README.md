@@ -53,7 +53,8 @@ Design goal: replace vibe-based review with mechanisms, artifacts, and governanc
 - **ADRs:** [docs/adr/](/docs/adr/) - All architectural decisions with rationale
 - **Contributing:** [CONTRIBUTING.md](/CONTRIBUTING.md) - How to contribute, ADR process
 - **Phase 1 Completion:** [docs/PHASE_1_COMPLETION_CHECKLIST.md](/docs/PHASE_1_COMPLETION_CHECKLIST.md)
-- **Phase 2 Status:** Phase 2 FP Calibration Service implementation in progress
+- **Phase 2 Summary:** [PHASE_2_SUMMARY.md](/PHASE_2_SUMMARY.md) - FP Calibration Service implementation
+- **Phase 3 Infrastructure:** [docs/Phase 3: Infrastructure Deployment (Days 22-30).md](/docs/Phase%203:%20Infrastructure%20Deployment%20(Days%2022-30).md) - Production deployment guide
 - **L0 Benchmarks:** [docs/benchmarks/L0_BENCHMARK_REPORT.md](/docs/benchmarks/L0_BENCHMARK_REPORT.md)
 
 ## Key Architecture Decisions

@@ -1,5 +1,5 @@
-# Mirror Dissonance Protocol Infrastructure
-# Terraform configuration for AWS resources
+# Phase Mirror FP Calibration Service Infrastructure
+# Terraform configuration for Phase 3 AWS resources
 
 terraform {
   required_version = ">= 1.0"
@@ -9,73 +9,97 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
+  
+  # Backend configuration for state management
+  # Uncomment and configure for production use
+  # backend "s3" {
+  #   bucket         = "phase-mirror-terraform-state"
+  #   key            = "fp-calibration/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   encrypt        = true
+  #   dynamodb_table = "phase-mirror-terraform-locks"
+  # }
 }
 
 provider "aws" {
   region = var.aws_region
+  
+  default_tags {
+    tags = {
+      ManagedBy   = "Terraform"
+      Environment = var.environment
+      Project     = "PhaseMirror"
+    }
+  }
 }
 
-variable "aws_region" {
-  description = "AWS region for resources"
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "environment" {
-  description = "Environment name (e.g., production, staging)"
-  type        = string
-  default     = "production"
-}
-
-# DynamoDB table for false positive tracking
-resource "aws_dynamodb_table" "fp_events" {
-  name           = "mirror-dissonance-fp-events"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
-  
-  attribute {
-    name = "id"
-    type = "S"
-  }
-  
-  attribute {
-    name = "findingId"
-    type = "S"
-  }
-  
-  attribute {
-    name = "ruleId"
-    type = "S"
-  }
-  
-  # Global secondary index for finding-based queries
-  global_secondary_index {
-    name            = "finding-index"
-    hash_key        = "findingId"
-    projection_type = "ALL"
-  }
-  
-  # Global secondary index for rule-based queries
-  global_secondary_index {
-    name            = "rule-index"
-    hash_key        = "ruleId"
-    projection_type = "ALL"
-  }
-  
+# Local variables
+locals {
   tags = {
-    Name        = "mirror-dissonance-fp-events"
     Environment = var.environment
-    ManagedBy   = "terraform"
+    ManagedBy   = "Terraform"
+    Project     = "PhaseMirror"
+    Component   = "FPCalibration"
   }
 }
+
+# DynamoDB Tables Module
+module "dynamodb" {
+  source = "./modules/dynamodb"
+  
+  environment                   = var.environment
+  enable_point_in_time_recovery = var.enable_point_in_time_recovery
+  enable_deletion_protection    = var.enable_deletion_protection
+  tags                          = local.tags
+}
+
+# Secrets Manager and KMS Module
+module "secrets" {
+  source = "./modules/secrets"
+  
+  environment = var.environment
+  tags        = local.tags
+}
+
+# IAM Roles and Policies Module
+module "iam" {
+  source = "./modules/iam"
+  
+  environment                  = var.environment
+  aws_region                   = var.aws_region
+  consent_store_table_arn      = module.dynamodb.consent_store_table_arn
+  calibration_store_table_arn  = module.dynamodb.calibration_store_table_arn
+  calibration_store_gsi_arn    = module.dynamodb.calibration_store_gsi_arn
+  hmac_salt_secret_arn         = module.secrets.hmac_salt_secret_arn
+  kms_key_arn                  = module.secrets.kms_key_arn
+  tags                         = local.tags
+}
+
+# CloudWatch Monitoring Module
+module "monitoring" {
+  source = "./modules/monitoring"
+  
+  environment                   = var.environment
+  aws_region                    = var.aws_region
+  calibration_store_table_name  = module.dynamodb.calibration_store_table_name
+  fp_ingestion_lambda_name      = var.fp_ingestion_lambda_name
+  tags                          = local.tags
+}
+
+# Legacy resources (from existing main.tf)
+# These are maintained for backward compatibility
 
 # DynamoDB table for block counter with TTL
 resource "aws_dynamodb_table" "block_counter" {
-  name           = "mirror-dissonance-block-counter"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "bucketKey"
-  range_key      = "ruleId"
+  name         = "mirror-dissonance-block-counter-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "bucketKey"
+  range_key    = "ruleId"
   
   attribute {
     name = "bucketKey"
@@ -87,22 +111,22 @@ resource "aws_dynamodb_table" "block_counter" {
     type = "S"
   }
   
-  # TTL configuration for automatic cleanup
   ttl {
     attribute_name = "ttl"
     enabled        = true
   }
   
-  tags = {
-    Name        = "mirror-dissonance-block-counter"
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
+  tags = merge(
+    local.tags,
+    {
+      Name = "mirror-dissonance-block-counter-${var.environment}"
+    }
+  )
 }
 
 # SSM parameter for redaction nonce
 resource "aws_ssm_parameter" "redaction_nonce" {
-  name  = "/guardian/redaction_nonce"
+  name  = "/guardian/redaction_nonce-${var.environment}"
   type  = "SecureString"
   value = "placeholder-will-be-set-manually"
   
@@ -110,65 +134,10 @@ resource "aws_ssm_parameter" "redaction_nonce" {
     ignore_changes = [value]
   }
   
-  tags = {
-    Name        = "mirror-dissonance-redaction-nonce"
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}
-
-# CloudWatch alarm for SSM GetParameter failures
-resource "aws_cloudwatch_metric_alarm" "ssm_get_parameter_errors" {
-  alarm_name          = "mirror-dissonance-ssm-errors"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "Errors"
-  namespace           = "AWS/SSM"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "5"
-  alarm_description   = "Alert when SSM GetParameter fails for redaction nonce"
-  
-  dimensions = {
-    ParameterName = aws_ssm_parameter.redaction_nonce.name
-  }
-  
-  tags = {
-    Name        = "mirror-dissonance-ssm-errors"
-    Environment = var.environment
-  }
-}
-
-# CloudWatch alarm for high block rate (circuit breaker)
-resource "aws_cloudwatch_metric_alarm" "high_block_rate" {
-  alarm_name          = "mirror-dissonance-high-block-rate"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "BlockCount"
-  namespace           = "MirrorDissonance"
-  period              = "3600"
-  statistic           = "Sum"
-  threshold           = "100"
-  alarm_description   = "Alert when block rate exceeds circuit breaker threshold"
-  
-  tags = {
-    Name        = "mirror-dissonance-high-block-rate"
-    Environment = var.environment
-  }
-}
-
-# Outputs
-output "fp_events_table_name" {
-  value       = aws_dynamodb_table.fp_events.name
-  description = "Name of the false positive events DynamoDB table"
-}
-
-output "block_counter_table_name" {
-  value       = aws_dynamodb_table.block_counter.name
-  description = "Name of the block counter DynamoDB table"
-}
-
-output "redaction_nonce_parameter_name" {
-  value       = aws_ssm_parameter.redaction_nonce.name
-  description = "Name of the SSM parameter for redaction nonce"
+  tags = merge(
+    local.tags,
+    {
+      Name = "mirror-dissonance-redaction-nonce-${var.environment}"
+    }
+  )
 }
