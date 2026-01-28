@@ -40,11 +40,11 @@ These MIPs have been approved and are now Architecture Decision Records (ADRs).
 
 | MIP # | Title | Status | ADR | Date Approved |
 |-------|-------|--------|-----|---------------|
-| MIP-001 | Foundation-First Entity Architecture | Approved | [ADR-001](adr/ADR-001-foundation-first-entity-architecture.md) | 2024 |
-| MIP-002 | Apache 2.0 + Managed Service Restriction | Approved | [ADR-002](adr/ADR-002-apache-2-license-with-managed-service-restriction.md) | 2024 |
-| MIP-003 | Hierarchical PMD Compute | Approved | [ADR-003](adr/ADR-003-hierarchical-pmd-compute.md) | 2024 |
-| MIP-004 | FP Anonymization with HMAC k-Anonymity | Approved | [ADR-004](adr/ADR-004-fp-anonymization-with-hmac-k-anonymity.md) | 2024 |
-| MIP-005 | Nonce Rotation Fail-Closed Availability | Approved | [ADR-005](adr/ADR-005-nonce-rotation-fail-closed-availability.md) | 2024 |
+| MIP-001 | Foundation-First Entity Architecture | Approved | [ADR-001](adr/ADR-001-foundation-first-entity-architecture.md) | 2026-01-28 |
+| MIP-002 | Apache 2.0 + Managed Service Restriction | Approved | [ADR-002](adr/ADR-002-apache-2-license-with-managed-service-restriction.md) | 2026-01-28 |
+| MIP-003 | Hierarchical PMD Compute | Approved | [ADR-003](adr/ADR-003-hierarchical-pmd-compute.md) | 2026-01-28 |
+| MIP-004 | FP Anonymization with HMAC k-Anonymity | Approved | [ADR-004](adr/ADR-004-fp-anonymization-with-hmac-k-anonymity.md) | 2026-01-28 |
+| MIP-005 | Nonce Rotation Fail-Closed Availability | Approved | [ADR-005](adr/ADR-005-nonce-rotation-fail-closed-availability.md) | 2026-01-28 |
 
 ---
 
