@@ -1,0 +1,64 @@
+name: CI - Oracle Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  oracle-check:
+    name: Mirror Dissonance Oracle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build packages
+        run: pnpm build
+      
+      - name: Run Oracle Analysis
+        id: oracle
+        run: |
+          pnpm oracle:run run \
+            --mode pull_request \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }} \
+            --commit ${{ github.sha }} \
+            --branch ${{ github.head_ref }} \
+            --author ${{ github.actor }} \
+            --output oracle-report.json
+        continue-on-error: true
+      
+      - name: Upload Oracle Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oracle-report
+          path: oracle-report.json
+          retention-days: 30
+      
+      - name: Check Oracle Decision
+        if: steps.oracle.outcome == 'failure'
+        run: |
+          echo "::error::Oracle blocked this PR"
+          exit 1
