@@ -62,6 +62,14 @@ export class Anonymizer {
   }
 
   async anonymizeOrgId(orgId: string): Promise<string> {
+    if (!orgId || orgId.trim().length === 0) {
+      throw new Error('Organization ID cannot be empty');
+    }
+
+    if (orgId.length > 255) {
+      throw new Error('Organization ID exceeds maximum length of 255 characters');
+    }
+
     if (!this.saltConfig) {
       await this.loadSalt();
     }
@@ -84,13 +92,24 @@ export class Anonymizer {
   }
 }
 
+/**
+ * NoOp Anonymizer for development/testing only.
+ * WARNING: This implementation uses a hardcoded test salt and is NOT secure.
+ * NEVER use this in production. Always use the full Anonymizer with AWS Secrets Manager.
+ */
 export class NoOpAnonymizer {
   async loadSalt(): Promise<void> {
     console.log('NoOp: Would load salt from SSM');
   }
 
   async anonymizeOrgId(orgId: string): Promise<string> {
-    const hmac = createHmac('sha256', 'test-salt-12345678');
+    if (!orgId || orgId.trim().length === 0) {
+      throw new Error('Organization ID cannot be empty');
+    }
+    
+    // Using longer test salt to match expected format (64 hex chars)
+    const testSalt = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const hmac = createHmac('sha256', testSalt);
     hmac.update(orgId);
     return hmac.digest('hex');
   }

@@ -1,6 +1,12 @@
 /**
  * Calibration Store with k-Anonymity Enforcement
  * Implements k-anonymity (k=10) per ADR-004
+ * 
+ * DynamoDB Table Requirements:
+ * - Primary Key: id (String)
+ * - Attributes: orgIdHash, ruleId, timestamp, context, isFalsePositive
+ * - Global Secondary Index: 'rule-index' with ruleId as partition key
+ * - TTL: Optional, configured separately for data retention
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
@@ -56,7 +62,7 @@ export class DynamoDBCalibrationStore implements ICalibrationStore {
         };
       }
 
-      const totalFPs = items.filter(item => item.isFalsePositive).length;
+      const totalFPs = items.filter(item => item.context?.isFalsePositive === true).length;
 
       return {
         ruleId,
@@ -78,7 +84,7 @@ export class DynamoDBCalibrationStore implements ICalibrationStore {
   ): Promise<CalibrationResult | KAnonymityError> {
     try {
       let filterExpression = '';
-      const expressionAttributeValues: Record<string, string> = {
+      const expressionAttributeValues: Record<string, string | number | boolean> = {
         ':ruleId': ruleId,
       };
 
@@ -115,7 +121,7 @@ export class DynamoDBCalibrationStore implements ICalibrationStore {
         };
       }
 
-      const totalFPs = items.filter(item => item.isFalsePositive).length;
+      const totalFPs = items.filter(item => item.context?.isFalsePositive === true).length;
 
       return {
         ruleId,
@@ -159,7 +165,7 @@ export class DynamoDBCalibrationStore implements ICalibrationStore {
         }
 
         const ruleData = ruleMap.get(item.ruleId)!;
-        if (item.isFalsePositive) {
+        if (item.context?.isFalsePositive === true) {
           ruleData.totalFPs++;
         }
         ruleData.orgs.add(item.orgIdHash);

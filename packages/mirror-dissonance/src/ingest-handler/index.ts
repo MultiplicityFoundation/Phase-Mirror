@@ -84,6 +84,11 @@ export class IngestHandler {
 
   private randomizeTimestamp(timestamp: string, maxDelayMs: number): string {
     const originalTime = new Date(timestamp).getTime();
+    
+    if (isNaN(originalTime)) {
+      throw new Error(`Invalid timestamp format: ${timestamp}`);
+    }
+    
     const randomDelay = Math.floor(Math.random() * maxDelayMs);
     const randomizedTime = new Date(originalTime + randomDelay);
     return randomizedTime.toISOString();
@@ -107,7 +112,7 @@ export class IngestHandler {
   }
 
   private generateId(): string {
-    return `fp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `fp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private generateFindingId(event: AnonymizedIngestEvent): string {
