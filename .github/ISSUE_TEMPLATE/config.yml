@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/RyVanGyver/Phase-Mirror/discussions
+    about: For questions or general discussion, use Discussions instead of Issues
+
+  - name: Security Vulnerability
+    url: mailto:security@citizengardens.org
+    about: Please report security vulnerabilities privately via email
+
+  - name: Community Support
+    url: https://discord.gg/phase-mirror
+    about: Join our Discord for real-time help
