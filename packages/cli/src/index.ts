@@ -110,6 +110,76 @@ program
     }
   });
 
+// Convenience command for drift detection
+program
+  .command('drift')
+  .description('Run drift detection against baseline')
+  .option('--baseline <file>', 'Baseline file for comparison', 'baseline.json')
+  .option('--output <file>', 'Output file for drift report', 'drift-report.json')
+  .option('--strict', 'Enable strict mode', false)
+  .option('--repo <name>', 'Repository name')
+  .option('--branch <name>', 'Branch name')
+  .action(async (options) => {
+    try {
+      // Use the run command with drift mode
+      const oraclePath = path.join(__dirname, '../../mirror-dissonance/dist/src/oracle.js');
+      
+      // Verify oracle path exists
+      if (!fs.existsSync(oraclePath)) {
+        console.error(`Error: Oracle module not found at ${oraclePath}`);
+        console.error('Please run "pnpm build" in packages/mirror-dissonance first');
+        process.exit(1);
+      }
+      
+      const { analyze } = await import(oraclePath);
+      
+      const input = {
+        mode: 'drift' as const,
+        strict: options.strict,
+        dryRun: false,
+        baselineFile: options.baseline,
+        context: {
+          repositoryName: options.repo || process.env.GITHUB_REPOSITORY || 'unknown',
+          branch: options.branch || process.env.GITHUB_REF_NAME || 'main',
+        },
+      };
+
+      console.log('Running drift detection...');
+      console.log(`Baseline: ${options.baseline}`);
+      console.log('');
+
+      const result = await analyze(input);
+
+      console.log(result.summary);
+
+      if (options.output) {
+        const outputPath = path.resolve(options.output);
+        fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+        console.log(`\nResults saved to: ${outputPath}`);
+      }
+
+      if (process.env.GITHUB_STEP_SUMMARY) {
+        const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+        const markdown = generateMarkdownSummary(result);
+        fs.appendFileSync(summaryPath, markdown);
+      }
+
+      if (result.machineDecision.outcome === 'block') {
+        console.error('\n❌ Drift detected: BLOCK');
+        process.exit(1);
+      } else if (result.machineDecision.outcome === 'warn') {
+        console.warn('\n⚠️  Drift detected: WARN');
+        process.exit(0);
+      } else {
+        console.log('\n✅ No drift detected');
+        process.exit(0);
+      }
+    } catch (error) {
+      console.error('Error running drift detection:', error);
+      process.exit(1);
+    }
+  });
+
 function generateMarkdownSummary(result: any): string {
   const lines: string[] = [];
   
