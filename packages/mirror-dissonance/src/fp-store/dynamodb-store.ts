@@ -50,7 +50,7 @@ export class DynamoDBFPStore implements FPStore {
     await this.client.send(new PutItemCommand({
       TableName: this.tableName,
       Item: marshall(item, { removeUndefinedValues: true }),
-      ConditionExpression: 'attribute_not_exists(pk)', // Prevent duplicates
+      ConditionExpression: 'attribute_not_exists(pk) AND attribute_not_exists(sk)', // Prevent duplicates
     }));
   }
 
@@ -154,7 +154,7 @@ export class DynamoDBFPStore implements FPStore {
     // Compute statistics
     const total = events.length;
     const falsePositives = events.filter(e => e.isFalsePositive).length;
-    const pending = events.filter(e => e.reviewedBy === undefined).length;
+    const pending = events.filter(e => !e.reviewedBy || !e.reviewedAt).length;
     const reviewed = total - pending;
     const truePositives = reviewed - falsePositives;
     const observedFPR = reviewed > 0 ? falsePositives / reviewed : 0;
