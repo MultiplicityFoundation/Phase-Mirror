@@ -34,3 +34,15 @@ variable "fp_ingestion_lambda_name" {
   type        = string
   default     = ""
 }
+
+variable "nonce_rotation_trigger" {
+  description = "Trigger value for rotating the redaction nonce (change to force rotation)"
+  type        = string
+  default     = "initial"
+}
+
+variable "ops_sns_topic_arn" {
+  description = "SNS topic ARN for operational alerts"
+  type        = string
+  default     = ""
+}

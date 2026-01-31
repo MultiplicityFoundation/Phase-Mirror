@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dissonance Report",
+  "type": "object",
+  "required": ["meta", "items", "summary", "machine_decision"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["schema_version", "run_id", "timestamp", "rules_hash"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "2.0.0" },
+        "run_id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "rules_hash": { "type": "string" },
+        "degraded": {
+          "type": "object",
+          "description": "Present only when oracle is operating in degraded mode",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": [
+                "ssm_unreachable",
+                "circuit_breaker_triggered",
+                "fp_store_unavailable",
+                "nonce_cache_stale"
+              ]
+            },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "details": { "type": "string" }
+          },
+          "required": ["reason", "timestamp"]
+        },
+        "demotions": {
+          "type": "array",
+          "description": "Rules auto-demoted due to FPR breach",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ruleId": { "type": "string" },
+              "fromStatus": { "type": "string", "enum": ["blocking", "warn"] },
+              "toStatus": { "type": "string", "enum": ["warn", "disabled"] },
+              "reason": { "type": "string" },
+              "observedFPR": { "type": "number" },
+              "threshold": { "type": "number" }
+            },
+            "required": ["ruleId", "fromStatus", "toStatus", "reason"]
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer" },
+        "by_severity": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer" },
+            "high": { "type": "integer" },
+            "medium": { "type": "integer" },
+            "low": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "machine_decision": {
+      "type": "object",
+      "required": ["outcome"],
+      "properties": {
+        "outcome": { "type": "string", "enum": ["pass", "warn", "block"] },
+        "degraded": { "type": "boolean", "default": false },
+        "reason": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "rule_id", "severity", "title"],
+      "properties": {
+        "id": { "type": "string" },
+        "rule_id": { "type": "string" },
+        "rule_version": { "type": "string" },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "title": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/evidence" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "line": { "type": "integer" },
+        "snippet": {
+          "type": "object",
+          "description": "RedactedText object - must have __brand and __mac"
+        },
+        "hash": { "type": "string" }
+      }
+    }
+  }
+}

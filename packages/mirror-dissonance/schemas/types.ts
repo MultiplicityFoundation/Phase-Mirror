@@ -118,3 +118,37 @@ export interface KAnonymityError {
   requiredK: number;
   actualK: number;
 }
+
+/**
+ * Phase 2 Week 2: Observability & Policy Types (Day 15)
+ */
+
+export interface DegradedMode {
+  reason: 'ssm_unreachable' | 'circuit_breaker_triggered' | 'fp_store_unavailable' | 'nonce_cache_stale';
+  timestamp: Date;
+  details?: string;
+}
+
+export interface RuleDemotion {
+  ruleId: string;
+  fromStatus: 'blocking' | 'warn';
+  toStatus: 'warn' | 'disabled';
+  reason: string;
+  observedFPR?: number;
+  threshold?: number;
+}
+
+export interface ReportMeta {
+  schema_version: '2.0.0';
+  run_id: string;
+  timestamp: Date;
+  rules_hash: string;
+  degraded?: DegradedMode;
+  demotions?: RuleDemotion[];
+}
+
+export interface MachineDecisionV2 {
+  outcome: 'pass' | 'warn' | 'block';
+  degraded: boolean;
+  reason?: string;
+}
