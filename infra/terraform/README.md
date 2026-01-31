@@ -69,7 +69,7 @@ export ENV=staging  # Start with staging
 Run the bootstrap script to create the S3 bucket and DynamoDB table:
 
 ```bash
-cd /home/runner/work/Phase-Mirror/Phase-Mirror
+# From the repository root
 ./scripts/bootstrap-terraform-backend.sh
 ```
 
@@ -364,10 +364,6 @@ Add the role ARN to your GitHub repository secrets:
 ```
 
 For detailed examples, see [docs/ops/terraform-deployment-guide.md](../../docs/ops/terraform-deployment-guide.md).
-
-## CI/CD Integration (Legacy)
-
-See [docs/ops/terraform-deployment-guide.md](../../docs/ops/terraform-deployment-guide.md) for GitHub Actions integration examples.
 
 ## Documentation
 

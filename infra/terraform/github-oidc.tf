@@ -8,7 +8,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   client_id_list = ["sts.amazonaws.com"]
 
   thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1", # GitHub Actions thumbprint (valid as of 2024)
+    "6938fd4d98bab03faadb97b34396831e3780aea1", # GitHub Actions OIDC thumbprint (current)
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"  # Backup thumbprint
   ]
 
@@ -158,9 +158,6 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     ]
   }
 }
-
-# Data sources for dynamic values (using existing from baseline-storage.tf)
-data "aws_region" "current" {}
 
 # Output the role ARN for GitHub secrets
 output "github_actions_deploy_role_arn" {
