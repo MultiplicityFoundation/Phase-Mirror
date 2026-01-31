@@ -23,3 +23,12 @@ reports/
 **/terraform.tfvars
 **/tfplan-*
 *.tfplan
+
+# Jest coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Test artifacts
+**/__tests__/**/*.js
+**/__tests__/**/*.d.ts
