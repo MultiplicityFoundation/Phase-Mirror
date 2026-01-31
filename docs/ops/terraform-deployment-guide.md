@@ -9,13 +9,17 @@ This guide walks through deploying the infrastructure specified in [Phase 3: Inf
 ## Prerequisites Checklist
 
 - [ ] AWS account with appropriate permissions
-- [ ] Terraform >= 1.0 installed
+- [ ] Terraform >= 1.6 installed
 - [ ] AWS CLI configured with credentials
+- [ ] **Terraform backend setup completed** (S3 bucket and DynamoDB table created - see [Remote State Setup](#remote-state-setup-required-before-first-use))
+- [ ] **SSM nonce parameter bootstrapped** for your environment
 - [ ] Access to create KMS keys, DynamoDB tables, Secrets Manager secrets
 - [ ] Permissions to create IAM roles and policies
 - [ ] SNS notification endpoints configured (email, Slack, etc.)
 
 ## Deployment Steps
+
+**⚠️ Prerequisites**: Before starting deployment, complete the [Remote State Setup](#remote-state-setup-required-before-first-use) if this is your first time deploying.
 
 ### Phase 1: Pre-Deployment (Day 22)
 
@@ -317,63 +321,92 @@ None
 EOF
 ```
 
-## Remote State Setup (Production)
+## Remote State Setup (Required Before First Use)
 
-For production, configure remote state backend:
+Before deploying infrastructure, you must set up the Terraform backend for state management. This is a **one-time setup** per AWS account.
 
-### 1. Create S3 Bucket for State
+### Option 1: Automated Bootstrap (Recommended)
+
+Use the provided bootstrap script:
+
+```bash
+# From the repository root
+./scripts/bootstrap-terraform-backend.sh
+```
+
+This script will:
+- Create S3 bucket: `mirror-dissonance-terraform-state-prod`
+- Enable versioning, encryption, and block public access
+- Create DynamoDB table: `terraform-state-lock` for state locking
+- Apply appropriate tags for resource organization
+
+The backend configuration is already set in `infra/terraform/backend.tf` with these values.
+
+### Option 2: Manual Setup
+
+If you prefer to create resources manually:
+
+#### 1. Create S3 Bucket for State
 
 ```bash
 # Create bucket
-aws s3 mb s3://phase-mirror-terraform-state-production \
+aws s3 mb s3://mirror-dissonance-terraform-state-prod \
   --region us-east-1
 
 # Enable versioning
 aws s3api put-bucket-versioning \
-  --bucket phase-mirror-terraform-state-production \
+  --bucket mirror-dissonance-terraform-state-prod \
   --versioning-configuration Status=Enabled
 
 # Enable encryption
 aws s3api put-bucket-encryption \
-  --bucket phase-mirror-terraform-state-production \
+  --bucket mirror-dissonance-terraform-state-prod \
   --server-side-encryption-configuration \
     '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+
+# Block public access
+aws s3api put-public-access-block \
+  --bucket mirror-dissonance-terraform-state-prod \
+  --public-access-block-configuration \
+    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 ```
 
-### 2. Create DynamoDB Table for Locking
+#### 2. Create DynamoDB Table for Locking
 
 ```bash
 aws dynamodb create-table \
-  --table-name phase-mirror-terraform-locks \
+  --table-name terraform-state-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
   --region us-east-1
 ```
 
-### 3. Configure Backend in Terraform
+#### 3. Bootstrap SSM Nonce Parameter
 
-Edit `infra/terraform/main.tf`:
+The application requires an SSM parameter for the redaction nonce. Create it before deploying:
 
-```hcl
-terraform {
-  backend "s3" {
-    bucket         = "phase-mirror-terraform-state-production"
-    key            = "fp-calibration/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "phase-mirror-terraform-locks"
-  }
-}
+```bash
+# For staging
+./scripts/bootstrap-nonce.sh staging
+
+# For production
+./scripts/bootstrap-nonce.sh production
 ```
 
-### 4. Migrate State
+**⚠️ Important**: Save the generated nonce value securely (e.g., in a password manager) for rotation operations.
+
+#### 4. Initialize Terraform with Backend
+
+The backend is already configured in `infra/terraform/backend.tf`. Simply initialize:
 
 ```bash
 cd infra/terraform
-terraform init -migrate-state
+terraform init
 
-# Confirm migration when prompted
+# Create and select workspace for your environment
+terraform workspace new staging
+terraform workspace select staging
 ```
 
 ## Rollback Procedures
