@@ -6,6 +6,13 @@
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
+/**
+ * Convert current time to Unix timestamp (seconds since epoch)
+ */
+function getCurrentUnixTimestamp(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
 export interface BlockCounter {
   increment(key: string, ttlSeconds: number): Promise<number>;
   get(key: string): Promise<number>;
@@ -21,7 +28,7 @@ export class DynamoDBBlockCounter implements BlockCounter {
   }
 
   async increment(key: string, ttlSeconds: number): Promise<number> {
-    const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+    const expiresAt = getCurrentUnixTimestamp() + ttlSeconds;
     
     const result = await this.client.send(new UpdateItemCommand({
       TableName: this.tableName,
@@ -58,10 +65,10 @@ export class InMemoryBlockCounter implements BlockCounter {
   private counts: Map<string, { count: number; expiresAt: number }> = new Map();
 
   async increment(key: string, ttlSeconds: number): Promise<number> {
-    const expiresAt = Date.now() / 1000 + ttlSeconds;
+    const expiresAt = getCurrentUnixTimestamp() + ttlSeconds;
     const current = this.counts.get(key);
     
-    if (current && current.expiresAt > Date.now() / 1000) {
+    if (current && current.expiresAt > getCurrentUnixTimestamp()) {
       current.count += 1;
       this.counts.set(key, current);
       return current.count;
@@ -73,7 +80,7 @@ export class InMemoryBlockCounter implements BlockCounter {
 
   async get(key: string): Promise<number> {
     const current = this.counts.get(key);
-    if (!current || current.expiresAt <= Date.now() / 1000) {
+    if (!current || current.expiresAt <= getCurrentUnixTimestamp()) {
       return 0;
     }
     return current.count;

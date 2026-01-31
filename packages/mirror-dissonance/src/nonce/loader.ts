@@ -47,6 +47,26 @@ export class NonceLoader {
   getCachedNonce(): NonceConfig | null {
     return this.cachedNonce;
   }
+
+  /**
+   * Load nonce with a custom SSM client
+   */
+  async loadNonceWithClient(client: SSMClient, parameterName: string): Promise<NonceConfig> {
+    this.client = client;
+    return this.loadNonce(parameterName);
+  }
 }
 
 export const nonceLoader = new NonceLoader();
+
+/**
+ * Helper function to load nonce from SSM
+ * @param client SSM client instance
+ * @param parameterName Parameter name in SSM
+ * @returns NonceConfig object
+ */
+export async function loadNonce(client: SSMClient, parameterName: string): Promise<NonceConfig> {
+  const loader = new NonceLoader();
+  // Use a dedicated method to set the client
+  return loader.loadNonceWithClient(client, parameterName);
+}
