@@ -2,25 +2,36 @@ name: Drift Detection
 
 on:
   schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    - cron: '0 */6 * * *'  # Every 6 hours
   workflow_dispatch:
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+  actions: read
+  issues: write
+
+env:
+  BASELINE_BUCKET: mirror-dissonance-production-baselines
+  BASELINE_KEY: main/integrity-baseline.json
+
 jobs:
-  drift-check:
+  detect-drift:
     name: Baseline Drift Detection
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      issues: write
     
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: us-east-1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -49,41 +60,123 @@ jobs:
       
       - name: Build packages
         run: pnpm build
-      
-      - name: Download baseline
+
+      - name: Download baseline from S3
+        id: baseline
         run: |
-          # In a real setup, download baseline from artifact storage or S3
-          echo "Baseline would be downloaded here"
-      
-      - name: Run Drift Detection
-        id: drift
+          echo "Downloading baseline from s3://${BASELINE_BUCKET}/${BASELINE_KEY}"
+          
+          if aws s3 cp "s3://${BASELINE_BUCKET}/${BASELINE_KEY}" baseline.json; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Baseline downloaded"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No baseline found - will create initial baseline"
+          fi
+
+      - name: Run drift detection
+        if: steps.baseline.outputs.exists == 'true'
+        env:
+          NONCE_PARAM_NAME: /guardian/production/redaction_nonce_v1
+          FP_TABLE_NAME: mirror-dissonance-production-fp-events
+          CONSENT_TABLE_NAME: mirror-dissonance-production-consent
+          BLOCK_COUNTER_TABLE_NAME: mirror-dissonance-production-block-counter
         run: |
-          pnpm oracle:run run \
+          pnpm --filter @mirror-dissonance/cli run start -- run \
             --mode drift \
             --baseline baseline.json \
-            --repo ${{ github.repository }} \
-            --commit ${{ github.sha }} \
-            --branch ${{ github.ref_name }} \
             --output drift-report.json
         continue-on-error: true
-      
-      - name: Upload Drift Report
+
+      - name: Create initial baseline
+        if: steps.baseline.outputs.exists == 'false'
+        run: |
+          echo "Creating initial baseline..."
+          pnpm --filter @mirror-dissonance/cli run start -- baseline \
+            --output baseline.json
+
+      - name: Upload baseline to S3
+        if: steps.baseline.outputs.exists == 'false'
+        run: |
+          aws s3 cp baseline.json "s3://${BASELINE_BUCKET}/${BASELINE_KEY}" \
+            --metadata "created-at=$(date -u +%Y-%m-%dT%H:%M:%SZ),created-by=github-actions"
+          
+          echo "✅ Initial baseline created and uploaded"
+
+      - name: Upload drift report
+        if: steps.baseline.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: drift-report
           path: drift-report.json
           retention-days: 90
-      
-      - name: Create Issue on Drift
-        if: steps.drift.outcome == 'failure'
+
+      - name: Check drift decision
+        if: steps.baseline.outputs.exists == 'true'
+        id: decision
+        run: |
+          if [ -f drift-report.json ]; then
+            OUTCOME=$(jq -r '.machineDecision.outcome // .machine_decision.outcome // "unknown"' drift-report.json)
+            echo "outcome=${OUTCOME}" >> $GITHUB_OUTPUT
+            
+            if [ "$OUTCOME" == "block" ]; then
+              echo "::error::Drift detection found blocking violations"
+              exit 1
+            elif [ "$OUTCOME" == "warn" ]; then
+              echo "::warning::Drift detection found warnings"
+            else
+              echo "✅ No drift detected"
+            fi
+          else
+            echo "⚠️  No drift report generated"
+          fi
+
+      - name: Create issue on drift
+        if: failure() && steps.decision.outputs.outcome == 'block'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.create({
+            const fs = require('fs');
+            
+            if (!fs.existsSync('drift-report.json')) {
+              console.log('No drift report found, skipping issue creation');
+              return;
+            }
+            
+            const report = JSON.parse(fs.readFileSync('drift-report.json', 'utf8'));
+            
+            const violations = (report.violations || report.items || [])
+              .filter(item => item.severity === 'critical' || item.severity === 'high')
+              .map(item => `- **${item.title || item.message}** (${item.ruleId || item.rule_id})`)
+              .join('\n');
+            
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Mirror Dissonance: Baseline Drift Detected',
-              body: 'Automated drift detection has identified deviations from the baseline. Please review the drift report artifact.',
-              labels: ['oracle', 'drift-detection']
+              title: '🚨 Drift Detection: Blocking Violations Found',
+              labels: ['drift-detection', 'priority-critical'],
+              body: `Drift detection workflow found blocking violations:\n\n${violations}\n\nSee [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for full report.`
             });
+
+      - name: Post summary
+        if: always()
+        run: |
+          if [ -f drift-report.json ]; then
+            echo "## Drift Detection Report" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            OUTCOME=$(jq -r '.machineDecision.outcome // .machine_decision.outcome // "unknown"' drift-report.json)
+            TOTAL=$(jq '.violations | length // .items | length // 0' drift-report.json)
+            
+            echo "**Outcome:** $OUTCOME" >> $GITHUB_STEP_SUMMARY
+            echo "**Total Findings:** $TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$TOTAL" -gt 0 ]; then
+              jq -r '.violations[]? // .items[]? | "- [\(.severity)] \(.title // .message)"' drift-report.json >> $GITHUB_STEP_SUMMARY || true
+            fi
+          else
+            echo "## Initial Baseline Creation" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No drift report generated - initial baseline created and uploaded to S3" >> $GITHUB_STEP_SUMMARY
+          fi

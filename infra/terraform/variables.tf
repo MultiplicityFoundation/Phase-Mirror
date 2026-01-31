@@ -90,3 +90,10 @@ variable "tags" {
     ManagedBy = "Terraform"
   }
 }
+
+variable "ops_email_address" {
+  description = "Email address for operational alerts"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

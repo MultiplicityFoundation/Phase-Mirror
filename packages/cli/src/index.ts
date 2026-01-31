@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { baselineCommand } from './commands/baseline.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +92,20 @@ program
       }
     } catch (error) {
       console.error('Error running oracle:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('baseline')
+  .description('Create integrity baseline for drift detection')
+  .option('--output <file>', 'Output file for baseline', 'baseline.json')
+  .action(async (options) => {
+    try {
+      await baselineCommand(options);
+      process.exit(0);
+    } catch (error) {
+      console.error('Error creating baseline:', error);
       process.exit(1);
     }
   });
