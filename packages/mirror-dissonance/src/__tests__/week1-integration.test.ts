@@ -3,7 +3,6 @@
  * End-to-end testing of FP Calibration Service components
  */
 
-import { describe, test, expect, beforeAll } from '@jest/globals';
 import { randomUUID } from 'crypto';
 import type { FPEvent } from '../fp-store/types.js';
 import { InMemoryBlockCounter } from '../block-counter/dynamodb.js';
