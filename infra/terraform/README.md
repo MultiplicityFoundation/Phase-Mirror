@@ -43,8 +43,71 @@ infra/terraform/
 ## Prerequisites
 
 1. **AWS Account**: With appropriate permissions to create resources
-2. **Terraform**: Version >= 1.0 ([Install Guide](https://www.terraform.io/downloads))
+2. **Terraform**: Version >= 1.6 ([Install Guide](https://www.terraform.io/downloads))
 3. **AWS CLI**: Configured with credentials ([Setup Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+
+## Backend Setup (First-Time Only)
+
+Before using Terraform, you must create the backend resources (S3 bucket and DynamoDB table) for state management. This is a one-time setup per AWS account.
+
+### Step 1: Verify AWS Configuration
+
+```bash
+# Verify AWS CLI is configured
+aws sts get-caller-identity
+
+# Verify you have admin permissions (or sufficient IAM rights)
+aws iam get-user
+
+# Set environment variables
+export AWS_REGION=us-east-1
+export ENV=staging  # Start with staging
+```
+
+### Step 2: Bootstrap Terraform Backend
+
+Run the bootstrap script to create the S3 bucket and DynamoDB table:
+
+```bash
+cd /home/runner/work/Phase-Mirror/Phase-Mirror
+./scripts/bootstrap-terraform-backend.sh
+```
+
+This script will:
+- Create S3 bucket: `mirror-dissonance-terraform-state-prod`
+- Enable versioning, encryption, and block public access
+- Create DynamoDB table: `terraform-state-lock` for state locking
+- Wait for resources to be available
+
+### Step 3: Bootstrap SSM Nonce
+
+The application requires a nonce parameter in SSM Parameter Store. Bootstrap it before running Terraform:
+
+```bash
+# For staging environment
+./scripts/bootstrap-nonce.sh staging
+
+# For production environment
+./scripts/bootstrap-nonce.sh production
+```
+
+**⚠️ IMPORTANT**: Save the generated nonce value in a secure location (e.g., password manager). You'll need it for rotation operations.
+
+### Step 4: Create Terraform Workspaces
+
+```bash
+cd infra/terraform
+
+# Initialize with backend
+terraform init
+
+# Create staging workspace
+terraform workspace new staging
+terraform workspace select staging
+
+# Later, create production workspace
+terraform workspace new production
+```
 
 ## Quick Start
 
@@ -126,28 +189,40 @@ terraform output
 
 ## State Management
 
-### Local State (Default)
-By default, Terraform state is stored locally in `terraform.tfstate`. This is fine for development but not recommended for production.
+### Remote State with S3 Backend (Configured)
 
-### Remote State (Recommended for Production)
-Configure S3 backend in `main.tf`:
+Terraform state is managed using an S3 backend with DynamoDB for state locking. The backend is configured in `backend.tf`:
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "phase-mirror-terraform-state"
-    key            = "fp-calibration/terraform.tfstate"
+    bucket         = "mirror-dissonance-terraform-state-prod"
+    key            = "phase-mirror/terraform.tfstate"
     region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
     encrypt        = true
-    dynamodb_table = "phase-mirror-terraform-locks"
   }
 }
 ```
 
-Then initialize with:
+The backend must be bootstrapped before first use (see [Backend Setup](#backend-setup-first-time-only) above).
+
+### Workspace-Based State Isolation
+
+Use Terraform workspaces to manage multiple environments:
+
 ```bash
-terraform init -migrate-state
+# List workspaces
+terraform workspace list
+
+# Select workspace
+terraform workspace select staging
+
+# Show current workspace
+terraform workspace show
 ```
+
+Each workspace maintains its own state file in the S3 bucket.
 
 ## Deployment Workflow
 
@@ -254,6 +329,43 @@ terraform state rm module.dynamodb.aws_dynamodb_table.consent_store
 ```
 
 ## CI/CD Integration
+
+### GitHub Actions OIDC Setup
+
+The infrastructure includes GitHub Actions integration via OpenID Connect (OIDC), eliminating the need for long-lived AWS credentials.
+
+#### Resources Created
+
+1. **OIDC Provider**: Enables GitHub Actions to authenticate with AWS
+2. **Deploy Role**: `mirror-dissonance-github-actions-deploy-{environment}` for infrastructure deployments
+3. **Runtime Role**: `mirror-dissonance-github-actions-runtime-{environment}` for application runtime operations
+
+#### Setup Instructions
+
+After deploying the infrastructure:
+
+```bash
+# Get the deployment role ARN
+terraform output github_actions_deploy_role_arn
+```
+
+Add the role ARN to your GitHub repository secrets:
+- Secret name: `AWS_DEPLOY_ROLE_ARN`
+- Secret value: The ARN from terraform output
+
+#### Usage in GitHub Actions
+
+```yaml
+- name: Configure AWS Credentials
+  uses: aws-actions/configure-aws-credentials@v4
+  with:
+    role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+    aws-region: us-east-1
+```
+
+For detailed examples, see [docs/ops/terraform-deployment-guide.md](../../docs/ops/terraform-deployment-guide.md).
+
+## CI/CD Integration (Legacy)
 
 See [docs/ops/terraform-deployment-guide.md](../../docs/ops/terraform-deployment-guide.md) for GitHub Actions integration examples.
 
