@@ -4,9 +4,14 @@ set -euo pipefail
 ENVIRONMENT="${1:-production}"
 REGION="${2:-us-east-1}"
 
-echo "🚀 Deploying Mirror Dissonance infrastructure to ${ENVIRONMENT}"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-cd infra/terraform
+echo "🚀 Deploying Mirror Dissonance infrastructure to ${ENVIRONMENT}"
+echo "Repository root: ${REPO_ROOT}"
+
+cd "${REPO_ROOT}/infra/terraform"
 
 # Validate
 echo "📋 Validating Terraform configuration..."

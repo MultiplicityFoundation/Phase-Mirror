@@ -49,6 +49,7 @@ variable "nonce_rotation_trigger" {
 variable "ops_sns_topic_arn" {
   description = "SNS topic ARN for operational alerts"
   type        = string
+  default     = ""
 }
 
 variable "fp_store_read_capacity" {
