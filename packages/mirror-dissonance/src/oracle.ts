@@ -8,15 +8,69 @@ import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
 import { MemoryBlockCounter } from './block-counter/index.js';
-import { NoOpFPStore } from './fp-store/index.js';
+import { NoOpFPStore, IFPStore } from './fp-store/index.js';
+import type { EnhancedDynamoDBFPStore } from './fp-store/index.js';
+import type { BlockCounter } from './block-counter/dynamodb.js';
+import { SSMClient } from '@aws-sdk/client-ssm';
+import { loadNonce } from './nonce/loader.js';
+import { createRedactor, Redactor } from './redaction/redactor.js';
+
+export interface OracleConfig {
+  region?: string;
+  nonceParameterName?: string;
+  fpTableName?: string;
+  consentTableName?: string;
+  blockCounterTableName?: string;
+}
+
+export interface OracleComponents {
+  fpStore?: IFPStore;
+  redactor?: Redactor;
+  blockCounter?: MemoryBlockCounter;
+}
+
+/**
+ * Initialize Oracle with AWS services
+ * Day 13: Wire Components Together
+ */
+export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
+  const components: OracleComponents = {};
+
+  // Load nonce first (required for redaction) if SSM parameter name provided
+  if (config.nonceParameterName) {
+    try {
+      const ssmClient = new SSMClient({ region: config.region || 'us-east-1' });
+      const nonceConfig = await loadNonce(ssmClient, config.nonceParameterName);
+      components.redactor = createRedactor(nonceConfig);
+    } catch (error) {
+      console.warn('Failed to load nonce from SSM, redaction will be limited:', error);
+    }
+  }
+
+  // Initialize FP Store if table name provided
+  if (config.fpTableName) {
+    try {
+      // Would import and create DynamoDBFPStore here
+      // For now, use NoOp to maintain backward compatibility
+      components.fpStore = new NoOpFPStore();
+    } catch (error) {
+      console.warn('Failed to initialize FP Store:', error);
+      components.fpStore = new NoOpFPStore();
+    }
+  }
+
+  return new Oracle(components);
+}
 
 export class Oracle {
   private blockCounter: MemoryBlockCounter;
-  private fpStore: NoOpFPStore;
+  private fpStore: IFPStore;
+  private redactor?: Redactor;
 
-  constructor() {
-    this.blockCounter = new MemoryBlockCounter(24);
-    this.fpStore = new NoOpFPStore();
+  constructor(components: OracleComponents = {}) {
+    this.blockCounter = components.blockCounter || new MemoryBlockCounter(24);
+    this.fpStore = components.fpStore || new NoOpFPStore();
+    this.redactor = components.redactor;
   }
 
   async analyze(input: OracleInput): Promise<OracleOutput> {
