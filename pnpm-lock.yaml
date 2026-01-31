@@ -42,6 +42,9 @@ importers:
       '@aws-sdk/lib-dynamodb':
         specifier: ^3.470.0
         version: 3.980.0(@aws-sdk/client-dynamodb@3.980.0)
+      '@aws-sdk/util-dynamodb':
+        specifier: ^3.980.0
+        version: 3.980.0(@aws-sdk/client-dynamodb@3.980.0)
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
