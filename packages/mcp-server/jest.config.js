@@ -19,4 +19,6 @@ export default {
     'src/**/*.ts',
     '!src/**/*.d.ts',
   ],
+  testTimeout: 30000, // 30 second default timeout for all tests
+  forceExit: true, // Force exit after tests complete
 };

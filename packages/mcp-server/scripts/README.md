@@ -164,6 +164,125 @@ Simple MCP Inspector launcher (original version).
 
 ---
 
+### `generate-test-report.ts`
+
+Test results parser and report generator for Jest test output.
+
+**Usage:**
+```bash
+# Run tests and save JSON results
+pnpm test --json --outputFile=test-results.json
+
+# Generate report (console output)
+ts-node scripts/generate-test-report.ts test-results.json
+
+# Generate markdown report
+ts-node scripts/generate-test-report.ts test-results.json --format=md
+
+# Generate JSON report
+ts-node scripts/generate-test-report.ts test-results.json --format=json
+```
+
+**What it does:**
+1. Parses Jest JSON test results
+2. Extracts test statistics and tool-specific metrics
+3. Identifies failures and slow tests
+4. Generates formatted reports in multiple formats
+5. Returns non-zero exit code if tests failed
+
+**Best for:**
+- CI/CD test reporting
+- Test result analysis
+- Performance monitoring
+- Documentation of test status
+
+**Output Formats:**
+
+**Console** (default):
+```
+╔════════════════════════════════════════╗
+║        TEST REPORT SUMMARY             ║
+╚════════════════════════════════════════╝
+
+Version: 0.1.0
+Timestamp: 2/1/2026, 5:20:00 PM
+
+✅ Tests: 117/117 passed (100%)
+⏱️  Duration: 10.42s
+
+Results by Tool:
+────────────────────────────────────────
+✅ analyze-dissonance          15/15 (2.34s)
+✅ validate-l0-invariants      12/12 (1.56s)
+✅ integration:multi-tool       7/7 (4.23s)
+...
+```
+
+**Markdown** (`--format=md`):
+```markdown
+# Test Report
+
+**Generated**: 2/1/2026, 5:20:00 PM
+**Version**: 0.1.0
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Tests | 117 |
+| Passed | ✅ 117 |
+| Failed | ❌ 0 |
+| Pass Rate | 100% |
+| Total Duration | 10.42s |
+
+## Results by Tool/Module
+...
+```
+
+**JSON** (`--format=json`):
+```json
+{
+  "timestamp": "2026-02-01T17:20:00.000Z",
+  "version": "0.1.0",
+  "summary": {
+    "total": 117,
+    "passed": 117,
+    "failed": 0,
+    "passRate": 100,
+    "totalDuration": 10420
+  },
+  "byTool": { ... },
+  "failures": [],
+  "slowTests": [ ... ]
+}
+```
+
+**Features:**
+- Automatic tool categorization from file names
+- Slow test detection (>1s)
+- Failure details with error messages
+- Per-tool statistics
+- Multiple output formats
+- Exit code reflects test status
+
+**Integration with CI:**
+
+```yaml
+# GitHub Actions
+- name: Run tests and generate report
+  run: |
+    pnpm test --json --outputFile=test-results.json || true
+    ts-node scripts/generate-test-report.ts test-results.json --format=md
+    
+- name: Upload report
+  uses: actions/upload-artifact@v3
+  with:
+    name: test-report
+    path: test-report.md
+```
+
+---
+
 ## Script Requirements
 
 All scripts require:
