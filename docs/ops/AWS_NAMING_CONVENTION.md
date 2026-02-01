@@ -26,11 +26,11 @@
 
 | Resource Type | Name | Purpose |
 |--------------|------|---------|
-| DynamoDB Table | `mirror-dissonance-staging-fp-events` | False positive tracking |
-| DynamoDB Table | `mirror-dissonance-staging-consent` | Calibration consent |
-| DynamoDB Table | `mirror-dissonance-staging-block-counter` | Circuit breaker |
+| DynamoDB Table | `mirror-dissonance-fp-events-staging` | False positive tracking |
+| DynamoDB Table | `mirror-dissonance-consent-staging` | Calibration consent |
+| DynamoDB Table | `mirror-dissonance-block-counter-staging` | Circuit breaker |
 | SSM Parameter | `/guardian/staging/redaction_nonce_v1` | HMAC nonce |
-| S3 Bucket | `mirror-dissonance-staging-baselines` | Drift detection baselines |
+| S3 Bucket | `mirror-dissonance-baselines-staging` | Drift detection baselines |
 
 ## Environment Strategy
 
