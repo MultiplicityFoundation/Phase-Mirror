@@ -63,7 +63,12 @@ echo -e "  Tests: ${TESTS_PASSING}/${TESTS_TOTAL} passing ${TEST_STATUS}"
 echo -e "${BLUE}📈 Checking coverage...${NC}"
 # Try to get coverage from existing report instead of running tests again
 if [ -f "coverage/coverage-summary.json" ]; then
-  COVERAGE_PCT=$(cat coverage/coverage-summary.json | grep -oP '"lines":\{"total":\d+,"covered":\d+,"skipped":\d+,"pct":\K[\d.]+' | head -1 || echo "N/A")
+  # Use jq if available, otherwise fall back to grep
+  if command -v jq >/dev/null 2>&1; then
+    COVERAGE_PCT=$(jq -r '.total.lines.pct // "N/A"' coverage/coverage-summary.json 2>/dev/null || echo "N/A")
+  else
+    COVERAGE_PCT=$(cat coverage/coverage-summary.json | grep -oP '"lines":\{"total":\d+,"covered":\d+,"skipped":\d+,"pct":\K[\d.]+' | head -1 2>/dev/null || echo "N/A")
+  fi
 else
   echo "  Running coverage tests (this may take a moment)..."
   COVERAGE_OUTPUT=$(timeout 60 pnpm test:coverage --passWithNoTests 2>&1 || echo "")
@@ -71,16 +76,21 @@ else
 fi
 
 if [ "$COVERAGE_PCT" != "N/A" ] && [ "$COVERAGE_PCT" != "" ]; then
-  # Simple integer comparison without bc
-  COVERAGE_INT=${COVERAGE_PCT%.*}
-  if [ "$COVERAGE_INT" -ge 80 ] 2>/dev/null; then
-    COVERAGE_STATUS="${GREEN}✅ Target met${NC}"
-  elif [ "$COVERAGE_INT" -ge 60 ] 2>/dev/null; then
-    COVERAGE_STATUS="${YELLOW}⚠️ In progress${NC}"
+  # Simple integer comparison - validate it's a number first
+  if [[ "$COVERAGE_PCT" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+    COVERAGE_INT=${COVERAGE_PCT%.*}
+    if [ "$COVERAGE_INT" -ge 80 ] 2>/dev/null; then
+      COVERAGE_STATUS="${GREEN}✅ Target met${NC}"
+    elif [ "$COVERAGE_INT" -ge 60 ] 2>/dev/null; then
+      COVERAGE_STATUS="${YELLOW}⚠️ In progress${NC}"
+    else
+      COVERAGE_STATUS="${RED}❌ Below target${NC}"
+    fi
+    echo -e "  Coverage: ${COVERAGE_PCT}% ${COVERAGE_STATUS}"
   else
-    COVERAGE_STATUS="${RED}❌ Below target${NC}"
+    echo "  Coverage: N/A (invalid coverage data)"
+    COVERAGE_PCT="N/A"
   fi
-  echo -e "  Coverage: ${COVERAGE_PCT}% ${COVERAGE_STATUS}"
 else
   echo "  Coverage: N/A (no coverage data)"
 fi
@@ -109,12 +119,11 @@ echo "  Critical: $CRITICAL_ISSUES, Important: $IMPORTANT_ISSUES"
 echo -e "${BLUE}🏗️  Checking infrastructure...${NC}"
 INFRA_STATUS="Not deployed"
 if [ -d "infra/terraform" ]; then
-  cd infra/terraform
-  if [ -d ".terraform" ]; then
-    WORKSPACE=$(terraform workspace show 2>/dev/null || echo "unknown")
+  # Use subshell to avoid changing directory
+  WORKSPACE=$(cd infra/terraform && terraform workspace show 2>/dev/null || echo "")
+  if [ -n "$WORKSPACE" ]; then
     INFRA_STATUS="Workspace: $WORKSPACE"
   fi
-  cd ../..
 fi
 echo "  Status: $INFRA_STATUS"
 
@@ -134,14 +143,17 @@ echo "  Last commit: $LAST_COMMIT"
 # Performance Benchmarks (if available)
 # ============================================================================
 echo -e "${BLUE}⚡ Performance benchmarks...${NC}"
+# Expected format in docs/benchmarks/latest.md:
+#   L0 p99: 75ns (or L0.*p99.*75ns)
+#   FP Store p99: 35ms (or FP Store.*p99.*35ms)
 BENCHMARK_FILE="docs/benchmarks/latest.md"
 if [ -f "$BENCHMARK_FILE" ]; then
-  L0_P99=$(grep -oP 'L0.*p99.*\K\d+ns' "$BENCHMARK_FILE" 2>/dev/null || echo "N/A")
-  FP_P99=$(grep -oP 'FP Store.*p99.*\K\d+ms' "$BENCHMARK_FILE" 2>/dev/null || echo "N/A")
+  L0_P99=$(grep -oP 'L0[^\n]*p99[^\n]*\K\d+ns' "$BENCHMARK_FILE" 2>/dev/null || echo "N/A")
+  FP_P99=$(grep -oP 'FP Store[^\n]*p99[^\n]*\K\d+ms' "$BENCHMARK_FILE" 2>/dev/null || echo "N/A")
   echo "  L0 p99: $L0_P99 (target: <100ns)"
   echo "  FP Store p99: $FP_P99 (target: <50ms)"
 else
-  echo "  No benchmark data available"
+  echo "  No benchmark data available (expected at $BENCHMARK_FILE)"
   L0_P99="N/A"
   FP_P99="N/A"
 fi
