@@ -133,3 +133,51 @@ module "iam" {
 
   tags = local.common_tags
 }
+
+# Audit Module (CloudTrail)
+module "audit" {
+  source = "./modules/audit"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  kms_key_arn            = module.kms.key_arn
+  cloudwatch_kms_key_arn = module.kms.cloudwatch_logs_key_arn
+  sns_topic_arn          = module.cloudwatch.sns_topic_arn
+
+  dynamodb_table_arns = [
+    module.dynamodb.fp_events_table_arn,
+    module.dynamodb.consent_table_arn,
+    module.dynamodb.block_counter_table_arn
+  ]
+
+  s3_bucket_arns = [
+    "${aws_s3_bucket.baselines.arn}/*"
+  ]
+
+  log_retention_days = var.audit_log_retention_days
+
+  tags = local.common_tags
+
+  depends_on = [module.kms, module.dynamodb, module.cloudwatch]
+}
+
+# Backup Module
+module "backup" {
+  source = "./modules/backup"
+
+  project_name       = var.project_name
+  environment        = var.environment
+  kms_key_arn        = module.kms.key_arn
+  sns_kms_key_arn    = module.kms.sns_key_arn
+  notification_email = var.backup_notification_email
+
+  dynamodb_table_arns = [
+    module.dynamodb.fp_events_table_arn,
+    module.dynamodb.consent_table_arn,
+    module.dynamodb.block_counter_table_arn
+  ]
+
+  tags = local.common_tags
+
+  depends_on = [module.kms, module.dynamodb]
+}

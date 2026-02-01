@@ -107,3 +107,30 @@ output "github_deploy_role_arn" {
   description = "GitHub Actions deploy role ARN"
   value       = module.iam.deploy_role_arn
 }
+
+# Audit Outputs
+output "cloudtrail_name" {
+  description = "CloudTrail name"
+  value       = module.audit.cloudtrail_name
+}
+
+output "cloudtrail_bucket_name" {
+  description = "CloudTrail S3 bucket name"
+  value       = module.audit.cloudtrail_bucket_name
+}
+
+output "security_alarm_arns" {
+  description = "Security alarm ARNs"
+  value       = module.audit.security_alarm_arns
+}
+
+# Backup Outputs
+output "backup_vault_name" {
+  description = "Backup vault name"
+  value       = module.backup.backup_vault_name
+}
+
+output "backup_plan_id" {
+  description = "Backup plan ID"
+  value       = module.backup.backup_plan_id
+}
