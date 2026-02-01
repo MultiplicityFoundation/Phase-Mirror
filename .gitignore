@@ -4,6 +4,7 @@ build/
 *.log
 .env
 .env.local
+.env.aws-bootstrap
 *.tsbuildinfo
 coverage/
 .DS_Store

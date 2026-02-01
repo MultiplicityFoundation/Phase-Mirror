@@ -19,6 +19,86 @@ Design goal: replace vibe-based review with mechanisms, artifacts, and governanc
 - Safe to call: read-only evaluation, bounded budgets/timeouts, redaction guarantees.
 - Policy-driven: pass/warn/block is explicit, versioned, and measurable.
 
+## Installation
+
+### Prerequisites
+- Node.js 18+ and pnpm
+- AWS CLI (for production deployment)
+- Terraform 1.6+ (for infrastructure)
+
+### Local Development
+
+```bash
+git clone https://github.com/PhaseMirror/Phase-Mirror.git
+cd Phase-Mirror
+pnpm install
+pnpm build
+```
+
+### Global CLI Installation
+
+```bash
+npm install -g @mirror-dissonance/cli
+mirror-dissonance --help
+```
+
+### Self-Hosted Deployment
+
+```bash
+# Deploy infrastructure
+cd infra/terraform
+terraform init
+terraform workspace new staging
+terraform apply -var-file=staging.tfvars
+
+# Generate nonce
+./scripts/rotate-nonce.sh staging 0
+```
+
+See the [Quick Start Guide](docs/QUICKSTART.md) for detailed instructions.
+
+## GitHub Actions Integration
+
+Add to `.github/workflows/mirror-dissonance.yml`:
+
+```yaml
+name: Mirror Dissonance Check
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ORACLE_ROLE }}
+          aws-region: us-east-1
+      
+      - name: Run Oracle
+        run: |
+          npx @mirror-dissonance/cli analyze \
+            --mode pull_request \
+            --repository ${{ github.repository }} \
+            --commit ${{ github.sha }}
+      
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dissonance-report
+          path: dissonance_report.json
+```
+
 ## Repository layout
 
 ```text
@@ -49,13 +129,26 @@ Design goal: replace vibe-based review with mechanisms, artifacts, and governanc
 
 ## Documentation
 
+### Getting Started
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Environment variables, Terraform, rule tuning
+- **[FAQ](docs/FAQ.md)** - Frequently asked questions
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and debugging
+
+### Architecture & Governance
+- **[Architecture](docs/architecture.md)** - System design and component interactions
 - **Governance:** [docs/governance/](/docs/governance/) - Legal foundation, bylaws, succession planning
 - **ADRs:** [docs/adr/](/docs/adr/) - All architectural decisions with rationale
-- **Contributing:** [CONTRIBUTING.md](/CONTRIBUTING.md) - How to contribute, ADR process
-- **Phase 1 Completion:** [docs/PHASE_1_COMPLETION_CHECKLIST.md](/docs/PHASE_1_COMPLETION_CHECKLIST.md)
-- **Phase 2 Summary:** [PHASE_2_SUMMARY.md](/PHASE_2_SUMMARY.md) - FP Calibration Service implementation
-- **Phase 3 Infrastructure:** [docs/Phase 3: Infrastructure Deployment (Days 22-30).md](/docs/Phase%203:%20Infrastructure%20Deployment%20(Days%2022-30).md) - Production deployment guide
-- **L0 Benchmarks:** [docs/benchmarks/L0_BENCHMARK_REPORT.md](/docs/benchmarks/L0_BENCHMARK_REPORT.md)
+
+### Development & Operations
+- **[Contributing](CONTRIBUTING.md)** - How to contribute, ADR process
+- **[Operations](docs/ops/)** - Nonce rotation, circuit-breaker runbooks
+- **[L0 Benchmarks](docs/benchmarks/L0_BENCHMARK_REPORT.md)** - Performance metrics
+
+### Deployment Guides
+- **[Phase 1 Completion](docs/PHASE_1_COMPLETION_CHECKLIST.md)** - Foundation checklist
+- **[Phase 2 Summary](PHASE_2_SUMMARY.md)** - FP Calibration Service implementation
+- **[Phase 3 Infrastructure](docs/Phase%203:%20Infrastructure%20Deployment%20(Days%2022-30).md)** - Production deployment
 
 ## Key Architecture Decisions
 

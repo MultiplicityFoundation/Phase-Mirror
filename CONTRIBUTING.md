@@ -301,6 +301,124 @@ See [ADR-002](/docs/adr/ADR-002-apache-2-license-with-managed-service-restrictio
 
 ---
 
+## Reporting Bugs
+
+### Before Reporting
+
+1. **Check existing issues**: Search [GitHub Issues](https://github.com/PhaseMirror/Phase-Mirror/issues) to see if the bug has already been reported
+2. **Verify it's a bug**: Ensure the issue is reproducible and not a configuration error
+3. **Check documentation**: Review [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) for common issues
+
+### Bug Report Template
+
+When reporting a bug, include:
+
+```markdown
+## Bug Description
+[Clear description of the bug]
+
+## Steps to Reproduce
+1. [First step]
+2. [Second step]
+3. [And so on...]
+
+## Expected Behavior
+[What you expected to happen]
+
+## Actual Behavior
+[What actually happened]
+
+## Environment
+- OS: [e.g., macOS 13.0, Ubuntu 22.04]
+- Node.js version: [e.g., 18.19.0]
+- pnpm version: [e.g., 8.15.0]
+- Package version: [e.g., @mirror-dissonance/cli@1.0.0-rc1]
+- AWS region (if applicable): [e.g., us-east-1]
+
+## Additional Context
+- Logs: [Paste relevant logs]
+- Configuration: [Relevant config settings]
+- Screenshots: [If applicable]
+
+## Possible Solution
+[Optional: Your ideas on how to fix it]
+```
+
+### Bug Severity Labels
+
+- **critical**: System is unusable, data loss possible, security vulnerability
+- **important**: Major functionality broken, workaround exists
+- **normal**: Bug affects some users, minor functionality issue
+- **low**: Cosmetic issue, typo, minor inconvenience
+
+**Response SLA**:
+- Critical: 24 hours
+- Important: 72 hours
+- Normal: 7 days
+- Low: Best effort
+
+---
+
+## Proposing Features
+
+### Before Proposing
+
+1. **Check roadmap**: Review [MVP_COMPLETION_TRACKER.md](./MVP_COMPLETION_TRACKER.md) and GitHub Projects
+2. **Search discussions**: See if the feature has been discussed in [GitHub Discussions](https://github.com/PhaseMirror/Phase-Mirror/discussions)
+3. **Consider scope**: Is this appropriate for the open-core tier or Pro features?
+
+### Feature Request Template
+
+```markdown
+## Feature Description
+[Clear description of the proposed feature]
+
+## Problem It Solves
+[What user problem does this address?]
+
+## Proposed Solution
+[How would you implement this?]
+
+## Alternatives Considered
+[What other approaches did you think about?]
+
+## Use Cases
+1. [Use case 1]
+2. [Use case 2]
+
+## Implementation Complexity
+[Low/Medium/High - Your estimate]
+
+## Open-Core vs Pro
+[Should this be in open-core or Pro tier?]
+
+## Additional Context
+- Related issues/PRs
+- Examples from other projects
+- Mockups or diagrams
+```
+
+### Feature Evaluation Criteria
+
+Features are evaluated based on:
+- **Alignment**: Does it fit the project's mission?
+- **Value**: How many users will benefit?
+- **Complexity**: Implementation and maintenance cost
+- **Open-Core Boundary**: Belongs in open-core or Pro?
+- **Community Support**: How many community members want this?
+
+### Feature Lifecycle
+
+1. **Proposal**: Submit GitHub Discussion with feature template
+2. **Community Feedback**: 14-day comment period
+3. **Maintainer Review**: Steward evaluates feasibility
+4. **Decision**: Approved, Deferred, or Declined
+5. **Roadmap**: If approved, added to roadmap with priority
+6. **Implementation**: Assigned to contributor or maintainer
+7. **Release**: Shipped in upcoming version
+
+---
+
 ## Community
 
 ### Communication Channels
