@@ -135,7 +135,7 @@ export async function execute(
         };
         break;
 
-      case "get_by_rule":
+      case "get_by_rule": {
         if (!ruleId) {
           return {
             content: [
@@ -158,6 +158,7 @@ export async function execute(
           falsePositives: falsePositives.slice(0, limit),
         };
         break;
+      }
 
       case "get_statistics":
         // Get statistics across all rules
