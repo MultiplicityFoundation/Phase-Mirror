@@ -19,10 +19,14 @@
  */
 export interface State {
   /**
-   * Schema version and hash
-   * Format: "version:hash" (e.g., "1.0:abc123")
+   * Schema version (e.g., "1.0.0")
    */
   schemaVersion: string;
+  
+  /**
+   * Schema hash for validation
+   */
+  schemaHash: string;
   
   /**
    * Permission bitfield (16 bits)
@@ -49,13 +53,13 @@ export interface State {
    * Contraction witness score (0.0 to 1.0)
    * Cached proof of state coherence
    */
-  contractionWitnessScore: number;
+  contractionWitnessScore?: number;
 }
 
 /**
  * Result of L0 invariant check
  */
-export interface L0Result {
+export interface InvariantCheckResult {
   /**
    * Whether all L0 checks passed
    */
@@ -66,6 +70,16 @@ export interface L0Result {
    */
   failedChecks: string[];
   
+  /**
+   * Detailed violation messages for failed checks
+   */
+  violations?: Record<string, string>;
+}
+
+/**
+ * Legacy result type for backwards compatibility
+ */
+export interface L0Result extends InvariantCheckResult {
   /**
    * Time taken to run all checks (nanoseconds)
    */
@@ -81,8 +95,8 @@ export interface L0Result {
  * Expected schema version and hash
  * This is the known-good schema that the system expects
  */
-const EXPECTED_SCHEMA_VERSION = '1.0';
-const EXPECTED_SCHEMA_HASH = 'f7a8b9c0'; // Placeholder, would be computed from actual schema
+const EXPECTED_SCHEMA_VERSION = '1.0.0';
+const EXPECTED_SCHEMA_HASH = 'f7a8b9c0d1e2f3g4'; // Placeholder, would be computed from actual schema
 
 /**
  * Permission bit layout:
@@ -116,8 +130,11 @@ const CONTRACTION_WITNESS_THRESHOLD = 1.0;
  * @returns true if schema is valid, false otherwise
  */
 function checkSchemaHash(state: State): boolean {
-  const [version, hash] = state.schemaVersion.split(':');
-  return version === EXPECTED_SCHEMA_VERSION && hash === EXPECTED_SCHEMA_HASH;
+  if (!state.schemaHash || !state.schemaVersion) {
+    return false;
+  }
+  return state.schemaVersion === EXPECTED_SCHEMA_VERSION && 
+         state.schemaHash === EXPECTED_SCHEMA_HASH;
 }
 
 /**
@@ -141,7 +158,7 @@ function checkPermissionBits(state: State): boolean {
  */
 function checkDriftMagnitude(state: State): boolean {
   return state.driftMagnitude >= 0.0 && 
-         state.driftMagnitude < DRIFT_THRESHOLD;
+         state.driftMagnitude <= DRIFT_THRESHOLD;
 }
 
 /**
@@ -152,6 +169,9 @@ function checkDriftMagnitude(state: State): boolean {
  * @returns true if nonce is fresh, false otherwise
  */
 function checkNonceFreshness(state: State, nowMs?: number): boolean {
+  if (!state.nonce || !state.nonce.value || state.nonce.value.length < 64) {
+    return false;
+  }
   const now = nowMs ?? Date.now();
   const age = now - state.nonce.issuedAt;
   return age >= 0 && age < NONCE_LIFETIME_MS;
@@ -165,6 +185,9 @@ function checkNonceFreshness(state: State, nowMs?: number): boolean {
  * @returns true if witness is valid, false otherwise
  */
 function checkContractionWitness(state: State): boolean {
+  if (state.contractionWitnessScore === undefined) {
+    return true; // Optional field, skip check if not present
+  }
   return state.contractionWitnessScore === CONTRACTION_WITNESS_THRESHOLD;
 }
 
@@ -178,59 +201,57 @@ function checkContractionWitness(state: State): boolean {
  * 
  * @param state - State to validate
  * @param nowMs - Current time in milliseconds (for testing)
- * @returns L0Result indicating pass/fail and details
+ * @returns InvariantCheckResult indicating pass/fail and details
  */
-export function checkL0Invariants(state: State, nowMs?: number): L0Result {
-  const startNs = process.hrtime.bigint();
-  
+export function checkL0Invariants(state: State, nowMs?: number): InvariantCheckResult {
   const failedChecks: string[] = [];
-  const context: Record<string, unknown> = {};
+  const violations: Record<string, string> = {};
   
   // Check 1: Schema hash
   if (!checkSchemaHash(state)) {
     failedChecks.push('schema_hash');
-    context.schemaVersion = state.schemaVersion;
-    context.expectedVersion = EXPECTED_SCHEMA_VERSION;
-    context.expectedHash = EXPECTED_SCHEMA_HASH;
+    violations.schema_hash = `Schema hash mismatch. Expected version: ${EXPECTED_SCHEMA_VERSION}, hash: ${EXPECTED_SCHEMA_HASH}`;
   }
   
   // Check 2: Permission bits
   if (!checkPermissionBits(state)) {
     failedChecks.push('permission_bits');
-    context.permissionBits = state.permissionBits;
-    context.reservedBitsMask = RESERVED_PERMISSION_BITS_MASK;
+    violations.permission_bits = `Reserved bits are set. Permission bits: ${state.permissionBits.toString(2).padStart(16, '0')}`;
   }
   
   // Check 3: Drift magnitude
   if (!checkDriftMagnitude(state)) {
     failedChecks.push('drift_magnitude');
-    context.driftMagnitude = state.driftMagnitude;
-    context.driftThreshold = DRIFT_THRESHOLD;
+    violations.drift_magnitude = `Drift magnitude exceeds threshold. Value: ${state.driftMagnitude}, threshold: ${DRIFT_THRESHOLD}`;
   }
   
   // Check 4: Nonce freshness
   if (!checkNonceFreshness(state, nowMs)) {
     failedChecks.push('nonce_freshness');
-    context.nonceIssuedAt = state.nonce.issuedAt;
-    context.nonceAge = (nowMs ?? Date.now()) - state.nonce.issuedAt;
-    context.nonceLifetime = NONCE_LIFETIME_MS;
+    if (!state.nonce) {
+      violations.nonce_freshness = `Nonce is missing`;
+    } else {
+      const age = (nowMs ?? Date.now()) - state.nonce.issuedAt;
+      if (age < 0) {
+        violations.nonce_freshness = `Nonce timestamp is in the future`;
+      } else if (!state.nonce.value || state.nonce.value.length < 64) {
+        violations.nonce_freshness = `Nonce value is missing or too short`;
+      } else {
+        violations.nonce_freshness = `Nonce is expired or stale. Age: ${age}ms, lifetime: ${NONCE_LIFETIME_MS}ms`;
+      }
+    }
   }
   
-  // Check 5: Contraction witness
-  if (!checkContractionWitness(state)) {
+  // Check 5: Contraction witness (optional check)
+  if (state.contractionWitnessScore !== undefined && !checkContractionWitness(state)) {
     failedChecks.push('contraction_witness');
-    context.witnessScore = state.contractionWitnessScore;
-    context.witnessThreshold = CONTRACTION_WITNESS_THRESHOLD;
+    violations.contraction_witness = `Contraction witness score is not perfect. Score: ${state.contractionWitnessScore}, required: ${CONTRACTION_WITNESS_THRESHOLD}`;
   }
-  
-  const endNs = process.hrtime.bigint();
-  const latencyNs = Number(endNs - startNs);
   
   return {
     passed: failedChecks.length === 0,
     failedChecks,
-    latencyNs,
-    context,
+    violations: failedChecks.length > 0 ? violations : undefined,
   };
 }
 
@@ -238,13 +259,13 @@ export function checkL0Invariants(state: State, nowMs?: number): L0Result {
  * Error thrown when L0 invariants are violated
  */
 export class InvariantViolationError extends Error {
-  constructor(
-    message: string,
-    public readonly failedChecks: string[],
-    public readonly context: Record<string, unknown>
-  ) {
+  public readonly result: InvariantCheckResult;
+  
+  constructor(result: InvariantCheckResult) {
+    const message = `L0 Invariant Violation: ${result.failedChecks.join(', ')}`;
     super(message);
     this.name = 'InvariantViolationError';
+    this.result = result;
   }
 }
 
@@ -252,16 +273,26 @@ export class InvariantViolationError extends Error {
  * Helper to create a valid state for testing
  */
 export function createValidState(overrides?: Partial<State>): State {
-  return {
-    schemaVersion: `${EXPECTED_SCHEMA_VERSION}:${EXPECTED_SCHEMA_HASH}`,
+  const defaults: State = {
+    schemaVersion: EXPECTED_SCHEMA_VERSION,
+    schemaHash: EXPECTED_SCHEMA_HASH,
     permissionBits: 0b0000111111111111, // All defined bits set, no reserved bits
     driftMagnitude: 0.15, // Well below threshold
     nonce: {
-      value: 'test-nonce-' + Date.now(),
+      value: 'a'.repeat(64), // Valid 64-char nonce
       issuedAt: Date.now(),
     },
     contractionWitnessScore: 1.0, // Perfect coherence
+  };
+  
+  return {
+    ...defaults,
     ...overrides,
+    // Handle nested nonce overrides properly
+    nonce: {
+      ...defaults.nonce,
+      ...(overrides?.nonce || {}),
+    },
   };
 }
 
