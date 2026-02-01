@@ -16,6 +16,8 @@ import {
 import { MCPServerConfig, ToolContext } from "./types/index.js";
 import * as analyzeDissonance from "./tools/analyze-dissonance.js";
 import * as validateL0Invariants from "./tools/validate-l0-invariants.js";
+import * as checkADRCompliance from "./tools/check-adr-compliance.js";
+import * as queryFPStore from "./tools/query-fp-store.js";
 import { generateRequestId } from "./utils/index.js";
 
 /**
@@ -64,6 +66,8 @@ async function main() {
         },
         analyzeDissonance.toolDefinition,
         validateL0Invariants.toolDefinition,
+        checkADRCompliance.toolDefinition,
+        queryFPStore.toolDefinition,
       ],
     };
   });
@@ -105,6 +109,12 @@ async function main() {
 
       case "validate_l0_invariants":
         return await validateL0Invariants.execute(args, toolContext);
+
+      case "check_adr_compliance":
+        return await checkADRCompliance.execute(args, toolContext);
+
+      case "query_fp_store":
+        return await queryFPStore.execute(args, toolContext);
 
       default:
         throw new Error(`Unknown tool: ${name}`);
