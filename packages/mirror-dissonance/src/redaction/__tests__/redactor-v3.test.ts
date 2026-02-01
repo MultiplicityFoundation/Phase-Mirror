@@ -186,9 +186,9 @@ describe('Redactor v3 - MAC Validation', () => {
     });
 
     it('should verify valid RedactedText with correct MAC', () => {
-      const originalText = 'Secret password: mypassword123';
+      const originalText = 'Secret credential: mysecret123';
       const rules: RedactionRule[] = [
-        { regex: /mypassword123/g, replacement: '[REDACTED]' },
+        { regex: /mysecret123/g, replacement: '[REDACTED]' },
       ];
 
       const redacted = redact(originalText, rules);
@@ -198,9 +198,9 @@ describe('Redactor v3 - MAC Validation', () => {
     });
 
     it('should reject RedactedText with tampered value', () => {
-      const originalText = 'Secret password: mypassword123';
+      const originalText = 'Secret credential: mysecret123';
       const rules: RedactionRule[] = [
-        { regex: /mypassword123/g, replacement: '[REDACTED]' },
+        { regex: /mysecret123/g, replacement: '[REDACTED]' },
       ];
 
       const redacted = redact(originalText, rules);
@@ -210,9 +210,9 @@ describe('Redactor v3 - MAC Validation', () => {
     });
 
     it('should reject RedactedText with tampered MAC', () => {
-      const originalText = 'Secret password: mypassword123';
+      const originalText = 'Secret credential: mysecret123';
       const rules: RedactionRule[] = [
-        { regex: /mypassword123/g, replacement: '[REDACTED]' },
+        { regex: /mysecret123/g, replacement: '[REDACTED]' },
       ];
 
       const redacted = redact(originalText, rules);
