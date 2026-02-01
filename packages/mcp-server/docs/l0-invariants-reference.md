@@ -354,12 +354,14 @@ cd packages/mcp-server
 pnpm test validate-l0-invariants
 ```
 
-All 24 tests should pass, covering:
+The validate-l0-invariants test suite includes 14 test cases covering:
 - Input validation
 - Individual invariant checks
 - Multiple failure scenarios
 - Performance metrics
 - Error handling
+
+All tests in the mcp-server package (24 total) should pass.
 
 ---
 

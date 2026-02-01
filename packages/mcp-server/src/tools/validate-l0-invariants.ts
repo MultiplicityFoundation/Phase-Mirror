@@ -140,6 +140,8 @@ export async function execute(
     };
 
     // Execute L0 validation
+    // Note: Date.now() is used for overall MCP tool timing (ms precision)
+    // The L0 check itself uses process.hrtime.bigint() for ns precision (result.latencyNs)
     const startTime = Date.now();
     const result = checkL0Invariants(state);
     const endTime = Date.now();
