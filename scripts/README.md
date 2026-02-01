@@ -75,6 +75,37 @@ AWS_REGION=us-west-2 ENVIRONMENT=staging PROJECT_NAME=mirror-dissonance ./script
 
 ---
 
+### `check-aws-limits.sh`
+**Purpose:** Checks AWS service limits to ensure sufficient quotas for deployment
+
+**Usage:**
+```bash
+./scripts/check-aws-limits.sh
+```
+
+**Checks:**
+- DynamoDB table limits (2500 max)
+- SSM parameter limits (10,000 max)
+- S3 bucket limits (1000 soft limit)
+- IAM role limits (5000 max)
+- VPC limits (5 default)
+- Lambda function limits (1000 max)
+- CloudWatch log groups
+
+**Output:**
+- ✓ Green: Under 70% of limit
+- ⚠ Yellow: 70-90% of limit (warning)
+- ✗ Red: >90% of limit (critical)
+
+**Exit Codes:**
+- 0: All limits OK
+- 1: Warnings (approaching limits)
+- 2: Critical (near limits, action required)
+
+**Run:** Before infrastructure deployment and periodically during operation
+
+---
+
 ### `bootstrap-terraform-backend.sh`
 **Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management
 
