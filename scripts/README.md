@@ -1,0 +1,365 @@
+# Scripts Directory
+
+This directory contains operational scripts for Phase Mirror infrastructure management, deployment, and testing.
+
+## Bootstrap Scripts (Day 15)
+
+### `bootstrap-terraform-backend.sh`
+**Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management
+
+**Usage:**
+```bash
+./scripts/bootstrap-terraform-backend.sh
+```
+
+**Creates:**
+- S3 bucket: `mirror-dissonance-terraform-state-prod`
+- DynamoDB table: `terraform-state-lock`
+- Enables versioning, encryption, and public access blocking
+
+**Run Once:** Before first `terraform init`
+
+---
+
+### `bootstrap-nonce.sh`
+**Purpose:** Generates and stores SSM nonce parameter for RedactedText validation
+
+**Usage:**
+```bash
+./scripts/bootstrap-nonce.sh [environment]
+# Examples:
+./scripts/bootstrap-nonce.sh staging
+./scripts/bootstrap-nonce.sh production
+```
+
+**Creates:**
+- SSM parameter: `/guardian/{env}/redaction_nonce_v1`
+- Type: SecureString (encrypted)
+- UUID-based nonce value
+
+**Security:** Save the generated nonce value securely!
+
+---
+
+## Terraform Scripts (Days 16-17)
+
+### `terraform-validate.sh`
+**Purpose:** Validates Terraform configuration syntax and formatting
+
+**Usage:**
+```bash
+cd infra/terraform
+../../scripts/terraform-validate.sh
+```
+
+**Checks:**
+- Configuration validity
+- Format compliance
+- Module consistency
+
+---
+
+### `terraform-plan.sh`
+**Purpose:** Generates Terraform execution plan for review
+
+**Usage:**
+```bash
+cd infra/terraform
+../../scripts/terraform-plan.sh [environment]
+# Examples:
+../../scripts/terraform-plan.sh staging
+../../scripts/terraform-plan.sh production
+```
+
+**Outputs:**
+- Execution plan file
+- Resource changes summary
+- Cost estimation (if available)
+
+---
+
+### `terraform-apply.sh`
+**Purpose:** Applies Terraform configuration to deploy infrastructure
+
+**Usage:**
+```bash
+cd infra/terraform
+../../scripts/terraform-apply.sh [environment]
+```
+
+**Actions:**
+- Applies Terraform plan
+- Creates/updates infrastructure
+- Outputs resource details
+
+---
+
+### `deploy-production.sh`
+**Purpose:** Complete production deployment workflow
+
+**Usage:**
+```bash
+./scripts/deploy-production.sh
+```
+
+**Workflow:**
+1. Validates configuration
+2. Generates plan
+3. Reviews changes
+4. Applies to production
+5. Runs smoke tests
+
+---
+
+## Testing Scripts (Days 18-20)
+
+### `test-e2e-manual.sh`
+**Purpose:** End-to-end manual validation test
+
+**Usage:**
+```bash
+./scripts/test-e2e-manual.sh [environment] [region]
+# Examples:
+./scripts/test-e2e-manual.sh staging us-east-1
+./scripts/test-e2e-manual.sh production us-east-1
+```
+
+**Tests:**
+1. Grant consent via CLI
+2. Verify consent in DynamoDB
+3. Record test FP event
+4. Query FP window
+5. Verify SSM parameter access
+
+**Prerequisites:**
+- CLI built (`cd packages/cli && pnpm build`)
+- AWS credentials configured
+- Infrastructure deployed
+
+**Duration:** ~2-3 minutes
+
+---
+
+### `test-nonce-rotation.sh`
+**Purpose:** Tests nonce rotation with zero downtime
+
+**Usage:**
+```bash
+./scripts/test-nonce-rotation.sh [environment] [region]
+# Examples:
+./scripts/test-nonce-rotation.sh staging us-east-1
+./scripts/test-nonce-rotation.sh production us-east-1
+```
+
+**Steps:**
+1. Checks current nonce (v1)
+2. Creates new nonce (v2)
+3. Verifies both accessible
+4. Documents grace period
+5. Provides completion steps
+
+**Note:** Does not delete old nonce (manual step for safety)
+
+**See also:** `docs/ops/nonce-rotation.md`
+
+---
+
+### `test-alarms.sh`
+**Purpose:** Tests CloudWatch alarms configuration
+
+**Usage:**
+```bash
+./scripts/test-alarms.sh [environment]
+```
+
+**Validates:**
+- Alarm existence
+- Threshold configuration
+- SNS topic associations
+- Alarm state
+
+---
+
+### `run-integration-tests.sh`
+**Purpose:** Runs integration tests against deployed infrastructure
+
+**Usage:**
+```bash
+./scripts/run-integration-tests.sh [environment]
+```
+
+**Tests:**
+- DynamoDB operations
+- SSM parameter access
+- Consent management
+- FP event recording
+
+---
+
+## Verification Scripts (Day 18)
+
+### `verify-pitr.sh`
+**Purpose:** Verifies Point-in-Time Recovery is enabled on DynamoDB tables
+
+**Usage:**
+```bash
+./scripts/verify-pitr.sh [environment] [region]
+# Examples:
+./scripts/verify-pitr.sh staging us-east-1
+./scripts/verify-pitr.sh production us-east-1
+```
+
+**Checks:**
+- PITR status on all tables
+- Recovery window availability
+- Backup configuration
+
+**Expected:** All tables show `ENABLED` status
+
+---
+
+## Usage Patterns
+
+### First-Time Setup (Day 15)
+```bash
+# 1. Bootstrap backend
+./scripts/bootstrap-terraform-backend.sh
+
+# 2. Bootstrap nonce
+./scripts/bootstrap-nonce.sh staging
+
+# 3. Initialize Terraform
+cd infra/terraform
+terraform init
+```
+
+### Staging Deployment (Days 16-17)
+```bash
+# 1. Validate
+cd infra/terraform
+../../scripts/terraform-validate.sh
+
+# 2. Plan
+../../scripts/terraform-plan.sh staging
+
+# 3. Apply
+../../scripts/terraform-apply.sh staging
+
+# 4. Verify PITR
+../../scripts/verify-pitr.sh staging us-east-1
+```
+
+### E2E Testing (Days 19-20)
+```bash
+# 1. Run manual E2E test
+./scripts/test-e2e-manual.sh staging
+
+# 2. Test nonce rotation
+./scripts/test-nonce-rotation.sh staging
+
+# 3. Verify alarms
+./scripts/test-alarms.sh staging
+
+# 4. Run integration tests
+./scripts/run-integration-tests.sh staging
+```
+
+### Production Deployment (Day 21)
+```bash
+# 1. Review checklist
+cat docs/ops/PRODUCTION_DEPLOYMENT_CHECKLIST.md
+
+# 2. Bootstrap production nonce
+./scripts/bootstrap-nonce.sh production
+
+# 3. Deploy (with caution!)
+./scripts/deploy-production.sh
+
+# 4. Run smoke tests
+./scripts/test-e2e-manual.sh production
+```
+
+---
+
+## Script Conventions
+
+### Exit Codes
+- `0` - Success
+- `1` - General error
+- `2` - Missing prerequisites
+
+### Output Format
+- `🚀` - Starting operation
+- `✅` - Success
+- `❌` - Error
+- `⚠️` - Warning
+- `⏳` - In progress
+
+### Environment Variables
+Most scripts support:
+- `AWS_REGION` - AWS region (default: us-east-1)
+- `AWS_PROFILE` - AWS profile to use
+
+### Error Handling
+All scripts use `set -euo pipefail` for strict error handling:
+- `-e` - Exit on error
+- `-u` - Exit on undefined variable
+- `-o pipefail` - Catch errors in pipes
+
+---
+
+## Troubleshooting
+
+### Script Permission Denied
+```bash
+chmod +x scripts/*.sh
+```
+
+### AWS Credentials Not Found
+```bash
+aws configure
+# or
+export AWS_PROFILE=your-profile
+```
+
+### Terraform Not Initialized
+```bash
+cd infra/terraform
+terraform init
+```
+
+### CLI Not Built
+```bash
+cd packages/cli
+pnpm install
+pnpm build
+```
+
+---
+
+## Additional Resources
+
+- **Deployment Guide:** `docs/ops/STAGING_DEPLOYMENT.md`
+- **Production Checklist:** `docs/ops/PRODUCTION_DEPLOYMENT_CHECKLIST.md`
+- **Phase 3 Completion:** `docs/PHASE3_COMPLETION.md`
+- **Nonce Rotation:** `docs/ops/nonce-rotation.md`
+- **Terraform Guide:** `docs/ops/terraform-deployment-guide.md`
+- **Runbook:** `docs/ops/runbook.md`
+
+---
+
+## Contributing
+
+When adding new scripts:
+
+1. Use descriptive names
+2. Add help text (`--help`)
+3. Include error handling
+4. Document in this README
+5. Make executable (`chmod +x`)
+6. Test in staging first
+
+---
+
+**Last Updated:** 2026-02-01  
+**Maintained By:** Phase Mirror Team
