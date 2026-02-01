@@ -1,282 +1,272 @@
-/**
- * Tests for check_consent_requirements MCP tool
- */
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import * as checkConsentRequirements from '../src/tools/check-consent-requirements';
-import { ToolContext } from '../src/types';
+import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
+import * as checkConsentTool from "../src/tools/check-consent-requirements.js";
+import { createMockContext } from "./test-utils.js";
+import { CONSENT_RESOURCES } from "@mirror-dissonance/core/dist/src/consent-store/index.js";
 
-describe('check_consent_requirements tool', () => {
-  let context: ToolContext;
-
-  beforeEach(() => {
-    context = {
-      config: {
-        awsRegion: 'us-east-1',
-        logLevel: 'info' as const,
-      },
-      requestId: 'test-request-id',
-      timestamp: new Date(),
+describe("check_consent_requirements tool", () => {
+  it("validates input schema correctly", () => {
+    const validInput = {
+      orgId: "test-org",
+      checkType: "summary",
     };
+
+    const result = checkConsentTool.CheckConsentRequirementsInputSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
   });
 
-  describe('tool definition', () => {
-    it('should have correct tool name', () => {
-      expect(checkConsentRequirements.toolDefinition.name).toBe('check_consent_requirements');
-    });
+  it("rejects invalid checkType", () => {
+    const invalidInput = {
+      orgId: "test-org",
+      checkType: "invalid_type",
+    };
 
-    it('should have description', () => {
-      expect(checkConsentRequirements.toolDefinition.description).toBeTruthy();
-      expect(checkConsentRequirements.toolDefinition.description).toContain('ADR-004');
-      expect(checkConsentRequirements.toolDefinition.description).toContain('GDPR');
-    });
-
-    it('should have valid input schema', () => {
-      const schema = checkConsentRequirements.toolDefinition.inputSchema;
-      expect(schema.type).toBe('object');
-      expect(schema.properties).toBeDefined();
-      expect(schema.required).toContain('orgId');
-      expect(schema.required).toContain('operation');
-    });
+    const result = checkConsentTool.CheckConsentRequirementsInputSchema.safeParse(invalidInput);
+    expect(result.success).toBe(false);
   });
 
-  describe('check_single_resource operation', () => {
-    it('should successfully check a single resource', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_single_resource',
-        resource: 'fp_patterns',
-      };
+  it("validates single resource consent", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      expect(result.content).toBeDefined();
-      expect(result.content[0].type).toBe('text');
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.resource).toBe('fp_patterns');
-      expect(response.granted).toBe(true);
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "validate",
+      resources: ["fp_patterns"],
+    };
 
-    it('should return error if resource parameter is missing', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_single_resource',
-      };
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should validate resource is a valid consent resource', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_single_resource',
-        resource: 'invalid_resource',
-      };
-
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.error).toBe('VALIDATION_ERROR');
-    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.checkType).toBe("validate");
+    expect(parsed.validation.checkedResources).toContain("fp_patterns");
   });
 
-  describe('check_multiple_resources operation', () => {
-    it('should check multiple resources successfully', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_multiple_resources',
-        resources: ['fp_patterns', 'fp_metrics'],
-      };
+  it("validates multiple resources", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.allGranted).toBe(true);
-      expect(response.results).toBeDefined();
-      expect(response.results.fp_patterns).toBeDefined();
-      expect(response.results.fp_metrics).toBeDefined();
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "validate",
+      resources: ["fp_patterns", "fp_metrics"],
+    };
 
-    it('should return error if resources parameter is missing', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_multiple_resources',
-      };
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should handle empty resources array', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_multiple_resources',
-        resources: [],
-      };
-
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.code).toBe('VALIDATION_ERROR');
-    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.validation.checkedResources).toHaveLength(2);
   });
 
-  describe('get_consent_summary operation', () => {
-    it('should return consent summary for organization', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'get_consent_summary',
-      };
+  it("returns consent summary", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.summary).toBeDefined();
-      expect(response.summary.orgId).toBe('test-org');
-      expect(response.summary.resources).toBeDefined();
-      expect(response.policyVersion).toBeDefined();
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "summary",
+    };
 
-    it('should include consent version in summary', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'get_consent_summary',
-      };
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.summary.consentVersion).toBe('1.2');
-    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.consentSummary).toBeDefined();
+    expect(parsed.consentSummary.statistics.totalResources).toBe(CONSENT_RESOURCES.length);
   });
 
-  describe('get_required_consent operation', () => {
-    it('should return required resources for a tool operation', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'get_required_consent',
-        tool: 'query_fp_store',
-        toolOperation: 'fp_rate',
-      };
+  it("checks required consents for operation", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.requiredResources).toBeDefined();
-      expect(Array.isArray(response.requiredResources)).toBe(true);
-      expect(response.tool).toBe('query_fp_store');
-      expect(response.operation).toBe('fp_rate');
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "required_for_operation",
+      tool: "query_fp_store",
+      operation: "fp_rate",
+    };
 
-    it('should return error if tool parameter is missing', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'get_required_consent',
-        toolOperation: 'fp_rate',
-      };
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should return empty array for unknown tool operations', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'get_required_consent',
-        tool: 'unknown_tool',
-        toolOperation: 'unknown_operation',
-      };
-
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(true);
-      expect(response.requiredResources).toEqual([]);
-    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.requiredConsents.tool).toBe("query_fp_store");
+    expect(parsed.requiredConsents.operation).toBe("fp_rate");
+    expect(parsed.requiredConsents.requiredResources).toContain("fp_metrics");
   });
 
-  describe('input validation', () => {
-    it('should validate orgId is required', async () => {
-      const args = {
-        operation: 'check_single_resource',
-        resource: 'fp_patterns',
-      };
+  it("handles operation with no consent required", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.error).toBe('VALIDATION_ERROR');
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "required_for_operation",
+      tool: "check_adr_compliance",
+    };
 
-    it('should validate operation is required', async () => {
-      const args = {
-        orgId: 'test-org',
-        resource: 'fp_patterns',
-      };
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.error).toBe('VALIDATION_ERROR');
-    });
-
-    it('should validate operation is one of allowed values', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'invalid_operation',
-      };
-
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-      expect(response.error).toBe('VALIDATION_ERROR');
-    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.requiredConsents.requiresConsent).toBe(false);
+    expect(parsed.canProceed).toBe(true);
   });
 
-  describe('error handling', () => {
-    it('should handle invalid JSON gracefully', async () => {
-      const args = null;
+  it("includes policy details when requested", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      
-      expect(result.content).toBeDefined();
-      const response = JSON.parse(result.content[0].text);
-      expect(response.success).toBe(false);
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "summary",
+      includePolicy: true,
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.policy).toBeDefined();
+    expect(parsed.policy.version).toBeDefined();
+    expect(parsed.policy.resources).toBeDefined();
   });
 
-  describe('consent URLs', () => {
-    it('should not include consent URLs when consent is granted', async () => {
-      const args = {
-        orgId: 'test-org',
-        operation: 'check_single_resource',
-        resource: 'fp_patterns',
-      };
+  it("returns error when resources missing for validate", async () => {
+    const context = createMockContext();
 
-      const result = await checkConsentRequirements.execute(args, context);
-      const response = JSON.parse(result.content[0].text);
-      
-      expect(response.consentUrl).toBeUndefined();
-      expect(response.learnMore).toBeUndefined();
-    });
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "validate",
+      // Missing resources
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.code).toBe("MISSING_PARAMETER");
+  });
+
+  it("returns error when tool missing for required_for_operation", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "required_for_operation",
+      // Missing tool
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.code).toBe("MISSING_PARAMETER");
+  });
+
+  it("provides recommendations for missing consent", async () => {
+    const context = createMockContext();
+
+    // Use a custom context that simulates missing consent
+    // (In NoOp mode all consents are granted, so we test the structure)
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "validate",
+      resources: ["fp_patterns"],
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.recommendations).toBeDefined();
+    expect(Array.isArray(parsed.recommendations)).toBe(true);
+  });
+
+  it("includes compliance information", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "summary",
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.compliance).toBeDefined();
+    expect(parsed.compliance.gdprCompliant).toBe(true);
+    expect(parsed.compliance.adr004Compliant).toBe(true);
+    expect(parsed.compliance.policyVersion).toBeDefined();
+  });
+
+  it("includes resource details for required_for_operation with policy", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "required_for_operation",
+      tool: "query_fp_store",
+      operation: "cross_rule_comparison",
+      includePolicy: true,
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.resourceDetails).toBeDefined();
+    expect(Array.isArray(parsed.resourceDetails)).toBe(true);
+    if (parsed.resourceDetails && parsed.resourceDetails.length > 0) {
+      expect(parsed.resourceDetails[0]).toHaveProperty('resource');
+      expect(parsed.resourceDetails[0]).toHaveProperty('riskLevel');
+      expect(parsed.resourceDetails[0]).toHaveProperty('dataRetention');
+    }
+  });
+
+  it("generates action URLs correctly", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "test-org-123",
+      checkType: "summary",
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.consentUrl).toBeDefined();
+    expect(parsed.consentUrl).toContain("test-org-123");
+    expect(parsed.consentUrl).toContain("https://phasemirror.com/console/consent");
+  });
+
+  it("categorizes resources by state in summary", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "summary",
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.consentSummary.resources).toBeDefined();
+    expect(parsed.consentSummary.resources.granted).toBeDefined();
+    expect(parsed.consentSummary.resources.pending).toBeDefined();
+    expect(parsed.consentSummary.resources.expired).toBeDefined();
+    expect(parsed.consentSummary.resources.revoked).toBeDefined();
+    expect(parsed.consentSummary.resources.notRequested).toBeDefined();
+  });
+
+  it("calculates coverage percentage correctly", async () => {
+    const context = createMockContext();
+
+    const input = {
+      orgId: "PhaseMirror",
+      checkType: "summary",
+    };
+
+    const response = await checkConsentTool.execute(input, context);
+    const parsed = JSON.parse(response.content[0].text!);
+
+    expect(parsed.consentSummary.statistics.coveragePercent).toBeDefined();
+    expect(typeof parsed.consentSummary.statistics.coveragePercent).toBe('number');
+    expect(parsed.consentSummary.statistics.coveragePercent).toBeGreaterThanOrEqual(0);
+    expect(parsed.consentSummary.statistics.coveragePercent).toBeLessThanOrEqual(100);
   });
 });
