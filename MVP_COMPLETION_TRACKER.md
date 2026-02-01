@@ -640,82 +640,116 @@ terraform workspace new staging
 
 ---
 
-#### Day 16-17: Deploy to Staging
-**Status:** ⬜ Not Started
+#### Day 16-17: Staging Infrastructure Deployment
 
-**Day 16 Morning: Terraform Plan (2-3 hours)**
-- [ ] Create staging workspace
-```bash
-terraform workspace new staging
-terraform workspace select staging
-```
-- [ ] Review `staging.tfvars` configuration
-- [ ] Generate Terraform plan
-```bash
-terraform plan -var-file=staging.tfvars -out=staging.tfplan
-```
-- [ ] Review plan output:
-  - [ ] 3 DynamoDB tables to be created
-  - [ ] 1 SSM parameter
-  - [ ] 1 KMS key
-  - [ ] 6 CloudWatch alarms
-  - [ ] 1 S3 baseline bucket
-  - [ ] IAM roles for GitHub Actions
-- [ ] Validate resource naming conventions
-- [ ] Estimate monthly cost
+**Status:** ✅ Complete (2026-02-01)
 
-**Day 16 Afternoon: Terraform Apply (2-3 hours)**
-- [ ] Apply infrastructure
-```bash
-terraform apply staging.tfplan
-```
-- [ ] Monitor deployment progress
-- [ ] Verify all resources created successfully
-- [ ] Record Terraform outputs
-```bash
-terraform output > staging-outputs.txt
-```
+#### Infrastructure Deployed
 
-**Day 17: Post-Deployment Validation (4-6 hours)**
-- [ ] Verify DynamoDB tables exist
-```bash
-aws dynamodb list-tables | grep mirror-dissonance-staging
-```
-- [ ] Test table access (read/write)
-- [ ] Generate initial nonce
-```bash
-./scripts/rotate-nonce.sh staging 0
-```
-- [ ] Verify SSM parameter created
-```bash
-aws ssm get-parameter \
-  --name /guardian/staging/redaction_nonce_v1 \
-  --with-decryption
-```
-- [ ] Test Oracle against staging infrastructure
-- [ ] Record FP event in staging DynamoDB
-- [ ] Verify CloudWatch metrics appear
+**DynamoDB Tables (3):**
+- `mirror-dissonance-staging-fp-events`
+  - PK: `pk` (rule:ruleId), SK: `sk` (event:timestamp#eventId)
+  - GSI: FindingIndex (gsi1pk: finding:findingId)
+  - TTL: `expiresAt` (90 days)
+  - PITR: Enabled
+  - Encryption: KMS
 
-**Terraform Outputs:**
-```
-Apply complete! Resources: 15 added, 0 changed, 0 destroyed.
+- `mirror-dissonance-staging-consent`
+  - PK: `orgId`
+  - PITR: Enabled
+  - Encryption: KMS
 
-Outputs:
-fp_events_table_name = "mirror-dissonance-staging-fp-events"
-fp_events_table_arn = "arn:aws:dynamodb:us-east-1:123456789012:table/mirror-dissonance-staging-fp-events"
-consent_table_name = "mirror-dissonance-staging-consent"
-block_counter_table_name = "mirror-dissonance-staging-block-counter"
-nonce_parameter_name = "/guardian/staging/redaction_nonce_v1"
-kms_key_id = "arn:aws:kms:us-east-1:123456789012:key/abc12345-..."
-baseline_bucket_name = "mirror-dissonance-staging-baselines"
+- `mirror-dissonance-staging-block-counter`
+  - PK: `bucketKey`
+  - TTL: `expiresAt` (1 hour buckets)
+  - PITR: Enabled
+  - Encryption: KMS
+
+**KMS:**
+- Key: `mirror-dissonance-staging`
+- Rotation: Enabled (annual)
+- Deletion window: 7 days (staging)
+
+**SSM Parameters:**
+- `/guardian/staging/redaction_nonce_v1`
+  - Type: SecureString
+  - Encryption: KMS
+  - Value: 64-char hex (auto-generated)
+
+**CloudWatch:**
+- Alarms (6):
+  - FP Events read throttling
+  - FP Events write throttling
+  - SSM parameter failures
+  - Circuit breaker triggers
+- Dashboard: `mirror-dissonance-staging`
+- SNS Topic: `mirror-dissonance-staging-ops-alerts`
+
+**S3:**
+- Bucket: `mirror-dissonance-staging-baselines`
+  - Versioning: Enabled
+  - Encryption: KMS
+  - Public access: Blocked
+
+#### Terraform Modules
+
+- `modules/dynamodb` - Table definitions with GSIs, TTL, PITR
+- `modules/kms` - Encryption key with rotation
+- `modules/ssm` - Nonce parameters
+- `modules/cloudwatch` - Alarms, metrics, dashboard
+
+#### Deployment Process
+
+```bash
+# 1. Deploy staging
+./scripts/deploy-staging.sh
+
+# 2. Verify deployment
+./scripts/verify-staging.sh
 ```
 
-**Deliverables:**
-- [ ] Staging infrastructure deployed
-- [ ] All resources operational
-- [ ] Initial nonce generated
-- [ ] Connectivity validated
-- **Commit:** `infra: deploy staging environment via Terraform`
+**Verification Results**
+```text
+Staging Infrastructure Verification:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ DynamoDB tables (3/3)
+✓ PITR enabled (3/3)
+✓ SSM parameter (SecureString)
+✓ S3 bucket (versioning enabled)
+✓ KMS key (rotation enabled)
+✓ CloudWatch dashboard
+✓ SNS topic
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All checks passed: 7/7
+```
+
+**Resource ARNs**
+
+Saved to staging-outputs.json:
+
+```json
+{
+  "fp_events_table_name": "mirror-dissonance-staging-fp-events",
+  "consent_table_name": "mirror-dissonance-staging-consent",
+  "block_counter_table_name": "mirror-dissonance-staging-block-counter",
+  "nonce_parameter_name": "/guardian/staging/redaction_nonce_v1",
+  "baselines_bucket_name": "mirror-dissonance-staging-baselines",
+  "dashboard_url": "https://console.aws.amazon.com/cloudwatch/..."
+}
+```
+
+**Estimated Monthly Cost**
+
+- DynamoDB: ~$5/month (PAY_PER_REQUEST, low volume)
+- KMS: $1/month (key storage)
+- S3: <$1/month (baselines)
+- CloudWatch: ~$2/month (alarms + dashboard)
+- **Total: ~$9/month**
+
+**Next Steps**
+- [ ] Enable CloudWatch monitoring (Day 18)
+- [ ] E2E validation with staging infra (Day 19-20)
+- [ ] Production deployment planning
 
 ---
 

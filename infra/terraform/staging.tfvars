@@ -1,10 +1,9 @@
 # Staging Environment Configuration
 
-aws_region  = "us-east-1"
-environment = "staging"
-
-# Disable deletion protection in staging for easier cleanup
-enable_point_in_time_recovery = true
-enable_deletion_protection    = false
-
-fp_ingestion_lambda_name = ""
+environment                  = "staging"
+aws_region                   = "us-east-1"
+project_name                 = "mirror-dissonance"
+enable_pitr                  = true
+kms_deletion_window_days     = 7
+alert_email                  = "" # Set via environment variable or after deployment
+enable_circuit_breaker_alarm = true

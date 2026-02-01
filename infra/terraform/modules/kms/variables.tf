@@ -9,15 +9,15 @@ variable "environment" {
   type        = string
 }
 
-variable "enable_pitr" {
-  description = "Enable Point-in-Time Recovery"
-  type        = bool
-  default     = true
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
 }
 
-variable "kms_key_arn" {
-  description = "KMS key ARN for encryption"
-  type        = string
+variable "deletion_window_days" {
+  description = "KMS key deletion window (days)"
+  type        = number
+  default     = 30
 }
 
 variable "tags" {

@@ -1,71 +1,98 @@
-# Outputs for Phase Mirror FP Calibration Service Infrastructure
+# Outputs for Phase Mirror Infrastructure
 
-# DynamoDB Outputs
-output "consent_store_table_name" {
-  description = "Name of the consent store DynamoDB table"
-  value       = module.dynamodb.consent_store_table_name
+output "environment" {
+  description = "Deployed environment"
+  value       = var.environment
 }
 
-output "calibration_store_table_name" {
-  description = "Name of the calibration store DynamoDB table"
-  value       = module.dynamodb.calibration_store_table_name
+output "aws_region" {
+  description = "AWS region"
+  value       = var.aws_region
 }
 
-output "fp_events_table_name" {
-  description = "Name of the FP events DynamoDB table"
-  value       = module.dynamodb.fp_events_table_name
-}
-
-# Secrets Outputs
-output "hmac_salt_secret_name" {
-  description = "Name of the HMAC salt secret in Secrets Manager"
-  value       = module.secrets.hmac_salt_secret_name
+# KMS Outputs
+output "kms_key_id" {
+  description = "KMS key ID"
+  value       = module.kms.key_id
 }
 
 output "kms_key_arn" {
-  description = "ARN of the KMS key for secrets encryption"
-  value       = module.secrets.kms_key_arn
+  description = "KMS key ARN"
+  value       = module.kms.key_arn
+  sensitive   = true
 }
 
-# IAM Outputs
-output "fp_ingestion_lambda_role_arn" {
-  description = "ARN of the FP Ingestion Lambda role"
-  value       = module.iam.fp_ingestion_lambda_role_arn
+# DynamoDB Outputs
+output "fp_events_table_name" {
+  description = "FP Events table name"
+  value       = module.dynamodb.fp_events_table_name
 }
 
-output "calibration_query_lambda_role_arn" {
-  description = "ARN of the Calibration Query Lambda role"
-  value       = module.iam.calibration_query_lambda_role_arn
+output "consent_table_name" {
+  description = "Consent table name"
+  value       = module.dynamodb.consent_table_name
 }
 
-output "salt_rotator_lambda_role_arn" {
-  description = "ARN of the Salt Rotator Lambda role"
-  value       = module.iam.salt_rotator_lambda_role_arn
+output "block_counter_table_name" {
+  description = "Block Counter table name"
+  value       = module.dynamodb.block_counter_table_name
 }
 
-# Monitoring Outputs
-output "critical_alerts_topic_arn" {
-  description = "ARN of the critical alerts SNS topic"
-  value       = module.monitoring.critical_alerts_topic_arn
+output "all_dynamodb_tables" {
+  description = "All DynamoDB table names"
+  value       = module.dynamodb.all_table_names
 }
 
-output "warning_alerts_topic_arn" {
-  description = "ARN of the warning alerts SNS topic"
-  value       = module.monitoring.warning_alerts_topic_arn
+# SSM Outputs
+output "nonce_parameter_name" {
+  description = "Redaction nonce parameter name"
+  value       = module.ssm.nonce_v1_parameter_name
+}
+
+output "nonce_parameter_arn" {
+  description = "Redaction nonce parameter ARN"
+  value       = module.ssm.nonce_v1_parameter_arn
+  sensitive   = true
+}
+
+# CloudWatch Outputs
+output "sns_topic_arn" {
+  description = "SNS topic ARN for alerts"
+  value       = module.cloudwatch.sns_topic_arn
 }
 
 output "dashboard_name" {
-  description = "Name of the CloudWatch dashboard"
-  value       = module.monitoring.dashboard_name
+  description = "CloudWatch dashboard name"
+  value       = module.cloudwatch.dashboard_name
 }
 
-# Legacy Outputs
-output "block_counter_table_name" {
-  description = "Name of the block counter DynamoDB table"
-  value       = aws_dynamodb_table.block_counter.name
+output "dashboard_url" {
+  description = "CloudWatch dashboard URL"
+  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${module.cloudwatch.dashboard_name}"
 }
 
-output "redaction_nonce_parameter_name" {
-  description = "Name of the SSM parameter for redaction nonce"
-  value       = aws_ssm_parameter.redaction_nonce.name
+# S3 Outputs
+output "baselines_bucket_name" {
+  description = "Drift baselines S3 bucket name"
+  value       = aws_s3_bucket.baselines.bucket
+}
+
+output "baselines_bucket_arn" {
+  description = "Drift baselines S3 bucket ARN"
+  value       = aws_s3_bucket.baselines.arn
+}
+
+# Configuration Summary
+output "configuration_summary" {
+  description = "Configuration summary for application"
+  value = {
+    region                   = var.aws_region
+    environment              = var.environment
+    fp_events_table          = module.dynamodb.fp_events_table_name
+    consent_table            = module.dynamodb.consent_table_name
+    block_counter_table      = module.dynamodb.block_counter_table_name
+    nonce_parameter          = module.ssm.nonce_v1_parameter_name
+    baselines_bucket         = aws_s3_bucket.baselines.bucket
+    cloudwatch_dashboard_url = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${module.cloudwatch.dashboard_name}"
+  }
 }

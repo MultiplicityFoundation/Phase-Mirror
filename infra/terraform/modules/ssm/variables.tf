@@ -9,14 +9,8 @@ variable "environment" {
   type        = string
 }
 
-variable "enable_pitr" {
-  description = "Enable Point-in-Time Recovery"
-  type        = bool
-  default     = true
-}
-
-variable "kms_key_arn" {
-  description = "KMS key ARN for encryption"
+variable "kms_key_id" {
+  description = "KMS key ID for parameter encryption"
   type        = string
 }
 

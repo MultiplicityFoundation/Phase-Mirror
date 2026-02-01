@@ -1,126 +1,133 @@
-# DynamoDB Tables for Phase Mirror FP Calibration Service
-# Based on Phase 3 Infrastructure Deployment (Days 22-24)
+# DynamoDB Tables for Phase Mirror
 
-# Consent Store Table
-resource "aws_dynamodb_table" "consent_store" {
-  name           = "phase-mirror-consent-store-${var.environment}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "orgId"
-  
+# FP Events Table
+resource "aws_dynamodb_table" "fp_events" {
+  name         = "${var.project_name}-${var.environment}-fp-events"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+  range_key    = "sk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  attribute {
+    name = "sk"
+    type = "S"
+  }
+
+  attribute {
+    name = "gsi1pk"
+    type = "S"
+  }
+
+  attribute {
+    name = "gsi1sk"
+    type = "S"
+  }
+
+  # FindingIndex - query by findingId
+  global_secondary_index {
+    name            = "FindingIndex"
+    hash_key        = "gsi1pk"
+    range_key       = "gsi1sk"
+    projection_type = "ALL"
+  }
+
+  # TTL for automatic deletion
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
+
+  # Point-in-time recovery
+  point_in_time_recovery {
+    enabled = var.enable_pitr
+  }
+
+  # Server-side encryption
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = var.kms_key_arn
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.project_name}-${var.environment}-fp-events"
+      Purpose     = "FalsePositiveTracking"
+      Environment = var.environment
+    }
+  )
+}
+
+# Consent Table
+resource "aws_dynamodb_table" "consent" {
+  name         = "${var.project_name}-${var.environment}-consent"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "orgId"
+
   attribute {
     name = "orgId"
     type = "S"
   }
-  
+
+  # Point-in-time recovery
+  point_in_time_recovery {
+    enabled = var.enable_pitr
+  }
+
+  # Server-side encryption
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = var.kms_key_arn
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.project_name}-${var.environment}-consent"
+      Purpose     = "ConsentManagement"
+      Environment = var.environment
+    }
+  )
+}
+
+# Block Counter Table
+resource "aws_dynamodb_table" "block_counter" {
+  name         = "${var.project_name}-${var.environment}-block-counter"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "bucketKey"
+
+  attribute {
+    name = "bucketKey"
+    type = "S"
+  }
+
+  # TTL for automatic bucket expiration
   ttl {
-    enabled        = true
     attribute_name = "expiresAt"
+    enabled        = true
   }
-  
-  point_in_time_recovery {
-    enabled = var.enable_point_in_time_recovery
-  }
-  
-  deletion_protection_enabled = var.enable_deletion_protection
-  
-  tags = merge(
-    var.tags,
-    {
-      Name      = "phase-mirror-consent-store-${var.environment}"
-      Project   = "PhaseMirror"
-      Component = "FPCalibration"
-      Table     = "ConsentStore"
-    }
-  )
-}
 
-# Calibration Store Table
-resource "aws_dynamodb_table" "calibration_store" {
-  name           = "phase-mirror-calibration-store-${var.environment}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
-  
-  attribute {
-    name = "id"
-    type = "S"
-  }
-  
-  attribute {
-    name = "ruleId"
-    type = "S"
-  }
-  
-  global_secondary_index {
-    name            = "rule-index"
-    hash_key        = "ruleId"
-    projection_type = "ALL"
-  }
-  
+  # Point-in-time recovery
   point_in_time_recovery {
-    enabled = var.enable_point_in_time_recovery
+    enabled = var.enable_pitr
   }
-  
-  deletion_protection_enabled = var.enable_deletion_protection
-  
-  tags = merge(
-    var.tags,
-    {
-      Name      = "phase-mirror-calibration-store-${var.environment}"
-      Project   = "PhaseMirror"
-      Component = "FPCalibration"
-      Table     = "CalibrationStore"
-    }
-  )
-}
 
-# FP Events Table (updated from Phase 1 with Phase 2 extensions)
-resource "aws_dynamodb_table" "fp_events" {
-  name           = "phase-mirror-fp-events-${var.environment}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
-  
-  attribute {
-    name = "id"
-    type = "S"
+  # Server-side encryption
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = var.kms_key_arn
   }
-  
-  attribute {
-    name = "findingId"
-    type = "S"
-  }
-  
-  attribute {
-    name = "ruleId"
-    type = "S"
-  }
-  
-  # Global secondary index for finding-based queries
-  global_secondary_index {
-    name            = "finding-index"
-    hash_key        = "findingId"
-    projection_type = "ALL"
-  }
-  
-  # Global secondary index for rule-based queries
-  global_secondary_index {
-    name            = "rule-index"
-    hash_key        = "ruleId"
-    projection_type = "ALL"
-  }
-  
-  point_in_time_recovery {
-    enabled = var.enable_point_in_time_recovery
-  }
-  
-  deletion_protection_enabled = var.enable_deletion_protection
-  
+
   tags = merge(
     var.tags,
     {
-      Name      = "phase-mirror-fp-events-${var.environment}"
-      Project   = "PhaseMirror"
-      Component = "FPCalibration"
-      Table     = "FPEvents"
+      Name        = "${var.project_name}-${var.environment}-block-counter"
+      Purpose     = "CircuitBreakerTracking"
+      Environment = var.environment
     }
   )
 }

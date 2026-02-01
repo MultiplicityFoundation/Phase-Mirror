@@ -1,34 +1,38 @@
-output "consent_store_table_name" {
-  description = "Name of the consent store DynamoDB table"
-  value       = aws_dynamodb_table.consent_store.name
-}
-
-output "consent_store_table_arn" {
-  description = "ARN of the consent store DynamoDB table"
-  value       = aws_dynamodb_table.consent_store.arn
-}
-
-output "calibration_store_table_name" {
-  description = "Name of the calibration store DynamoDB table"
-  value       = aws_dynamodb_table.calibration_store.name
-}
-
-output "calibration_store_table_arn" {
-  description = "ARN of the calibration store DynamoDB table"
-  value       = aws_dynamodb_table.calibration_store.arn
-}
-
-output "calibration_store_gsi_arn" {
-  description = "ARN of the calibration store rule-index GSI"
-  value       = "${aws_dynamodb_table.calibration_store.arn}/index/rule-index"
-}
-
 output "fp_events_table_name" {
-  description = "Name of the FP events DynamoDB table"
+  description = "FP Events table name"
   value       = aws_dynamodb_table.fp_events.name
 }
 
 output "fp_events_table_arn" {
-  description = "ARN of the FP events DynamoDB table"
+  description = "FP Events table ARN"
   value       = aws_dynamodb_table.fp_events.arn
+}
+
+output "consent_table_name" {
+  description = "Consent table name"
+  value       = aws_dynamodb_table.consent.name
+}
+
+output "consent_table_arn" {
+  description = "Consent table ARN"
+  value       = aws_dynamodb_table.consent.arn
+}
+
+output "block_counter_table_name" {
+  description = "Block Counter table name"
+  value       = aws_dynamodb_table.block_counter.name
+}
+
+output "block_counter_table_arn" {
+  description = "Block Counter table ARN"
+  value       = aws_dynamodb_table.block_counter.arn
+}
+
+output "all_table_names" {
+  description = "All DynamoDB table names"
+  value = [
+    aws_dynamodb_table.fp_events.name,
+    aws_dynamodb_table.consent.name,
+    aws_dynamodb_table.block_counter.name
+  ]
 }
