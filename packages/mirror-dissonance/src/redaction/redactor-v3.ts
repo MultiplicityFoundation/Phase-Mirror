@@ -123,8 +123,48 @@ export function redact(
 }
 
 /**
- * Validate a RedactedText object
- * Checks against all cached nonces (supports grace period)
+ * Verify a RedactedText object against the original text
+ * Uses timing-safe comparison to prevent timing attacks
+ */
+export function verifyRedactedText(
+  redactedText: RedactedText,
+  originalText: string
+): boolean {
+  if (!isValidRedactedText(redactedText)) {
+    return false;
+  }
+
+  // Get all valid nonces to check against (supports grace period)
+  const validNonces = Array.from(nonceCache.values()).filter(isCacheValid);
+  
+  // Try to verify with any valid nonce (for grace period support)
+  for (const nonce of validNonces) {
+    const computedMac = crypto
+      .createHmac('sha256', nonce.value)
+      .update(originalText)
+      .digest('hex');
+    
+    // Use timing-safe comparison to prevent timing attacks
+    try {
+      if (crypto.timingSafeEqual(
+        Buffer.from(redactedText.__mac, 'hex'),
+        Buffer.from(computedMac, 'hex')
+      )) {
+        return true;
+      }
+    } catch {
+      // Buffers are different lengths, continue to next nonce
+      continue;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Validate a RedactedText object structure
+ * Note: This only checks structural validity, not MAC integrity.
+ * Use verifyRedactedText() with the original text for cryptographic verification.
  */
 export function isValidRedactedText(redactedText: any): boolean {
   if (!redactedText || typeof redactedText !== 'object') {
@@ -139,9 +179,7 @@ export function isValidRedactedText(redactedText: any): boolean {
     return false;
   }
 
-  // We can't validate the MAC without the original text
-  // In a real implementation, this would require storing additional metadata
-  // For testing purposes, we'll accept any valid structure with cached nonce versions
+  // Check that we have at least one valid nonce available
   const validNonces = Array.from(nonceCache.values()).filter(isCacheValid);
   
   return validNonces.length > 0;
