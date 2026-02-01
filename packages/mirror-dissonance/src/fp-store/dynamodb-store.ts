@@ -5,6 +5,7 @@
 
 import { 
   DynamoDBClient, 
+  DynamoDBClientConfig,
   PutItemCommand, 
   UpdateItemCommand, 
   QueryCommand 
@@ -18,7 +19,7 @@ export class DynamoDBFPStore implements FPStore {
   private ttlDays: number;
 
   constructor(config: FPStoreConfig) {
-    const clientConfig: any = { region: config.region };
+    const clientConfig: DynamoDBClientConfig = { region: config.region };
     if (config.endpoint) {
       clientConfig.endpoint = config.endpoint;
     }

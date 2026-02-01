@@ -12,7 +12,7 @@ import { NoOpFPStore, IFPStore, EnhancedDynamoDBFPStore, FPStore } from './fp-st
 import { DynamoDBBlockCounter } from './block-counter/dynamodb.js';
 import type { BlockCounter } from './block-counter/dynamodb.js';
 import { DynamoDBConsentStore, NoOpConsentStore, IConsentStore } from './consent-store/index.js';
-import { SSMClient } from '@aws-sdk/client-ssm';
+import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm';
 import { loadNonce } from './nonce/loader.js';
 import { createRedactor, Redactor } from './redaction/redactor.js';
 
@@ -43,7 +43,7 @@ export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
   // Load nonce first (required for redaction) if SSM parameter name provided
   if (config.nonceParameterName) {
     try {
-      const clientConfig: any = { region };
+      const clientConfig: SSMClientConfig = { region };
       if (config.endpoint) {
         clientConfig.endpoint = config.endpoint;
       }

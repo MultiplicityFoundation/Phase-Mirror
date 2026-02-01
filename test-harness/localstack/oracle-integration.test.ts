@@ -224,7 +224,6 @@ describe('Oracle Integration with LocalStack', () => {
       times.sort((a, b) => a - b);
       const p99 = times[Math.floor(iterations * 0.99)];
 
-      console.log(`Redaction p99: ${p99}ns`);
       // Relaxed target for integration tests
       expect(p99).toBeLessThan(100000); // <100μs
     });

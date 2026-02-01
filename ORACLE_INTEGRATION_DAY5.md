@@ -22,8 +22,8 @@ This integration test harness verifies that the Oracle properly wires together:
 ### 1. Start LocalStack
 
 ```bash
-cd /home/runner/work/Phase-Mirror/Phase-Mirror
-docker-compose -f localstack-compose.yml up -d
+cd Phase-Mirror  # Navigate to your repository root
+docker compose -f localstack-compose.yml up -d
 ```
 
 Verify LocalStack is running:
@@ -94,7 +94,7 @@ pnpm test nonce-rotation.integration.test.ts
 ### 5. Teardown
 
 ```bash
-cd /home/runner/work/Phase-Mirror/Phase-Mirror
+cd Phase-Mirror  # Navigate to your repository root
 ./test-harness/localstack/teardown.sh
 ```
 
