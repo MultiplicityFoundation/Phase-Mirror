@@ -436,11 +436,12 @@ Region not found: eu-west-1
 
 2. **Check DynamoDB throttling:**
    ```bash
+   # Get throttling metrics for the past hour
    aws cloudwatch get-metric-statistics \
      --namespace AWS/DynamoDB \
      --metric-name ThrottledRequests \
      --dimensions Name=TableName,Value=mirror-dissonance-staging-fp-events \
-     --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+     --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%S) \
      --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
      --period 300 \
      --statistics Sum

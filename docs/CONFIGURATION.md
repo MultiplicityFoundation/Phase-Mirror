@@ -378,7 +378,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
       
       - name: Run Oracle
         id: oracle
