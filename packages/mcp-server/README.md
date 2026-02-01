@@ -68,9 +68,142 @@ const config: MCPServerConfig = {
 
 ## Available Tools
 
-- `get_server_info`: Get information about the Phase Mirror MCP server
+### `get_server_info`
 
-More tools will be added as the package develops.
+Get information about the Phase Mirror MCP server configuration.
+
+**Input**: None
+
+**Output**: Server name, version, and current configuration.
+
+---
+
+### `analyze_dissonance`
+
+Run Phase Mirror's Mirror Dissonance protocol to detect governance violations before code implementation.
+
+#### When to Use
+
+- **Before implementing features**: Check if approach violates governance rules
+- **During PR review**: Validate changes meet organizational constraints
+- **Drift detection**: Compare current state to approved baseline
+- **Planning**: Understand architectural constraints from ADRs
+
+#### Input Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `files` | `string[]` | ✅ | File paths to analyze (relative to repo root) |
+| `repository.owner` | `string` | ✅ | Repository owner (org or user) |
+| `repository.name` | `string` | ✅ | Repository name |
+| `repository.branch` | `string` | ❌ | Branch name (default: main) |
+| `mode` | `enum` | ❌ | Analysis mode (default: issue) |
+| `context` | `string` | ❌ | Additional context for analysis |
+| `commitSha` | `string` | ❌ | Specific commit SHA |
+| `includeADRs` | `boolean` | ❌ | Include ADR references (default: true) |
+| `includeFPPatterns` | `boolean` | ❌ | Include FP patterns (requires consent, default: false) |
+
+#### Analysis Modes
+
+| Mode | Purpose | Use Case |
+|------|---------|----------|
+| `issue` | Planning phase | Developer assigned to implement issue |
+| `pull_request` | PR validation | Validate PR changes meet governance |
+| `merge_group` | Merge queue | Final check before merge to main |
+| `drift` | Baseline comparison | Detect unauthorized changes |
+
+#### Output Structure
+
+```typescript
+{
+  success: boolean;
+  timestamp: string;
+  requestId: string;
+  analysis: {
+    mode: string;
+    repository: string;
+    filesAnalyzed: number;
+    
+    summary: {
+      totalFindings: number;
+      bySeverity: { critical: number; high: number; medium: number; low: number };
+      decision: "pass" | "warn" | "block";
+      degradedMode: boolean;
+    };
+    
+    findings: Array<{
+      id: string;
+      ruleId: string;
+      severity: "critical" | "high" | "medium" | "low";
+      title: string;
+      description: string;
+      evidence: Array<{ path: string; line: number; snippet: string }>;
+      remediation: string;
+    }>;
+    
+    adrReferences?: Record<string, string>;
+    fpPatterns?: Record<string, {
+      count: number;
+      observedFPR: number;
+      recentExamples: Array<{
+        outcome: string;
+        reviewedBy: string;
+        ticket: string;
+      }>;
+    }>;
+    degradedModeDetails?: {
+      reason: string;
+      timestamp: string;
+      details: string;
+    };
+    recommendations: string[];
+  };
+}
+```
+
+#### Example Usage
+
+**Basic Analysis**:
+```json
+{
+  "name": "analyze_dissonance",
+  "arguments": {
+    "files": [".github/workflows/deploy.yml"],
+    "repository": {
+      "owner": "PhaseMirror",
+      "name": "Phase-Mirror"
+    },
+    "mode": "pull_request",
+    "context": "Add deployment workflow"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "analysis": {
+    "summary": {
+      "totalFindings": 1,
+      "decision": "warn"
+    },
+    "findings": [{
+      "ruleId": "MD-001",
+      "severity": "medium",
+      "title": "GitHub Actions permission escalation",
+      "remediation": "Use principle of least privilege"
+    }],
+    "recommendations": [
+      "Review findings and document decisions"
+    ]
+  }
+}
+```
+
+For more examples, see [examples/analyze-dissonance-examples.md](./examples/analyze-dissonance-examples.md).
+
+---
 
 ## Project Structure
 

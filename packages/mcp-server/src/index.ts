@@ -12,8 +12,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { MCPServerConfig } from "./types/index.js";
+import { MCPServerConfig, ToolContext } from "./types/index.js";
+import { generateRequestId } from "./utils/index.js";
+import * as analyzeDissonanceTool from "./tools/analyze-dissonance.js";
 
 /**
  * Initialize MCP server configuration from environment variables
@@ -59,13 +62,21 @@ async function main() {
             properties: {},
           },
         },
+        analyzeDissonanceTool.toolDefinition,
       ],
     };
   });
 
   // Handler for tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name } = request.params;
+  server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
+    const { name, arguments: args } = request.params;
+
+    // Create tool context
+    const toolContext: ToolContext = {
+      config,
+      requestId: generateRequestId(),
+      timestamp: new Date(),
+    };
 
     switch (name) {
       case "get_server_info":
@@ -87,6 +98,11 @@ async function main() {
             },
           ],
         };
+
+      case "analyze_dissonance": {
+        const result = await analyzeDissonanceTool.execute(args, toolContext);
+        return result as CallToolResult;
+      }
 
       default:
         throw new Error(`Unknown tool: ${name}`);
