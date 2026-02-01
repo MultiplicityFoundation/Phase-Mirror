@@ -97,3 +97,27 @@ variable "ops_email_address" {
   sensitive   = true
   default     = ""
 }
+
+variable "project_name" {
+  description = "Project name prefix"
+  type        = string
+  default     = "mirror-dissonance"
+}
+
+variable "kms_deletion_window_days" {
+  description = "KMS key deletion window (days)"
+  type        = number
+  default     = 30
+}
+
+variable "alert_email" {
+  description = "Email address for CloudWatch alerts"
+  type        = string
+  default     = ""
+}
+
+variable "enable_circuit_breaker_alarm" {
+  description = "Enable circuit breaker alarm"
+  type        = bool
+  default     = true
+}
