@@ -1,0 +1,9 @@
+{
+  "region": "us-east-1",
+  "endpoint": "http://localhost:4566",
+  "nonceParameterName": "/guardian/test/redaction_nonce_v1",
+  "fpTableName": "mirror-dissonance-test-fp-events",
+  "consentTableName": "mirror-dissonance-test-consent",
+  "blockCounterTableName": "mirror-dissonance-test-block-counter",
+  "baselineBucket": "mirror-dissonance-test-baselines"
+}

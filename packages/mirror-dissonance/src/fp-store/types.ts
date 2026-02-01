@@ -38,6 +38,7 @@ export interface FPWindow {
 export interface FPStoreConfig {
   tableName: string;
   region: string;
+  endpoint?: string;           // For LocalStack testing
   ttlDays?: number;            // Default: 90
 }
 

@@ -2,7 +2,7 @@
  * Consent Store for Phase 2 FP Calibration Service
  * Manages organization consent for data collection per ADR-004
  */
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ConsentRecord, ConsentType } from '../../schemas/types.js';
 
@@ -14,6 +14,7 @@ export * from './store.js';
 export interface ConsentStoreConfig {
   tableName: string;
   region?: string;
+  endpoint?: string;  // For LocalStack testing
 }
 
 export interface IConsentStore {
@@ -27,7 +28,11 @@ export class DynamoDBConsentStore implements IConsentStore {
   private tableName: string;
 
   constructor(config: ConsentStoreConfig) {
-    const dynamoClient = new DynamoDBClient({ region: config.region || 'us-east-1' });
+    const clientConfig: DynamoDBClientConfig = { region: config.region || 'us-east-1' };
+    if (config.endpoint) {
+      clientConfig.endpoint = config.endpoint;
+    }
+    const dynamoClient = new DynamoDBClient(clientConfig);
     this.client = DynamoDBDocumentClient.from(dynamoClient);
     this.tableName = config.tableName;
   }

@@ -3,7 +3,7 @@
  * TTL-based counter for circuit breaker implementation
  */
 
-import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, DynamoDBClientConfig, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
 /**
@@ -22,8 +22,12 @@ export class DynamoDBBlockCounter implements BlockCounter {
   private client: DynamoDBClient;
   private tableName: string;
 
-  constructor(tableName: string, region: string) {
-    this.client = new DynamoDBClient({ region });
+  constructor(tableName: string, region: string, endpoint?: string) {
+    const clientConfig: DynamoDBClientConfig = { region };
+    if (endpoint) {
+      clientConfig.endpoint = endpoint;
+    }
+    this.client = new DynamoDBClient(clientConfig);
     this.tableName = tableName;
   }
 
