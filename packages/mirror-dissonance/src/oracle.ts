@@ -8,7 +8,7 @@ import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
 import { MemoryBlockCounter } from './block-counter/index.js';
-import { NoOpFPStore, IFPStore, DynamoDBFPStore as EnhancedDynamoDBFPStore } from './fp-store/index.js';
+import { NoOpFPStore, IFPStore, EnhancedDynamoDBFPStore, FPStore } from './fp-store/index.js';
 import { DynamoDBBlockCounter } from './block-counter/dynamodb.js';
 import type { BlockCounter } from './block-counter/dynamodb.js';
 import { DynamoDBConsentStore, NoOpConsentStore, IConsentStore } from './consent-store/index.js';
@@ -26,11 +26,10 @@ export interface OracleConfig {
 }
 
 export interface OracleComponents {
-  fpStore?: IFPStore;
+  fpStore?: IFPStore | FPStore;
   consentStore?: IConsentStore;
   redactor?: Redactor;
   blockCounter?: BlockCounter | MemoryBlockCounter;
-}
 }
 
 /**
@@ -105,7 +104,7 @@ export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
 
 export class Oracle {
   private blockCounter: BlockCounter | MemoryBlockCounter;
-  private fpStore: IFPStore;
+  private fpStore: IFPStore | FPStore;
   private consentStore: IConsentStore;
   private redactor?: Redactor;
 
@@ -122,11 +121,17 @@ export class Oracle {
     // Evaluate all rules
     const violations = await evaluateAllRules(input);
 
-    // Filter out false positives
+    // Filter out false positives (only if legacy store)
     const realViolations: RuleViolation[] = [];
     for (const violation of violations) {
-      const isFP = await this.fpStore.isFalsePositive(violation.ruleId);
-      if (!isFP) {
+      // Check if the store has the legacy isFalsePositive method
+      if ('isFalsePositive' in this.fpStore) {
+        const isFP = await (this.fpStore as IFPStore).isFalsePositive(violation.ruleId);
+        if (!isFP) {
+          realViolations.push(violation);
+        }
+      } else {
+        // Enhanced store doesn't have this method yet, keep all violations
         realViolations.push(violation);
       }
     }
@@ -134,7 +139,9 @@ export class Oracle {
     // Check circuit breaker
     let circuitBreakerTripped = false;
     for (const violation of realViolations) {
-      const count = await this.blockCounter.get(violation.ruleId);
+      const count = 'getCount' in this.blockCounter 
+        ? await this.blockCounter.getCount(violation.ruleId)
+        : await this.blockCounter.get(violation.ruleId);
       if (count > 100) { // threshold
         circuitBreakerTripped = true;
         break;
@@ -153,7 +160,13 @@ export class Oracle {
     // Update block counter if blocking
     if (machineDecision.outcome === 'block') {
       for (const violation of realViolations) {
-        await this.blockCounter.increment(violation.ruleId);
+        if ('getCount' in this.blockCounter) {
+          // MemoryBlockCounter
+          await this.blockCounter.increment(violation.ruleId);
+        } else {
+          // DynamoDBBlockCounter
+          await this.blockCounter.increment(violation.ruleId, 3600); // 1 hour TTL
+        }
       }
     }
 
