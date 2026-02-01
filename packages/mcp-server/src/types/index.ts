@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Environment configuration for MCP server
@@ -26,16 +27,9 @@ export interface ToolContext {
 }
 
 /**
- * Standard tool response format
+ * Standard tool response format (matches MCP CallToolResult)
  */
-export interface ToolResponse {
-  content: Array<{
-    type: "text" | "resource";
-    text?: string;
-    uri?: string;
-  }>;
-  isError?: boolean;
-}
+export type ToolResponse = CallToolResult;
 
 /**
  * Tool error details
