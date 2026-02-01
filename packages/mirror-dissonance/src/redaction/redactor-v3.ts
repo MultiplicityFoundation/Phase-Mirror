@@ -95,6 +95,10 @@ function getActiveNonce(): NonceCache {
 
 /**
  * Redact text using the active nonce
+ * 
+ * Note: Uses HMAC-SHA256 for Message Authentication Code (MAC) to verify data integrity.
+ * This is NOT password hashing - HMAC is the appropriate cryptographic primitive for
+ * ensuring the authenticity and integrity of redacted data.
  */
 export function redact(
   text: string,
@@ -107,7 +111,8 @@ export function redact(
     redactedValue = redactedValue.replace(rule.regex, rule.replacement);
   }
 
-  // Generate HMAC using nonce
+  // Generate HMAC-SHA256 MAC for integrity verification
+  // This is message authentication, not password hashing
   const hmac = crypto
     .createHmac('sha256', activeNonce.value)
     .update(text)
