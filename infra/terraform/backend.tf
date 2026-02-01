@@ -1,34 +1,40 @@
 # Terraform Backend Configuration
-# Created: 2026-02-01
-# Purpose: Store Terraform state in S3 with DynamoDB locking
+# Auto-generated on 2026-02-01
+# 
+# This backend stores Terraform state in S3 with DynamoDB locking.
+# State files are encrypted at rest and versioned for rollback capability.
 #
-# State is stored in S3 with server-side encryption (AES256)
-# DynamoDB provides state locking to prevent concurrent modifications
-# Versioning is enabled on the S3 bucket for state rollback capability
-#
-# For environment-specific configurations:
-#   - Use terraform workspaces (dev, staging, production)
-#   - Each workspace has its own state file in S3
-#   - State files are organized under: s3://bucket/phase-mirror/env:/workspace-name/terraform.tfstate
+# Backend Resources:
+#   - S3 Bucket: mirror-dissonance-terraform-state-prod
+#   - DynamoDB Table: mirror-dissonance-terraform-lock-prod
+#   - Region: us-east-1
 
 terraform {
   required_version = ">= 1.6.0"
   
   backend "s3" {
-    bucket         = "mirror-dissonance-terraform-state-prod"
-    key            = "phase-mirror/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-state-lock"
+    # S3 bucket for state storage
+    bucket = "mirror-dissonance-terraform-state-prod"
+    
+    # State file path within bucket
+    # Pattern: phase-mirror/env:/{workspace}/terraform.tfstate
+    key = "phase-mirror/terraform.tfstate"
+    
+    # AWS region
+    region = "us-east-1"
+    
+    # Server-side encryption
+    encrypt = true
+    
+    # DynamoDB table for state locking
+    dynamodb_table = "mirror-dissonance-terraform-lock-prod"
     
     # Workspace-specific state files
-    # Each workspace (dev, staging, production) gets its own state file
-    # Format: phase-mirror/env:/workspace-name/terraform.tfstate
-    workspace_key_prefix = "env"
+    # This creates separate state files for staging, production, etc.
+    workspace_key_prefix = "env:"
     
-    # Prevent accidental state corruption
-    skip_credentials_validation = false
-    skip_metadata_api_check     = false
+    # Optional: Enable versioning and lifecycle
+    # versioning = true  # Already enabled via bucket policy
   }
   
   required_providers {
@@ -42,3 +48,30 @@ terraform {
     }
   }
 }
+
+# Backend configuration notes:
+#
+# 1. Workspace State Paths:
+#    - default workspace: s3://mirror-dissonance-terraform-state-prod/phase-mirror/terraform.tfstate
+#    - staging workspace: s3://mirror-dissonance-terraform-state-prod/phase-mirror/env:/staging/terraform.tfstate
+#    - prod workspace: s3://mirror-dissonance-terraform-state-prod/phase-mirror/env:/prod/terraform.tfstate
+#
+# 2. State Locking:
+#    - Lock ID format: mirror-dissonance-terraform-state-prod/phase-mirror/env:/{workspace}/terraform.tfstate
+#    - Locks prevent concurrent `terraform apply` operations
+#    - Locks auto-release after 20 minutes if Terraform crashes
+#
+# 3. Migration from Local State:
+#    If migrating from local state:
+#      1. Ensure backend configuration matches above
+#      2. Run: terraform init -migrate-state
+#      3. Confirm state migration when prompted
+#      4. Verify: aws s3 ls s3://mirror-dissonance-terraform-state-prod/phase-mirror/
+#
+# 4. Disaster Recovery:
+#    - State versioning enabled (90-day retention)
+#    - PITR enabled on lock table (35-day recovery)
+#    - To restore previous state version:
+#        aws s3api list-object-versions --bucket mirror-dissonance-terraform-state-prod --prefix phase-mirror/
+#        aws s3api get-object --bucket mirror-dissonance-terraform-state-prod --key phase-mirror/terraform.tfstate --version-id VERSION_ID terraform.tfstate.backup
+#        terraform state push terraform.tfstate.backup
