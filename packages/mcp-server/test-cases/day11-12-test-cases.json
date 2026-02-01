@@ -1,0 +1,107 @@
+{
+  "check_consent_requirements": {
+    "test_1_validate_single_resource": {
+      "description": "Validate consent for single resource",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "validate",
+        "resources": ["fp_patterns"]
+      },
+      "expected": {
+        "success": true,
+        "checkType": "validate",
+        "validation.checkedResources": ["fp_patterns"]
+      }
+    },
+    "test_2_validate_multiple_resources": {
+      "description": "Validate consent for multiple resources",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "validate",
+        "resources": ["fp_patterns", "fp_metrics", "cross_org_benchmarks"]
+      },
+      "expected": {
+        "success": true,
+        "validation.checkedResources": "array"
+      }
+    },
+    "test_3_get_consent_summary": {
+      "description": "Get full consent summary for organization",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "summary"
+      },
+      "expected": {
+        "success": true,
+        "checkType": "summary",
+        "consentSummary.statistics.totalResources": 6
+      }
+    },
+    "test_4_check_required_for_operation": {
+      "description": "Check what consent is required for query_fp_store.fp_rate",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "required_for_operation",
+        "tool": "query_fp_store",
+        "operation": "fp_rate"
+      },
+      "expected": {
+        "success": true,
+        "requiredConsents.tool": "query_fp_store",
+        "requiredConsents.operation": "fp_rate"
+      }
+    },
+    "test_5_check_required_with_policy": {
+      "description": "Check requirements with policy details included",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "required_for_operation",
+        "tool": "query_fp_store",
+        "operation": "cross_rule_comparison",
+        "includePolicy": true
+      },
+      "expected": {
+        "success": true,
+        "requiredConsents.requiresConsent": true,
+        "resourceDetails": "array"
+      }
+    },
+    "test_6_no_consent_required": {
+      "description": "Check operation that requires no consent",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "required_for_operation",
+        "tool": "check_adr_compliance"
+      },
+      "expected": {
+        "success": true,
+        "requiredConsents.requiresConsent": false,
+        "canProceed": true
+      }
+    },
+    "test_7_missing_resource_parameter": {
+      "description": "Error when resources not provided for validate",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "validate"
+      },
+      "expected": {
+        "success": false,
+        "code": "MISSING_PARAMETER"
+      }
+    },
+    "test_8_include_full_policy": {
+      "description": "Get summary with full policy details",
+      "input": {
+        "orgId": "PhaseMirror",
+        "checkType": "summary",
+        "includePolicy": true
+      },
+      "expected": {
+        "success": true,
+        "policy.version": "string",
+        "policy.resources": "object"
+      }
+    }
+  }
+}

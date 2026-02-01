@@ -6,6 +6,11 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ConsentRecord, ConsentType } from '../../schemas/types.js';
 
+// Re-export schema types
+export * from './schema.js';
+export * from './enhanced-store.js';
+export * from './store.js';
+
 export interface ConsentStoreConfig {
   tableName: string;
   region?: string;
