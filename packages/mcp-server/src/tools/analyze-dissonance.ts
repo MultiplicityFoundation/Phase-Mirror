@@ -87,19 +87,41 @@ export async function execute(
   const { files, context: issueContext, mode } = validatedInput;
 
   try {
-    // Import Mirror Dissonance core library
-    // Note: Using the Oracle from @mirror-dissonance/core
-    const { analyze } = await import("@mirror-dissonance/core/dist/src/oracle.js");
+    // Import and use the Analysis Orchestrator for proper file processing
+    const { createOrchestrator } = await import("@mirror-dissonance/core/dist/src/analysis/orchestrator.js");
 
     // Map our mode to Oracle mode
     const oracleMode = mode === "issue" ? "pull_request" : mode;
 
-    // Execute analysis
-    const report = await analyze({
-      mode: oracleMode as "pull_request" | "merge_group" | "drift" | "calibration",
-      context: {
-        repositoryName: issueContext,
+    // Extract repository information from context or use defaults
+    // Context format expected: "owner/repo" or just descriptive text
+    let owner = "unknown";
+    let name = "unknown";
+    if (issueContext && issueContext.includes("/")) {
+      const parts = issueContext.split("/");
+      owner = parts[0];
+      name = parts[1];
+    } else if (issueContext) {
+      name = issueContext;
+    }
+
+    // Initialize orchestrator with MCP server config
+    const orchestrator = await createOrchestrator({
+      awsRegion: context.config.awsRegion,
+      fpTableName: context.config.fpTableName,
+      consentTableName: context.config.consentTableName,
+      // Note: adrPath could be added to config in future
+    });
+
+    // Execute analysis using orchestrator
+    const result = await orchestrator.analyze({
+      files,
+      repository: {
+        owner,
+        name,
       },
+      mode: oracleMode as "pull_request" | "merge_group" | "drift" | "calibration",
+      context: issueContext,
     });
 
     // Format response for MCP
@@ -113,12 +135,18 @@ export async function execute(
             requestId: context.requestId,
             analysis: {
               mode,
-              filesAnalyzed: files.length,
-              findings: report.violations || [],
-              summary: report.summary || {},
-              decision: report.machineDecision || {},
+              filesAnalyzed: result.artifacts.length,
+              files: result.artifacts.map(a => ({
+                path: a.path,
+                type: a.type,
+                hash: a.hash,
+              })),
+              findings: result.violations || [],
+              summary: result.summary || {},
+              decision: result.machineDecision || {},
+              report: result.report || {},
               degradedMode: false,
-              adrReferences: extractADRReferences(report),
+              adrReferences: result.adrReferences || extractADRReferencesFromViolations(result.violations),
             },
           }, null, 2),
         },
@@ -145,25 +173,15 @@ export async function execute(
 }
 
 /**
- * Extract ADR references from dissonance report
+ * Extract ADR references from violations
  */
-function extractADRReferences(report: any): string[] {
+function extractADRReferencesFromViolations(violations: any[]): string[] {
   const adrPattern = /ADR-\d{3}/g;
   const adrRefs = new Set<string>();
 
-  // Search in findings (violations)
-  if (report.violations) {
-    for (const violation of report.violations) {
-      const matches = JSON.stringify(violation).match(adrPattern);
-      if (matches) {
-        matches.forEach(ref => adrRefs.add(ref));
-      }
-    }
-  }
-
-  // Search in summary
-  if (report.summary) {
-    const matches = JSON.stringify(report.summary).match(adrPattern);
+  // Search in violations
+  for (const violation of violations) {
+    const matches = JSON.stringify(violation).match(adrPattern);
     if (matches) {
       matches.forEach(ref => adrRefs.add(ref));
     }
