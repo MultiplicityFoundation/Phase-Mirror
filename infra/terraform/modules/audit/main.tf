@@ -119,19 +119,27 @@ resource "aws_cloudtrail" "main" {
   is_multi_region_trail         = true
   enable_log_file_validation    = true
   kms_key_id                    = var.kms_key_arn
+  cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+  cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail_cloudwatch.arn
 
   event_selector {
     read_write_type           = "All"
     include_management_events = true
 
-    data_resource {
-      type   = "AWS::DynamoDB::Table"
-      values = var.dynamodb_table_arns
+    dynamic "data_resource" {
+      for_each = length(var.dynamodb_table_arns) > 0 ? [1] : []
+      content {
+        type   = "AWS::DynamoDB::Table"
+        values = var.dynamodb_table_arns
+      }
     }
 
-    data_resource {
-      type   = "AWS::S3::Object"
-      values = var.s3_bucket_arns
+    dynamic "data_resource" {
+      for_each = length(var.s3_bucket_arns) > 0 ? [1] : []
+      content {
+        type   = "AWS::S3::Object"
+        values = var.s3_bucket_arns
+      }
     }
   }
 

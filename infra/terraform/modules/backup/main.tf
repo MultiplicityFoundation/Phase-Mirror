@@ -111,13 +111,6 @@ resource "aws_backup_selection" "dynamodb_tables" {
   iam_role_arn = aws_iam_role.backup.arn
 
   resources = var.dynamodb_table_arns
-
-  condition {
-    string_equals {
-      key   = "aws:ResourceTag/Environment"
-      value = var.environment
-    }
-  }
 }
 
 # Backup notifications
