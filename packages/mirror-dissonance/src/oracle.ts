@@ -180,3 +180,14 @@ export async function analyze(input: OracleInput): Promise<OracleOutput> {
   const oracle = createOracle();
   return oracle.analyze(input);
 }
+
+// Export analysis orchestrator for reusable integration
+export {
+  AnalysisOrchestrator,
+  createOrchestrator,
+  type AnalysisOrchestratorConfig,
+  type AnalysisInput,
+  type AnalysisOutput,
+  type FileArtifact,
+  type RepositoryContext,
+} from './analysis/index.js';
