@@ -30,6 +30,40 @@
 - [ ] CHANGELOG.md updated with changes
 - [ ] Version number incremented appropriately
 
+### Functional Testing
+
+- [ ] All 6 tools list correctly via `tools/list`
+- [ ] `get_server_info` executes successfully
+- [ ] `analyze_dissonance` executes successfully
+- [ ] `validate_l0_invariants` executes successfully
+- [ ] `check_adr_compliance` executes successfully
+- [ ] `query_fp_store` executes successfully
+- [ ] `check_consent_requirements` executes successfully
+
+### Error Handling Validation
+
+- [ ] Invalid input returns structured error response
+- [ ] Missing files return `FILE_NOT_FOUND` error
+- [ ] Missing consent returns appropriate consent error
+- [ ] Server recovers from transient errors
+- [ ] Rate limiting returns appropriate error with retry guidance
+
+### Performance Validation
+
+- [ ] `validate_l0_invariants` completes in < 500ms (single file)
+- [ ] `check_consent_requirements` completes in < 200ms
+- [ ] `query_fp_store` completes in < 1000ms
+- [ ] `analyze_dissonance` completes in < 5000ms (single file)
+- [ ] No memory leaks over 50 requests
+
+### Package Preparation
+
+- [ ] `package.json` version updated
+- [ ] `package.json` dependencies correct
+- [ ] `package.json` engines specifies Node.js 18+
+- [ ] `npm pack` produces valid package
+- [ ] Package size reasonable (<10MB)
+
 ## Environment Configuration
 
 ### Required Environment Variables
@@ -102,6 +136,145 @@ Ensure the execution role/user has permissions for:
   ]
 }
 ```
+
+## Production Deployment Workflow
+
+### Version Management
+
+#### 1. Version Bump
+
+```bash
+# Navigate to mcp-server package
+cd packages/mcp-server
+
+# Update version (choose appropriate level)
+npm version patch  # For bug fixes (0.1.0 -> 0.1.1)
+npm version minor  # For new features (0.1.0 -> 0.2.0)
+npm version major  # For breaking changes (0.1.0 -> 1.0.0)
+
+# This automatically:
+# - Updates package.json version
+# - Creates a git commit
+# - Creates a git tag
+```
+
+#### 2. Update CHANGELOG.md
+
+Add release notes for the new version:
+
+```markdown
+## [0.2.0] - 2026-02-01
+
+### Added
+- New feature X
+- New tool Y
+
+### Changed
+- Improved performance of Z
+
+### Fixed
+- Bug in tool A
+- Error handling in B
+
+### Security
+- Updated dependency C to fix vulnerability
+```
+
+### Pre-Publishing Validation
+
+#### 1. Clean Build
+
+```bash
+# Clean previous builds
+pnpm clean
+
+# Fresh install and build
+pnpm install
+pnpm build
+```
+
+#### 2. Run Full Test Suite
+
+```bash
+# Run all tests
+pnpm test
+
+# Verify all tests pass
+# Expected: All tests passing, no errors
+```
+
+#### 3. Package Verification
+
+```bash
+# Create package tarball
+npm pack
+
+# Inspect contents
+tar -tzf phase-mirror-mcp-server-0.2.0.tgz
+
+# Check package size
+ls -lh *.tgz
+# Should be < 10MB
+```
+
+### Publishing to npm
+
+#### 1. Verify npm Authentication
+
+```bash
+# Check if logged in
+npm whoami
+
+# Login if needed
+npm login
+```
+
+#### 2. Publish Package
+
+```bash
+# Publish with public access
+npm publish --access public
+
+# For pre-release/beta versions
+npm publish --access public --tag beta
+```
+
+#### 3. Verify Publication
+
+```bash
+# Check package is available
+npm view @phase-mirror/mcp-server
+
+# Test installation
+npx @phase-mirror/mcp-server --version
+```
+
+### GitHub Release
+
+#### 1. Create Git Tag
+
+```bash
+# Tag should already exist from npm version
+# Push tags to GitHub
+git push origin main
+git push origin --tags
+```
+
+#### 2. Create GitHub Release
+
+1. Go to https://github.com/PhaseMirror/Phase-Mirror/releases/new
+2. Select the version tag (e.g., `v0.2.0`)
+3. Add release title: "Phase Mirror MCP Server v0.2.0"
+4. Copy CHANGELOG excerpt to release notes
+5. Attach any additional assets (if needed)
+6. Publish release
+
+### Post-Publication Validation
+
+- [ ] Package available on npm: `npm view @phase-mirror/mcp-server`
+- [ ] `npx @phase-mirror/mcp-server` works
+- [ ] GitHub release created with release notes
+- [ ] Documentation site updated (if applicable)
 
 ## Deployment Steps
 
@@ -321,6 +494,94 @@ Set up alerts for:
 - AWS service errors
 - Memory exhaustion
 
+### CloudWatch Alarms (AWS Deployments)
+
+If using AWS infrastructure, set up CloudWatch alarms:
+
+```bash
+# DynamoDB throttling alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name mcp-dynamodb-throttling \
+  --alarm-description "Alert on DynamoDB throttling" \
+  --metric-name ThrottledRequests \
+  --namespace AWS/DynamoDB \
+  --statistic Sum \
+  --period 300 \
+  --evaluation-periods 2 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --dimensions Name=TableName,Value=$FP_TABLE_NAME
+
+# Error rate alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name mcp-error-rate \
+  --alarm-description "Alert on high error rate" \
+  --metric-name ErrorCount \
+  --namespace MCP/Server \
+  --statistic Sum \
+  --period 300 \
+  --evaluation-periods 1 \
+  --threshold 5 \
+  --comparison-operator GreaterThanThreshold
+
+# Latency alarm (p99 > 5s)
+aws cloudwatch put-metric-alarm \
+  --alarm-name mcp-high-latency \
+  --alarm-description "Alert on high latency" \
+  --metric-name Duration \
+  --namespace MCP/Server \
+  --statistic p99 \
+  --period 300 \
+  --evaluation-periods 2 \
+  --threshold 5000 \
+  --comparison-operator GreaterThanThreshold
+```
+
+### Structured Logging
+
+Enable structured JSON logging for better analysis:
+
+```bash
+# Production logging configuration
+export LOG_LEVEL="info"
+export LOG_FORMAT="json"  # If supported
+
+# Log to file for analysis
+node dist/src/index.js 2>&1 | tee -a /var/log/mcp-server/server.log
+```
+
+Ensure logs include:
+- Request IDs for tracing
+- Tool names and parameters (sanitized)
+- Execution times
+- Error codes and messages
+- AWS service call metadata
+
+### Metrics Collection
+
+Track these metrics for monitoring:
+
+**Tool Metrics**:
+- Tool call counts (by tool name)
+- Tool execution latencies (p50, p95, p99)
+- Tool success/failure rates
+
+**Error Metrics**:
+- Error counts by error code
+- Error rates (errors/total requests)
+- Retry counts and success rates
+
+**Performance Metrics**:
+- Request throughput (requests/second)
+- Memory usage over time
+- CPU utilization
+- DynamoDB read/write capacity consumed
+
+**Consent Metrics**:
+- Consent check outcomes (granted/denied)
+- Consent cache hit rate
+- Organizations with active consent
+
 ## Rollback Plan
 
 If issues arise after deployment:
@@ -342,6 +603,29 @@ If issues arise after deployment:
 
 - **Minor issues**: Fix forward with hotfix
 - **Major issues**: Full rollback to last known good version
+
+#### Deprecate Broken npm Version
+
+If critical bug is discovered:
+
+```bash
+# Deprecate the broken version
+npm deprecate @phase-mirror/mcp-server@0.2.0 "Critical bug in tool X, use 0.2.1 instead"
+
+# Publish hotfix
+npm version patch  # 0.2.0 -> 0.2.1
+npm publish
+
+# Verify deprecation notice appears
+npm view @phase-mirror/mcp-server@0.2.0
+```
+
+#### Notify Users
+
+- Update GitHub release notes with warning
+- Post announcement in Discord/community channels (if available)
+- Send email notification for critical security issues
+- Update documentation site with notice
 
 ### 4. Post-Mortem
 
