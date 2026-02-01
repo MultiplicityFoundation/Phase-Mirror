@@ -124,7 +124,9 @@ export class EnhancedNoOpConsentStore implements IEnhancedConsentStore {
  * Helper to create an enhanced consent store
  */
 export function createEnhancedConsentStore(baseStore?: IConsentStore): IEnhancedConsentStore {
-  // For now, return NoOp store. In production, this would wrap the DynamoDB store
-  // with enhanced functionality
+  // For now, return NoOp store for backward compatibility
+  // In production, you can pass a ConsentStore instance:
+  // import { ConsentStore } from './store.js';
+  // return new ConsentStore({ tableName: 'consent', region: 'us-east-1' });
   return new EnhancedNoOpConsentStore();
 }
