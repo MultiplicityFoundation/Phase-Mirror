@@ -48,7 +48,11 @@ aws s3api get-bucket-encryption --bucket "$TF_STATE_BUCKET" --query 'ServerSideE
 
 # Public access block
 echo "Public Access Block:"
-aws s3api get-public-access-block --bucket "$TF_STATE_BUCKET" --query 'PublicAccessBlockConfiguration' --output json 2>/dev/null | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+if command -v jq &>/dev/null; then
+  aws s3api get-public-access-block --bucket "$TF_STATE_BUCKET" --query 'PublicAccessBlockConfiguration' --output json 2>/dev/null | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+else
+  aws s3api get-public-access-block --bucket "$TF_STATE_BUCKET" --query 'PublicAccessBlockConfiguration' --output json 2>/dev/null || echo "  Not configured (jq required for formatted output)"
+fi
 
 # Tags
 echo

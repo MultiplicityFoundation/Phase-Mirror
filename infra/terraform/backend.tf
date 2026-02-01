@@ -73,13 +73,13 @@ terraform {
 #    - PITR enabled on lock table (35-day recovery)
 #    - To restore previous state version:
 #        # WARNING: Always backup current state before pushing a previous version!
-#        # Step 1: Backup current state
-#        terraform state pull > current-state-backup.json
+#        # Step 1: Backup current state (verify non-empty)
+#        terraform state pull > current-state-backup.json && test -s current-state-backup.json || echo "ERROR: Backup failed or is empty"
 #        # Step 2: List available versions
 #        aws s3api list-object-versions --bucket mirror-dissonance-terraform-state-prod --prefix phase-mirror/
 #        # Step 3: Download specific version
 #        aws s3api get-object --bucket mirror-dissonance-terraform-state-prod --key phase-mirror/terraform.tfstate --version-id VERSION_ID terraform.tfstate.backup
-#        # Step 4: Verify the backup state
-#        cat terraform.tfstate.backup | jq .
-#        # Step 5: Push the restored state (USE WITH CAUTION)
+#        # Step 4: Verify the backup state is valid JSON
+#        cat terraform.tfstate.backup | jq . > /dev/null && echo "Valid JSON" || echo "ERROR: Invalid JSON"
+#        # Step 5: Push the restored state (USE WITH EXTREME CAUTION)
 #        terraform state push terraform.tfstate.backup

@@ -20,12 +20,15 @@ if [ -z "$TF_LOCK_TABLE" ] || [ -z "$TF_STATE_BUCKET" ] || [ -z "$AWS_REGION" ];
   exit 1
 fi
 
+# Sanitize OPERATOR_NAME to prevent JSON injection
+OPERATOR_NAME_SAFE="${OPERATOR_NAME//\"/\\\"}"
+
 echo "=== Testing DynamoDB Lock Mechanism ==="
 echo
 
 # Simulate Terraform lock
 LOCK_ID="test-lock-$(date +%s)"
-LOCK_INFO='{"ID":"'$LOCK_ID'","Operation":"test","Info":"Manual lock test","Who":"'$OPERATOR_NAME'","Version":"1.0","Created":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","Path":"test/terraform.tfstate"}'
+LOCK_INFO='{"ID":"'$LOCK_ID'","Operation":"test","Info":"Manual lock test","Who":"'$OPERATOR_NAME_SAFE'","Version":"1.0","Created":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","Path":"test/terraform.tfstate"}'
 
 echo "Step 1: Acquiring lock..."
 aws dynamodb put-item \
