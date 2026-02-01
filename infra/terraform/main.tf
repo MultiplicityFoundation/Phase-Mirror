@@ -120,3 +120,16 @@ resource "aws_s3_bucket_public_access_block" "baselines" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+# IAM Roles for GitHub Actions
+module "iam" {
+  source = "./modules/iam"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+  github_org   = var.github_org
+  github_repo  = var.github_repo
+
+  tags = local.common_tags
+}

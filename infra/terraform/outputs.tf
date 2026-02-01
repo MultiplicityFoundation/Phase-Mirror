@@ -96,3 +96,14 @@ output "configuration_summary" {
     cloudwatch_dashboard_url = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${module.cloudwatch.dashboard_name}"
   }
 }
+
+# IAM Outputs
+output "github_terraform_role_arn" {
+  description = "GitHub Actions Terraform role ARN"
+  value       = module.iam.terraform_role_arn
+}
+
+output "github_deploy_role_arn" {
+  description = "GitHub Actions deploy role ARN"
+  value       = module.iam.deploy_role_arn
+}

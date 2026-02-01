@@ -38,3 +38,15 @@ variable "enable_circuit_breaker_alarm" {
   type        = bool
   default     = true
 }
+
+variable "github_org" {
+  description = "GitHub organization name"
+  type        = string
+  default     = "PhaseMirror"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "Phase-Mirror"
+}
