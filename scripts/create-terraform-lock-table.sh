@@ -13,10 +13,11 @@ fi
 source .env.aws-bootstrap
 
 # Verify required variables are set
-if [ -z "$TF_LOCK_TABLE" ] || [ -z "$AWS_REGION" ]; then
+if [ -z "$TF_LOCK_TABLE" ] || [ -z "$AWS_REGION" ] || [ -z "$AWS_ACCOUNT_ID" ]; then
   echo "❌ ERROR: Required environment variables not set"
   echo "   TF_LOCK_TABLE: $TF_LOCK_TABLE"
   echo "   AWS_REGION: $AWS_REGION"
+  echo "   AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
   echo "   Ensure .env.aws-bootstrap defines all required variables"
   exit 1
 fi

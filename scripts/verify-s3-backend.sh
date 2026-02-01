@@ -1,6 +1,12 @@
 #!/bin/bash
 # Verify S3 backend configuration
 
+# Check for required tools
+if ! command -v jq &>/dev/null; then
+  echo "⚠️  WARNING: jq not installed. Some output may not be formatted."
+  echo "   Install with: sudo apt-get install jq (Debian/Ubuntu) or brew install jq (macOS)"
+fi
+
 # Source environment configuration with error handling
 if [ ! -f .env.aws-bootstrap ]; then
   echo "❌ ERROR: .env.aws-bootstrap not found"
