@@ -89,7 +89,8 @@ BILLING_MODE=$(aws dynamodb describe-table --table-name "$LOCK_TABLE" --region "
 if [ "$BILLING_MODE" = "PAY_PER_REQUEST" ]; then
   echo "      ✓ Billing mode: PAY_PER_REQUEST"
 else
-  echo "      ⚠ Billing mode: $BILLING_MODE (PAY_PER_REQUEST recommended)"
+  echo "      ⚠ Billing mode: $BILLING_MODE (PAY_PER_REQUEST recommended, but not required)"
+  # Note: This is a warning, not a failure - PROVISIONED billing mode works but may cost more
 fi
 
 # Test 8: Test write/read to S3

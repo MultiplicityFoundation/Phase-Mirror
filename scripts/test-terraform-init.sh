@@ -6,7 +6,14 @@ set -euo pipefail
 REGION="${AWS_REGION:-us-east-1}"
 LOCK_TABLE="mirror-dissonance-terraform-lock-prod"
 
-cd "$(dirname "$0")/../infra/terraform"
+# Validate terraform directory exists
+TERRAFORM_DIR="$(dirname "$0")/../infra/terraform"
+if [ ! -d "$TERRAFORM_DIR" ]; then
+  echo "Error: infra/terraform directory not found at $TERRAFORM_DIR"
+  exit 1
+fi
+
+cd "$TERRAFORM_DIR"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Terraform Initialization Test"
