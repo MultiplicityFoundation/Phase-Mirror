@@ -378,6 +378,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Setup Node with pnpm cache
+        uses: actions/setup-node@v4
+        with:
           cache: 'pnpm'
       
       - name: Run Oracle

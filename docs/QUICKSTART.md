@@ -130,7 +130,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'  # Uses latest 18.x - pin to specific version for reproducibility
+          node-version: '18'  # Uses latest 18.x - consider pinning (e.g., 18.20.0) for reproducibility
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
       
       - name: Run Mirror Dissonance
         run: |

@@ -193,7 +193,7 @@ CircuitBreakerError: Too many blocks detected (10 in last hour). Entering degrad
    aws dynamodb scan \
      --table-name mirror-dissonance-staging-fp-events \
      --filter-expression "timestamp > :time" \
-     --expression-attribute-values '{":time":{"N":"'$(date -d '1 hour ago' +%s)'"}}' \
+     --expression-attribute-values '{":time":{"N":"'$(date -d '1 hour ago' +%s 2>/dev/null || date -v-1H +%s)'"}}' \
      --limit 20
    ```
 
@@ -301,7 +301,7 @@ aws logs tail /aws/lambda/mirror-dissonance-staging --follow
 aws logs filter-log-events \
   --log-group-name /aws/lambda/mirror-dissonance-staging \
   --filter-pattern "ERROR" \
-  --start-time $(date -d '1 hour ago' +%s)000
+  --start-time $(date -d '1 hour ago' +%s 2>/dev/null || date -v-1H +%s)000
 ```
 
 ### Verify AWS Connectivity
