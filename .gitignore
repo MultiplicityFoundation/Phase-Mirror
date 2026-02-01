@@ -42,3 +42,5 @@ packages/mcp-server/test-results/*-filled.md
 
 # LocalStack data
 localstack-data/
+*.old
+*.backup
