@@ -1,0 +1,46 @@
+{
+  "name": "@phase-mirror/mcp-server",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for Phase Mirror governance tooling",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "phase-mirror-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "phase-mirror",
+    "governance",
+    "ai-safety",
+    "copilot"
+  ],
+  "author": "Phase Mirror LLC",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8",
+    "@mirror-dissonance/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11",
+    "ts-jest": "^29.1.1",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
