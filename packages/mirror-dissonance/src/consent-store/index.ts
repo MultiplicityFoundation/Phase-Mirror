@@ -9,6 +9,7 @@ import { ConsentRecord, ConsentType } from '../../schemas/types.js';
 // Re-export schema types
 export * from './schema.js';
 export * from './enhanced-store.js';
+export * from './store.js';
 
 export interface ConsentStoreConfig {
   tableName: string;
