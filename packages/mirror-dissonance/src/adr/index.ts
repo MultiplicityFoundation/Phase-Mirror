@@ -5,12 +5,30 @@
  * code against Architecture Decision Records.
  */
 
-export * from "./types.js";
-export * from "./parser.js";
-export * from "./matcher.js";
-export * from "./validator.js";
+import { ADRParser as ADRParserClass } from "./parser.js";
 
-// Re-export convenience functions
-export { createADRParser } from "./parser.js";
-export { createADRMatcher } from "./matcher.js";
-export { createADRValidator } from "./validator.js";
+// Export classes and functions
+export { ADRParser, createADRParser } from "./parser.js";
+export { ADRMatcher, createADRMatcher } from "./matcher.js";
+export { ADRValidator, createADRValidator } from "./validator.js";
+
+// Export types
+export type {
+  ParsedADR,
+  DecisionRule,
+  ADRViolation,
+  ADRComplianceResult,
+  FilePattern,
+} from "./types.js";
+
+// Convenience: Export parseADRs as an alias
+export async function parseADRs(adrPath: string) {
+  const parser = new ADRParserClass();
+  return parser.parseADRDirectory(adrPath);
+}
+
+// For backward compatibility, also export with ADRComplianceValidator alias
+export { ADRValidator as ADRComplianceValidator } from "./validator.js";
+
+// Export report type with alias
+export type { ADRComplianceResult as ADRComplianceReport } from "./types.js";
