@@ -99,8 +99,11 @@ export async function execute(
     let name = "unknown";
     if (issueContext && issueContext.includes("/")) {
       const parts = issueContext.split("/");
-      owner = parts[0];
-      name = parts[1];
+      // Handle "owner/repo" or "org/team/repo" formats
+      if (parts.length >= 2) {
+        owner = parts[0];
+        name = parts.slice(1).join("/"); // Handle nested paths like "org/team/repo"
+      }
     } else if (issueContext) {
       name = issueContext;
     }
@@ -176,6 +179,11 @@ export async function execute(
  * Extract ADR references from violations
  */
 function extractADRReferencesFromViolations(violations: any[]): string[] {
+  // Handle null/undefined violations
+  if (!violations || !Array.isArray(violations)) {
+    return [];
+  }
+
   const adrPattern = /ADR-\d{3}/g;
   const adrRefs = new Set<string>();
 

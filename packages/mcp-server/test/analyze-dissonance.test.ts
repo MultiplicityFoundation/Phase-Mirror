@@ -9,8 +9,8 @@ describe("analyze_dissonance tool", () => {
   let testFile: string;
 
   beforeAll(async () => {
-    // Create a temporary test directory and file
-    testDir = join(tmpdir(), `mcp-test-${Date.now()}`);
+    // Create a temporary test directory and file with unique name
+    testDir = join(tmpdir(), `mcp-test-${Date.now()}-${process.pid}`);
     await mkdir(testDir, { recursive: true });
     testFile = join(testDir, "test.ts");
     await writeFile(testFile, 'export function test() { return true; }');
@@ -106,5 +106,42 @@ describe("analyze_dissonance tool", () => {
       const result = analyzeDissonanceTool.AnalyzeDissonanceInputSchema.safeParse(input);
       expect(result.success).toBe(true);
     });
+  });
+
+  it("handles nested repository paths in context", async () => {
+    const context = createMockContext();
+    const input = {
+      files: [testFile],
+      mode: "issue" as const,
+      context: "org/team/repo",
+    };
+
+    const response = await analyzeDissonanceTool.execute(input, context);
+
+    expect(response.isError).toBeUndefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+    }
+  });
+
+  it("handles null violations gracefully in ADR extraction", async () => {
+    const context = createMockContext();
+    const input = {
+      files: [testFile],
+      mode: "issue" as const,
+    };
+
+    const response = await analyzeDissonanceTool.execute(input, context);
+
+    // Should not throw even if violations are null/empty
+    expect(response.isError).toBeUndefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.analysis.adrReferences).toBeDefined();
+      expect(Array.isArray(parsed.analysis.adrReferences)).toBe(true);
+    }
   });
 });
