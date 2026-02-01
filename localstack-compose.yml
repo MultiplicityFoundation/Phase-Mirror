@@ -10,12 +10,8 @@ services:
     environment:
       - SERVICES=dynamodb,ssm,kms,s3
       - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
-      - DOCKER_HOST=unix:///var/run/docker.sock
       - AWS_DEFAULT_REGION=us-east-1
-      - PERSISTENCE=1
     volumes:
-      - "./localstack-data:/tmp/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
       - phase-mirror-test
