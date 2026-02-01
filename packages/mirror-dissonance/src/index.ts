@@ -45,5 +45,17 @@ export type {
   FPTrendPoint,
 } from "./fp-store/index.js";
 
+// Consent Store
+export {
+  createConsentStore,
+  DynamoDBConsentStore,
+  NoOpConsentStore,
+} from "./consent-store/index.js";
+
+export type {
+  IConsentStore,
+  ConsentStoreConfig,
+} from "./consent-store/index.js";
+
 // Re-export commonly used types
 export type { FalsePositiveEvent } from "../schemas/types.js";

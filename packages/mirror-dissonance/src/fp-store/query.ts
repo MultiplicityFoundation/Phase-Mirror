@@ -231,6 +231,64 @@ export class FPStoreQuery {
     // Sort by FPR descending
     return results.sort((a, b) => b.fpr - a.fpr);
   }
+
+  /**
+   * Compare FP rates with calibration threshold
+   */
+  async compareFPRates(
+    ruleIds: string[],
+    options: {
+      threshold?: number;
+      startDate?: Date;
+      endDate?: Date;
+    } = {}
+  ): Promise<Array<FPRateResult & { needsCalibration: boolean }>> {
+    const threshold = options.threshold || 0.1;
+    const results = await this.compareRules(ruleIds, options);
+    
+    return results.map(result => ({
+      ...result,
+      needsCalibration: result.fpr > threshold,
+    }));
+  }
+
+  /**
+   * Detect trend direction from trend points
+   */
+  detectTrend(trendPoints: FPTrendPoint[]): "increasing" | "decreasing" | "stable" {
+    if (trendPoints.length < 2) {
+      return "stable";
+    }
+
+    // Calculate simple linear regression slope
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumX2 = 0;
+    const n = trendPoints.length;
+
+    trendPoints.forEach((point, index) => {
+      const x = index;
+      const y = point.fpr;
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumX2 += x * x;
+    });
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+    // Threshold for considering a trend
+    const threshold = 0.001;
+
+    if (slope > threshold) {
+      return "increasing";
+    } else if (slope < -threshold) {
+      return "decreasing";
+    } else {
+      return "stable";
+    }
+  }
 }
 
 /**
