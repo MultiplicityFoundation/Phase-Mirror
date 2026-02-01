@@ -28,3 +28,6 @@ export function log(level: string, message: string, data?: unknown) {
   const logData = data ? ` ${JSON.stringify(data)}` : '';
   console.error(`[${timestamp}] [${level.toUpperCase()}] ${message}${logData}`);
 }
+
+// Re-export config utilities
+export { requireConfig } from './config.js';
