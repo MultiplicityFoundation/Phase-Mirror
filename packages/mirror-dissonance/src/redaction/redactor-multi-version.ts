@@ -45,10 +45,14 @@ export function redact(
 
   // Apply all patterns
   for (const { regex, replacement } of patterns) {
-    const matches = result.match(new RegExp(regex, 'g'));
+    // Compile regex once with global flag
+    const globalRegex = new RegExp(regex, 'g');
+    const matches = result.match(globalRegex);
     if (matches) {
       hits += matches.length;
-      result = result.replace(new RegExp(regex, 'g'), replacement);
+      // Reset lastIndex since we already used it for match()
+      globalRegex.lastIndex = 0;
+      result = result.replace(globalRegex, replacement);
     }
   }
 
@@ -93,14 +97,23 @@ export function isValidRedactedText(obj: unknown): obj is RedactedText {
   const validNonces = getValidNonces();
 
   for (const nonceRecord of validNonces) {
-    // Check brand
+    // Check brand using timing-safe comparison
     const expectedBrand = computeHMAC(
       nonceRecord.nonce,
       'PHASE_MIRROR_REDACTED'
     );
 
-    if (candidate.brand !== expectedBrand) {
-      continue; // Try next nonce
+    try {
+      // Use timing-safe comparison for brand to prevent timing attacks
+      if (!timingSafeEqual(
+        Buffer.from(candidate.brand, 'hex'),
+        Buffer.from(expectedBrand, 'hex')
+      )) {
+        continue; // Try next nonce
+      }
+    } catch {
+      // timingSafeEqual throws if lengths differ
+      continue;
     }
 
     // Check MAC
