@@ -83,13 +83,6 @@ export interface L0ValidationResult {
 export class L0Validator {
   private config: Required<L0ValidatorConfig>;
   
-  // Expected schema version and hash (from existing implementation)
-  private static readonly EXPECTED_SCHEMA_VERSION = '1.0';
-  private static readonly EXPECTED_SCHEMA_HASH = 'f7a8b9c0';
-  
-  // Reserved permission bits mask
-  private static readonly RESERVED_PERMISSION_BITS_MASK = 0b1111000000000000;
-  
   constructor(config: L0ValidatorConfig = {}) {
     this.config = {
       driftThreshold: config.driftThreshold ?? 0.5,

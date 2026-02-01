@@ -267,7 +267,9 @@ export async function execute(
 
     // Contraction witness validation
     if (validatedInput.contractionCheck) {
-      // Note: We don't have actual witness events, so we simulate based on count
+      // Generate synthetic witness events based on count
+      // Note: In production use, actual witness event data should be provided
+      // This simulation ensures all events pass validation for testing purposes
       const witnessEvents = Array(validatedInput.contractionCheck.witnessEventCount)
         .fill(null)
         .map((_, i) => ({
@@ -275,7 +277,7 @@ export async function execute(
           ruleId: "MD-001",
           outcome: "warn" as const,
           isFalsePositive: true,
-          reviewedBy: "reviewer",
+          reviewedBy: "reviewer", // Synthetic - all marked as reviewed
           timestamp: new Date(),
         }));
 
@@ -299,7 +301,11 @@ export async function execute(
       // Filter results to only requested checks
       const allResults = await validator.validateAll(l0Input);
       const requestedNames = new Set(validatedInput.checks);
-      results = allResults.filter((r: L0ValidationResult) => requestedNames.has(r.invariantName as any));
+      // Type-safe filtering with proper type assertion
+      type InvariantName = "schema_hash" | "permission_bits" | "drift_magnitude" | "nonce_freshness" | "contraction_witness";
+      results = allResults.filter((r: L0ValidationResult) => 
+        requestedNames.has(r.invariantName as InvariantName)
+      );
     } else {
       // Run all applicable checks
       results = await validator.validateAll(l0Input);

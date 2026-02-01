@@ -482,6 +482,8 @@ The validate-l0-invariants test suite includes 16 test cases covering:
 - Multiple failure scenarios
 - Performance metrics
 - Selective check filtering
+
+All tests in the mcp-server package (26 total across all test suites) should pass.
 - Error handling
 
 All tests in the mcp-server package (24 total) should pass.
