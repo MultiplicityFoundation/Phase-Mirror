@@ -34,11 +34,13 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.checkType).toBe("validate");
-    expect(parsed.validation.checkedResources).toContain("fp_patterns");
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.checkType).toBe("validate");
+      expect(parsed.validation.checkedResources).toContain("fp_patterns");
+    }
   });
 
   it("validates multiple resources", async () => {
@@ -51,10 +53,12 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.validation.checkedResources).toHaveLength(2);
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.validation.checkedResources).toHaveLength(2);
+    }
   });
 
   it("returns consent summary", async () => {
@@ -66,11 +70,13 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.consentSummary).toBeDefined();
-    expect(parsed.consentSummary.statistics.totalResources).toBe(CONSENT_RESOURCES.length);
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.consentSummary).toBeDefined();
+      expect(parsed.consentSummary.statistics.totalResources).toBe(CONSENT_RESOURCES.length);
+    }
   });
 
   it("checks required consents for operation", async () => {
@@ -84,12 +90,14 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.requiredConsents.tool).toBe("query_fp_store");
-    expect(parsed.requiredConsents.operation).toBe("fp_rate");
-    expect(parsed.requiredConsents.requiredResources).toContain("fp_metrics");
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.requiredConsents.tool).toBe("query_fp_store");
+      expect(parsed.requiredConsents.operation).toBe("fp_rate");
+      expect(parsed.requiredConsents.requiredResources).toContain("fp_metrics");
+    }
   });
 
   it("handles operation with no consent required", async () => {
@@ -102,11 +110,13 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.requiredConsents.requiresConsent).toBe(false);
-    expect(parsed.canProceed).toBe(true);
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.requiredConsents.requiresConsent).toBe(false);
+      expect(parsed.canProceed).toBe(true);
+    }
   });
 
   it("includes policy details when requested", async () => {
@@ -119,12 +129,14 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.policy).toBeDefined();
-    expect(parsed.policy.version).toBeDefined();
-    expect(parsed.policy.resources).toBeDefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.policy).toBeDefined();
+      expect(parsed.policy.version).toBeDefined();
+      expect(parsed.policy.resources).toBeDefined();
+    }
   });
 
   it("returns error when resources missing for validate", async () => {
@@ -137,10 +149,12 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(false);
-    expect(parsed.code).toBe("MISSING_PARAMETER");
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(false);
+      expect(parsed.code).toBe("MISSING_PARAMETER");
+    }
   });
 
   it("returns error when tool missing for required_for_operation", async () => {
@@ -153,10 +167,12 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(false);
-    expect(parsed.code).toBe("MISSING_PARAMETER");
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(false);
+      expect(parsed.code).toBe("MISSING_PARAMETER");
+    }
   });
 
   it("provides recommendations for missing consent", async () => {
@@ -171,10 +187,12 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.recommendations).toBeDefined();
-    expect(Array.isArray(parsed.recommendations)).toBe(true);
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.recommendations).toBeDefined();
+      expect(Array.isArray(parsed.recommendations)).toBe(true);
+    }
   });
 
   it("includes compliance information", async () => {
@@ -186,12 +204,14 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.compliance).toBeDefined();
-    expect(parsed.compliance.gdprCompliant).toBe(true);
-    expect(parsed.compliance.adr004Compliant).toBe(true);
-    expect(parsed.compliance.policyVersion).toBeDefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.compliance).toBeDefined();
+      expect(parsed.compliance.gdprCompliant).toBe(true);
+      expect(parsed.compliance.adr004Compliant).toBe(true);
+      expect(parsed.compliance.policyVersion).toBeDefined();
+    }
   });
 
   it("includes resource details for required_for_operation with policy", async () => {
@@ -206,15 +226,17 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.resourceDetails).toBeDefined();
-    expect(Array.isArray(parsed.resourceDetails)).toBe(true);
-    if (parsed.resourceDetails && parsed.resourceDetails.length > 0) {
-      expect(parsed.resourceDetails[0]).toHaveProperty('resource');
-      expect(parsed.resourceDetails[0]).toHaveProperty('riskLevel');
-      expect(parsed.resourceDetails[0]).toHaveProperty('dataRetention');
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.resourceDetails).toBeDefined();
+      expect(Array.isArray(parsed.resourceDetails)).toBe(true);
+      if (parsed.resourceDetails && parsed.resourceDetails.length > 0) {
+        expect(parsed.resourceDetails[0]).toHaveProperty('resource');
+        expect(parsed.resourceDetails[0]).toHaveProperty('riskLevel');
+        expect(parsed.resourceDetails[0]).toHaveProperty('dataRetention');
+      }
     }
   });
 
@@ -227,11 +249,13 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.consentUrl).toBeDefined();
-    expect(parsed.consentUrl).toContain("test-org-123");
-    expect(parsed.consentUrl).toContain("https://phasemirror.com/console/consent");
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.consentUrl).toBeDefined();
+      expect(parsed.consentUrl).toContain("test-org-123");
+      expect(parsed.consentUrl).toContain("https://phasemirror.com/console/consent");
+    }
   });
 
   it("categorizes resources by state in summary", async () => {
@@ -243,14 +267,16 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.consentSummary.resources).toBeDefined();
-    expect(parsed.consentSummary.resources.granted).toBeDefined();
-    expect(parsed.consentSummary.resources.pending).toBeDefined();
-    expect(parsed.consentSummary.resources.expired).toBeDefined();
-    expect(parsed.consentSummary.resources.revoked).toBeDefined();
-    expect(parsed.consentSummary.resources.notRequested).toBeDefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.consentSummary.resources).toBeDefined();
+      expect(parsed.consentSummary.resources.granted).toBeDefined();
+      expect(parsed.consentSummary.resources.pending).toBeDefined();
+      expect(parsed.consentSummary.resources.expired).toBeDefined();
+      expect(parsed.consentSummary.resources.revoked).toBeDefined();
+      expect(parsed.consentSummary.resources.notRequested).toBeDefined();
+    }
   });
 
   it("calculates coverage percentage correctly", async () => {
@@ -262,11 +288,13 @@ describe("check_consent_requirements tool", () => {
     };
 
     const response = await checkConsentTool.execute(input, context);
-    const parsed = JSON.parse(response.content[0].text!);
-
-    expect(parsed.consentSummary.statistics.coveragePercent).toBeDefined();
-    expect(typeof parsed.consentSummary.statistics.coveragePercent).toBe('number');
-    expect(parsed.consentSummary.statistics.coveragePercent).toBeGreaterThanOrEqual(0);
-    expect(parsed.consentSummary.statistics.coveragePercent).toBeLessThanOrEqual(100);
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.consentSummary.statistics.coveragePercent).toBeDefined();
+      expect(typeof parsed.consentSummary.statistics.coveragePercent).toBe('number');
+      expect(parsed.consentSummary.statistics.coveragePercent).toBeGreaterThanOrEqual(0);
+      expect(parsed.consentSummary.statistics.coveragePercent).toBeLessThanOrEqual(100);
+    }
   });
 });
