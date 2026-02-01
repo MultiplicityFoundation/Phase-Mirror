@@ -448,6 +448,9 @@ Run all unit tests:
 pnpm test
 ```
 
+### MCP Inspector Testing
+
+#### Quick Start
 Run specific test file:
 ```bash
 pnpm test analyze-dissonance.test.ts
@@ -471,6 +474,17 @@ Use the provided script to test with actual repository files:
 
 Interactive testing with MCP Inspector:
 ```bash
+cd packages/mcp-server
+./scripts/test-inspector.sh
+```
+
+This opens the MCP Inspector UI in your browser for interactive testing.
+
+#### Automated Testing
+
+```bash
+cd packages/mcp-server
+node scripts/run-inspector-tests.js
 pnpm build
 npx @modelcontextprotocol/inspector node dist/src/index.js
 ```
@@ -484,8 +498,20 @@ Test tool list:
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node dist/src/index.js
 ```
 
-### GitHub Copilot Testing
+This runs all test cases from `test-cases/inspector-test-cases.json` and generates a report.
 
+#### Documentation
+
+- **[Testing Guide](./docs/testing-guide.md)**: Complete testing procedures for Day 6-7
+- **[Test Cases](./test-cases/inspector-test-cases.json)**: Comprehensive test scenarios
+- **[Test Log Template](./test-results/inspector-test-log.md)**: Manual testing documentation
+
+### GitHub Copilot Integration
+
+For production integration with GitHub Copilot coding agent, see:
+
+- **[GitHub Copilot Integration Guide](./docs/github-copilot-integration.md)**: Complete setup instructions
+- **[Testing Guide - Day 7](./docs/testing-guide.md#day-7-github-copilot-integration-testing)**: End-to-end integration testing
 1. Configure MCP server in repository settings
 2. Create test issue
 3. Assign to @copilot with instructions to use analyze_dissonance
@@ -527,8 +553,17 @@ packages/mcp-server/
 │   │   └── logger.ts
 │   └── types/                # TypeScript types
 ├── test/                     # Unit tests
+├── scripts/                  # Testing and utility scripts
+│   ├── test-inspector.sh     # Start MCP Inspector
+│   └── run-inspector-tests.js # Automated test runner
+├── test-cases/               # Test case definitions
+│   └── inspector-test-cases.json
+├── test-results/             # Test result templates
+│   └── inspector-test-log.md
 ├── docs/                     # Documentation
-│   └── l0-invariants-reference.md
+│   ├── l0-invariants-reference.md
+│   ├── testing-guide.md
+│   └── github-copilot-integration.md
 ├── package.json
 └── tsconfig.json
 ```

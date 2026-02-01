@@ -1,0 +1,183 @@
+{
+  "analyze_dissonance": {
+    "test_1_basic_analysis": {
+      "description": "Basic analysis with single file",
+      "input": {
+        "files": ["../../README.md"],
+        "mode": "issue"
+      },
+      "expected": {
+        "success": true,
+        "analysis.filesAnalyzed": 1,
+        "analysis.summary": "object"
+      }
+    },
+    "test_2_workflow_analysis": {
+      "description": "Analyze GitHub Actions workflow",
+      "input": {
+        "files": ["../../.github/workflows/ci.yml"],
+        "mode": "pull_request",
+        "context": "Testing CI workflow for permission issues"
+      },
+      "expected": {
+        "success": true,
+        "analysis.mode": "pull_request"
+      }
+    },
+    "test_3_multiple_files": {
+      "description": "Analyze multiple files at once",
+      "input": {
+        "files": [
+          "../../packages/cli/src/index.ts",
+          "../../packages/cli/package.json"
+        ],
+        "mode": "issue"
+      },
+      "expected": {
+        "success": true,
+        "analysis.filesAnalyzed": 2,
+        "analysis.summary": "object"
+      }
+    },
+    "test_4_invalid_input": {
+      "description": "Test input validation (empty files array)",
+      "input": {
+        "files": []
+      },
+      "expected": {
+        "success": false,
+        "code": "INVALID_INPUT"
+      }
+    },
+    "test_5_missing_file": {
+      "description": "Test error handling (nonexistent file)",
+      "input": {
+        "files": ["/nonexistent/path/file.ts"],
+        "mode": "issue"
+      },
+      "expected": {
+        "success": false,
+        "code": "EXECUTION_FAILED"
+      }
+    }
+  },
+  "validate_l0_invariants": {
+    "test_1_permission_check": {
+      "description": "Validate GitHub Actions permissions",
+      "input": {
+        "workflowFiles": ["../../.github/workflows/ci.yml"]
+      },
+      "expected": {
+        "success": true,
+        "validation.checksRun": 1
+      }
+    },
+    "test_2_nonce_freshness": {
+      "description": "Validate fresh nonce",
+      "input": {
+        "nonceValidation": {
+          "nonce": "test-nonce-abc123",
+          "timestamp": "2026-02-01T06:00:00Z",
+          "maxAgeSeconds": 3600
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": true
+      }
+    },
+    "test_3_expired_nonce": {
+      "description": "Detect expired nonce",
+      "input": {
+        "nonceValidation": {
+          "nonce": "old-nonce",
+          "timestamp": "2026-01-31T00:00:00Z",
+          "maxAgeSeconds": 3600
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": false,
+        "validation.failures[0].invariantId": "L0-004"
+      }
+    },
+    "test_4_drift_within_threshold": {
+      "description": "Drift within acceptable range",
+      "input": {
+        "driftCheck": {
+          "currentMetric": { "name": "score", "value": 95 },
+          "baselineMetric": { "name": "score", "value": 100 },
+          "threshold": 0.1
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": true
+      }
+    },
+    "test_5_drift_exceeds_threshold": {
+      "description": "Drift exceeds threshold",
+      "input": {
+        "driftCheck": {
+          "currentMetric": { "name": "score", "value": 50 },
+          "baselineMetric": { "name": "score", "value": 100 },
+          "threshold": 0.3
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": false,
+        "validation.failures[0].invariantId": "L0-003"
+      }
+    },
+    "test_6_contraction_legitimate": {
+      "description": "Legitimate FPR contraction with evidence",
+      "input": {
+        "contractionCheck": {
+          "previousFPR": 0.08,
+          "currentFPR": 0.03,
+          "witnessEventCount": 20,
+          "minRequiredEvents": 10
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": true
+      }
+    },
+    "test_7_contraction_illegitimate": {
+      "description": "Illegitimate FPR contraction (insufficient evidence)",
+      "input": {
+        "contractionCheck": {
+          "previousFPR": 0.08,
+          "currentFPR": 0.03,
+          "witnessEventCount": 3,
+          "minRequiredEvents": 10
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.allPassed": false,
+        "validation.failures[0].invariantId": "L0-005"
+      }
+    },
+    "test_8_multi_check": {
+      "description": "Multiple checks in single call",
+      "input": {
+        "workflowFiles": ["../../.github/workflows/ci.yml"],
+        "nonceValidation": {
+          "nonce": "multi-check-nonce",
+          "timestamp": "2026-02-01T06:00:00Z"
+        },
+        "driftCheck": {
+          "currentMetric": { "name": "security", "value": 98 },
+          "baselineMetric": { "name": "security", "value": 100 }
+        }
+      },
+      "expected": {
+        "success": true,
+        "validation.checksRun": 3
+      }
+    }
+  }
+}
