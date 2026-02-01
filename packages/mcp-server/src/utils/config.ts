@@ -14,9 +14,9 @@ export function requireConfig(config: MCPServerConfig): Required<MCPServerConfig
   
   return {
     awsRegion: config.awsRegion,
-    fpTableName: config.fpTableName || undefined,
-    consentTableName: config.consentTableName || undefined,
-    nonceParameterName: config.nonceParameterName || undefined,
+    fpTableName: config.fpTableName,
+    consentTableName: config.consentTableName,
+    nonceParameterName: config.nonceParameterName,
     logLevel: config.logLevel || "info",
   } as Required<MCPServerConfig>;
 }

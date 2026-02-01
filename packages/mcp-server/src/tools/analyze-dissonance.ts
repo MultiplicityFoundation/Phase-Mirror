@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { 
-  AnalysisOrchestrator, 
-  type AnalysisOutput 
+  AnalysisOrchestrator
 } from "@mirror-dissonance/core/dist/src/oracle.js";
 import type { ToolContext, ToolResponse } from "../types/index.js";
-import { requireConfig } from "../utils/config.js";
 
 // Helper types
 interface RuleViolation {
@@ -197,6 +195,8 @@ export async function execute(
 
   try {
     // Map mode from tool schema to orchestrator schema
+    // 'issue' mode is used for planning phase analysis and maps to 'drift' mode in the orchestrator
+    // which performs baseline comparison without strict blocking behavior
     const orchestratorMode = mode === "issue" ? "drift" : mode;
     
     // Create orchestrator
@@ -213,21 +213,22 @@ export async function execute(
     // Check consent if FP patterns requested
     // Note: Using NoOpConsentStore which returns implicit consent by default
     if (includeFPPatterns) {
-      const orgId = repository.owner;
-      // The orchestrator uses NoOpConsentStore by default, which always returns true
       // In production, this would check actual consent records
+      // The orchestrator uses NoOpConsentStore by default, which always returns true
     }
 
     // Run analysis
     const report = await orchestrator.analyze({
       files,
       repository,
-      mode: orchestratorMode as any,
+      mode: orchestratorMode as 'pull_request' | 'merge_group' | 'drift' | 'calibration',
       context: userContext,
       commitSha,
     });
 
     // Format findings from violations
+    // Note: The current Oracle implementation doesn't provide file-level violation context
+    // In future versions, violations should include the specific file path where they occurred
     const findings: Finding[] = report.violations.map((v: RuleViolation, idx: number) => ({
       id: `finding-${idx + 1}`,
       ruleId: v.ruleId,
@@ -236,8 +237,8 @@ export async function execute(
       title: v.message,
       description: v.message,
       evidence: [{
-        path: files[0] || "unknown",
-        line: 1,
+        path: v.context.filePath as string || files[0] || "unknown",
+        line: (v.context.line as number) || 1,
         snippet: { value: String(v.context.snippet || "") },
       }],
       remediation: `Address ${v.severity} severity issue: ${v.message}`,
@@ -252,7 +253,7 @@ export async function execute(
     };
 
     // Optionally include FP patterns (placeholder for now)
-    let fpPatterns: Record<string, any> | undefined = undefined;
+    let fpPatterns: Record<string, { count: number; observedFPR: number; recentExamples: unknown[] }> | undefined = undefined;
     if (includeFPPatterns && findings.length > 0) {
       fpPatterns = {};
       const uniqueRules = new Set(findings.map((f: Finding) => f.ruleId));
@@ -359,7 +360,7 @@ function generateRecommendations(
   const recommendations: string[] = [];
 
   // Critical findings
-  const critical = findings.filter(f => f.severity === "critical");
+  const critical = findings.filter((f: { severity: string }) => f.severity === "critical");
   if (critical.length > 0) {
     recommendations.push(
       `Address ${critical.length} critical finding(s) immediately before proceeding`
