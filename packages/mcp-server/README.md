@@ -80,6 +80,54 @@ Run Mirror Dissonance protocol to detect inconsistencies across requirements, co
 }
 ```
 
+### validate_l0_invariants
+
+Validate foundation-tier L0 invariants that enforce non-negotiable governance rules. These checks run in <100ns and include: schema hash integrity, permission bits validation, drift magnitude checks, nonce freshness, and contraction witness validation.
+
+**Input:**
+
+```typescript
+{
+  schemaVersion: string;            // Format: "version:hash" (e.g., "1.0:f7a8b9c0")
+  permissionBits: number;           // 16-bit integer (0-65535), bits 12-15 must be 0
+  driftMagnitude: number;           // 0.0 to 1.0, threshold: 0.3
+  nonce: {
+    value: string;
+    issuedAt: number;               // Unix timestamp in milliseconds
+  };
+  contractionWitnessScore: number;  // Must be 1.0 for validation
+}
+```
+
+**Output:**
+
+```typescript
+{
+  success: boolean;
+  validation: {
+    passed: boolean;
+    decision: "ALLOW" | "BLOCK";
+    failedChecks: string[];         // e.g., ["schema_hash", "drift_magnitude"]
+    checkResults: {
+      "L0-001 (Schema Hash)": { passed: boolean, description: string },
+      "L0-002 (Permission Bits)": { passed: boolean, description: string },
+      "L0-003 (Drift Magnitude)": { passed: boolean, description: string },
+      "L0-004 (Nonce Freshness)": { passed: boolean, description: string },
+      "L0-005 (Contraction Witness)": { passed: boolean, description: string }
+    };
+    performance: {
+      latencyNs: number;
+      latencyMs: number;
+      target: string;
+    };
+    context: Record<string, unknown>;
+  };
+  message: string;
+}
+```
+
+**Documentation:** See [L0 Invariants Reference](./docs/l0-invariants-reference.md) for detailed documentation.
+
 ## Testing
 
 ### Unit Tests
@@ -111,12 +159,15 @@ packages/mcp-server/
 ├── src/
 │   ├── index.ts              # Server entry point
 │   ├── tools/                # Tool implementations
-│   │   └── analyze-dissonance.ts
+│   │   ├── analyze-dissonance.ts
+│   │   └── validate-l0-invariants.ts
 │   ├── utils/                # Utilities
 │   │   ├── config.ts
 │   │   └── logger.ts
 │   └── types/                # TypeScript types
 ├── test/                     # Unit tests
+├── docs/                     # Documentation
+│   └── l0-invariants-reference.md
 ├── package.json
 └── tsconfig.json
 ```
