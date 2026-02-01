@@ -1,0 +1,140 @@
+/**
+ * Multi-Version Redactor
+ * 
+ * Supports validating RedactedText created with different nonce versions
+ */
+
+import { createHmac, timingSafeEqual } from 'crypto';
+import {
+  getValidNonces,
+  getLatestNonce,
+  type NonceRecord
+} from '../nonce/multi-version-loader.js';
+
+export interface RedactedText {
+  brand: string;
+  mac: string;
+  nonceVersion: number;
+  value: string;
+  redactionHits: number;
+}
+
+export interface RedactionPattern {
+  regex: RegExp;
+  replacement: string;
+}
+
+/**
+ * Compute HMAC using nonce
+ */
+function computeHMAC(nonce: string, data: string): string {
+  return createHmac('sha256', nonce).update(data).digest('hex');
+}
+
+/**
+ * Redact text using latest nonce version
+ */
+export function redact(
+  input: string,
+  patterns: RedactionPattern[]
+): RedactedText {
+  const latestNonce = getLatestNonce();
+
+  let result = input;
+  let hits = 0;
+
+  // Apply all patterns
+  for (const { regex, replacement } of patterns) {
+    const matches = result.match(new RegExp(regex, 'g'));
+    if (matches) {
+      hits += matches.length;
+      result = result.replace(new RegExp(regex, 'g'), replacement);
+    }
+  }
+
+  // Compute brand (validates origin)
+  const brand = computeHMAC(latestNonce.nonce, 'PHASE_MIRROR_REDACTED');
+
+  // Compute MAC (validates integrity)
+  const mac = computeHMAC(latestNonce.nonce, result);
+
+  return {
+    brand,
+    mac,
+    nonceVersion: latestNonce.version,
+    value: result,
+    redactionHits: hits
+  };
+}
+
+/**
+ * Validate RedactedText using any valid nonce version
+ */
+export function isValidRedactedText(obj: unknown): obj is RedactedText {
+  // Type guard
+  if (!obj || typeof obj !== 'object') {
+    return false;
+  }
+
+  const candidate = obj as any;
+
+  // Check required fields
+  if (
+    typeof candidate.brand !== 'string' ||
+    typeof candidate.mac !== 'string' ||
+    typeof candidate.nonceVersion !== 'number' ||
+    typeof candidate.value !== 'string' ||
+    typeof candidate.redactionHits !== 'number'
+  ) {
+    return false;
+  }
+
+  // Try validation against all valid nonces
+  const validNonces = getValidNonces();
+
+  for (const nonceRecord of validNonces) {
+    // Check brand
+    const expectedBrand = computeHMAC(
+      nonceRecord.nonce,
+      'PHASE_MIRROR_REDACTED'
+    );
+
+    if (candidate.brand !== expectedBrand) {
+      continue; // Try next nonce
+    }
+
+    // Check MAC
+    const expectedMAC = computeHMAC(nonceRecord.nonce, candidate.value);
+
+    try {
+      if (
+        timingSafeEqual(
+          Buffer.from(candidate.mac, 'hex'),
+          Buffer.from(expectedMAC, 'hex')
+        )
+      ) {
+        // Valid with this nonce version
+        return true;
+      }
+    } catch {
+      // timingSafeEqual throws if lengths differ
+      continue;
+    }
+  }
+
+  // No valid nonce matched
+  return false;
+}
+
+/**
+ * Validate and get the nonce version used
+ */
+export function getRedactedTextVersion(
+  redactedText: RedactedText
+): number | null {
+  if (!isValidRedactedText(redactedText)) {
+    return null;
+  }
+
+  return redactedText.nonceVersion;
+}
