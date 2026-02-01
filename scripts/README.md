@@ -2,7 +2,141 @@
 
 This directory contains operational scripts for Phase Mirror infrastructure management, deployment, and testing.
 
-## Bootstrap Scripts (Day 15)
+## Environment Validation Scripts (Pre-Flight Week 0)
+
+### `update-progress.sh`
+**Purpose:** Automated daily progress tracking for MVP completion
+
+**Usage:**
+```bash
+./scripts/update-progress.sh <week-number>
+
+# Examples:
+./scripts/update-progress.sh 1  # Week 1 update
+./scripts/update-progress.sh 2  # Week 2 update
+```
+
+**Actions:**
+- Runs test suite and captures results
+- Generates coverage report (if available)
+- Counts known issues from `docs/known-issues.md`
+- Captures git status
+- Appends formatted update to `MVP_COMPLETION_TRACKER.md`
+
+**Generated Entry Includes:**
+- Date and week number
+- Current git branch
+- Test pass/fail counts
+- Coverage percentage
+- Known issues count (critical/important)
+- Uncommitted changes count
+- Sections for: Completed Today, Blockers, Tomorrow's Focus, Metrics
+
+**Run:** Daily at end of workday to track progress
+
+---
+
+### `validate-environment.sh`
+**Purpose:** Validates the development environment setup
+
+**Usage:**
+```bash
+./scripts/validate-environment.sh
+```
+
+**Checks:**
+- Prerequisites (node, pnpm, git, aws, terraform)
+- Repository structure
+- Build artifacts
+- AWS connectivity
+- Git status
+
+**Run:** Anytime to verify environment health
+
+---
+
+### `generate-environment-doc.sh`
+**Purpose:** Generates populated ENVIRONMENT.md documentation
+
+**Usage:**
+```bash
+./scripts/generate-environment-doc.sh
+```
+
+**Creates:**
+- Populated environment documentation with actual system values
+- System information (OS, Node, pnpm, AWS, Terraform versions)
+- AWS configuration details
+- Repository status
+- Build status
+
+**Output:** `ENVIRONMENT.md.generated` (review and rename to `ENVIRONMENT.md`)
+
+---
+
+## Bootstrap Scripts (Day -1 & Day 15)
+
+### `bootstrap-terraform-backend-env.sh`
+**Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management (with environment support)
+
+**Usage:**
+```bash
+# Use default values (dev environment)
+./scripts/bootstrap-terraform-backend-env.sh
+
+# Specify environment
+ENVIRONMENT=staging ./scripts/bootstrap-terraform-backend-env.sh
+ENVIRONMENT=production ./scripts/bootstrap-terraform-backend-env.sh
+
+# Full customization
+AWS_REGION=us-west-2 ENVIRONMENT=staging PROJECT_NAME=mirror-dissonance ./scripts/bootstrap-terraform-backend-env.sh
+```
+
+**Creates:**
+- S3 bucket with versioning, encryption, and lifecycle policies
+- DynamoDB table with Point-in-Time Recovery
+- Backend configuration file (`infra/terraform/backend-{env}.hcl`)
+
+**Features:**
+- Environment-specific naming (dev, staging, production)
+- Lifecycle policies (90-day version retention)
+- Comprehensive security settings
+- Auto-generated backend configuration
+
+**Run Once:** Before first `terraform init` for each environment
+
+---
+
+### `check-aws-limits.sh`
+**Purpose:** Checks AWS service limits to ensure sufficient quotas for deployment
+
+**Usage:**
+```bash
+./scripts/check-aws-limits.sh
+```
+
+**Checks:**
+- DynamoDB table limits (2500 max)
+- SSM parameter limits (10,000 max)
+- S3 bucket limits (1000 soft limit)
+- IAM role limits (5000 max)
+- VPC limits (5 default)
+- Lambda function limits (1000 max)
+- CloudWatch log groups
+
+**Output:**
+- ✓ Green: Under 70% of limit
+- ⚠ Yellow: 70-90% of limit (warning)
+- ✗ Red: >90% of limit (critical)
+
+**Exit Codes:**
+- 0: All limits OK
+- 1: Warnings (approaching limits)
+- 2: Critical (near limits, action required)
+
+**Run:** Before infrastructure deployment and periodically during operation
+
+---
 
 ### `bootstrap-terraform-backend.sh`
 **Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management
@@ -220,17 +354,24 @@ cd infra/terraform
 
 ## Usage Patterns
 
-### First-Time Setup (Day 15)
+### First-Time Setup (Pre-Flight Week 0 & Day 15)
 ```bash
-# 1. Bootstrap backend
-./scripts/bootstrap-terraform-backend.sh
+# 0. Validate environment (Pre-Flight Week 0)
+./scripts/validate-environment.sh
 
-# 2. Bootstrap nonce
+# 1. Generate environment documentation
+./scripts/generate-environment-doc.sh
+mv ENVIRONMENT.md.generated ENVIRONMENT.md
+
+# 2. Bootstrap backend (Day -1)
+ENVIRONMENT=dev ./scripts/bootstrap-terraform-backend-env.sh
+
+# 3. Bootstrap nonce (Day 15)
 ./scripts/bootstrap-nonce.sh staging
 
-# 3. Initialize Terraform
+# 4. Initialize Terraform
 cd infra/terraform
-terraform init
+terraform init -backend-config=backend-dev.hcl
 ```
 
 ### Staging Deployment (Days 16-17)

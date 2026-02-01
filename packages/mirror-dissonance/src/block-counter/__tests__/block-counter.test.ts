@@ -6,7 +6,13 @@ import { DynamoDBBlockCounter, InMemoryBlockCounter } from '../dynamodb.js';
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
-jest.mock('@aws-sdk/client-dynamodb');
+jest.mock('@aws-sdk/client-dynamodb', () => {
+  const actual = jest.requireActual('@aws-sdk/client-dynamodb');
+  return {
+    ...actual,
+    DynamoDBClient: jest.fn(),
+  };
+});
 jest.mock('@aws-sdk/util-dynamodb');
 
 describe('DynamoDBBlockCounter', () => {
@@ -50,6 +56,7 @@ describe('DynamoDBBlockCounter', () => {
 
       expect(mockSend).toHaveBeenCalled();
       const updateCommand = mockSend.mock.calls[0][0];
+      expect(updateCommand.input).toBeDefined();
       expect(updateCommand.input.UpdateExpression).toContain('expiresAt');
     });
 

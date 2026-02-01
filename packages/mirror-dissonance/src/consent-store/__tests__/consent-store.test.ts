@@ -7,7 +7,15 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 
 jest.mock('@aws-sdk/client-dynamodb');
-jest.mock('@aws-sdk/lib-dynamodb');
+jest.mock('@aws-sdk/lib-dynamodb', () => {
+  const actual = jest.requireActual('@aws-sdk/lib-dynamodb');
+  return {
+    ...actual,
+    DynamoDBDocumentClient: {
+      from: jest.fn(),
+    },
+  };
+});
 
 describe('DynamoDBConsentStore', () => {
   let store: DynamoDBConsentStore;
@@ -104,6 +112,7 @@ describe('DynamoDBConsentStore', () => {
 
       expect(mockSend).toHaveBeenCalledWith(expect.any(PutCommand));
       const putCommand = mockSend.mock.calls[0][0];
+      expect(putCommand.input).toBeDefined();
       expect(putCommand.input.Item).toEqual(record);
     });
 
