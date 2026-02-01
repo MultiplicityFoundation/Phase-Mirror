@@ -17,7 +17,7 @@ if curl -s "${LOCALSTACK_ENDPOINT}/_localstack/health" | jq -e '.services.s3 == 
   echo "      ✓ LocalStack S3 running"
 else
   echo "      ✗ LocalStack not running. Start with:"
-  echo "        docker-compose -f localstack-compose.yml up -d"
+  echo "        docker compose up -d (or docker-compose -f localstack-compose.yml up -d)"
   exit 1
 fi
 
@@ -47,8 +47,8 @@ echo "      ✓ Test lock table ready"
 echo ""
 echo "[4/4] Testing Terraform with LocalStack backend..."
 
-mkdir -p /tmp/tf-backend-test
-cd /tmp/tf-backend-test
+TEST_DIR=$(mktemp -d)
+cd "$TEST_DIR"
 
 cat > main.tf << 'TFEOF'
 terraform {
@@ -102,7 +102,7 @@ fi
 
 # Cleanup
 cd "$ORIGINAL_DIR"
-rm -rf /tmp/tf-backend-test
+rm -rf "$TEST_DIR"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
