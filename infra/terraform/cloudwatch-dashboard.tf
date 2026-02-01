@@ -16,8 +16,8 @@ resource "aws_cloudwatch_dashboard" "mirror_dissonance" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", { stat = "Sum", label = "Read Capacity" }],
-            [".", "ConsumedWriteCapacityUnits", { stat = "Sum", label = "Write Capacity" }],
+            ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", aws_dynamodb_table.fp_events.name, { stat = "Sum", label = "Read Capacity" }],
+            ["...", { stat = "Sum", label = "Write Capacity" }],
           ]
           period  = 300
           stat    = "Sum"
@@ -78,6 +78,7 @@ resource "aws_cloudwatch_dashboard" "mirror_dissonance" {
           metrics = [
             ["AWS/DynamoDB", "SystemErrors", "TableName", aws_dynamodb_table.fp_events.name, { stat = "Sum" }],
             ["...", aws_dynamodb_table.consent.name, { stat = "Sum" }],
+            ["...", aws_dynamodb_table.block_counter.name, { stat = "Sum" }],
           ]
           period  = 300
           stat    = "Sum"

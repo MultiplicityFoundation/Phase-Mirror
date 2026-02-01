@@ -51,7 +51,7 @@ terraform apply staging.tfplan
 # - 1 SNS topic (ops_alerts)
 # - 5-7 CloudWatch alarms
 # - 1 S3 bucket (baseline storage)
-# - 2 CloudWatch dashboards (module dashboard + infrastructure dashboard)
+# - CloudWatch dashboards (1 from monitoring module + 1 from main infrastructure)
 # - IAM roles for runtime access and GitHub Actions
 # - Tags on all resources
 
@@ -176,10 +176,10 @@ Watch: https://github.com/PhaseMirror/Phase-Mirror/actions
 
 ### Step 1: View CloudWatch Dashboard
 
-After applying Terraform, two dashboards are created:
+After applying Terraform, dashboards are created:
 
-1. **PhaseMirror-FPCalibration-staging**: Module-managed dashboard (from monitoring module)
-2. **MirrorDissonance-Infrastructure-staging**: Infrastructure dashboard (new)
+1. **PhaseMirror-FPCalibration-staging**: Application-level dashboard (from monitoring module)
+2. **MirrorDissonance-Infrastructure-staging**: Infrastructure-level dashboard (new in this PR)
 
 Access the infrastructure dashboard:
 
