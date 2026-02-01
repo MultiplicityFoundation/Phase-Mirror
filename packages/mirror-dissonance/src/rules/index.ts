@@ -25,14 +25,32 @@ export async function evaluateAllRules(input: OracleInput): Promise<RuleViolatio
     try {
       const violations = await checker(input);
       allViolations.push(...violations);
-    } catch (error) {
-      console.error(`Error evaluating rule ${ruleId}:`, error);
-      // Add a violation for rule evaluation failure
+    } catch (error: any) {
+      // Enhanced error context for troubleshooting
+      const errorType = error.name || 'UnknownError';
+      const errorMessage = error.message || String(error);
+      
+      console.error(
+        `Error evaluating rule ${ruleId}:`,
+        `\n  Error Type: ${errorType}`,
+        `\n  Message: ${errorMessage}`,
+        `\n  Mode: ${input.mode}`,
+        `\n  Repository: ${input.context?.repositoryName || 'unknown'}`,
+        error.stack ? `\n  Stack: ${error.stack}` : ''
+      );
+      
+      // Add a violation for rule evaluation failure with rich context
       allViolations.push({
         ruleId,
         severity: 'high',
-        message: `Rule evaluation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        context: { error: String(error) },
+        message: `Rule evaluation failed: ${errorMessage}`,
+        context: {
+          errorType,
+          errorMessage,
+          mode: input.mode,
+          repository: input.context?.repositoryName || 'unknown',
+          hasStackTrace: !!error.stack,
+        },
       });
     }
   }
