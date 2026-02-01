@@ -4,6 +4,7 @@
 set -euo pipefail
 
 LOCALSTACK_ENDPOINT="http://localhost:4566"
+ORIGINAL_DIR="$(pwd)"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Terraform Backend LocalStack Test"
@@ -73,6 +74,10 @@ resource "null_resource" "test" {
 }
 TFEOF
 
+# Set LocalStack endpoint for Terraform AWS provider
+export AWS_ENDPOINT_URL_S3="$LOCALSTACK_ENDPOINT"
+export AWS_ENDPOINT_URL_DYNAMODB="$LOCALSTACK_ENDPOINT"
+
 if terraform init; then
   echo "      ✓ Terraform init with LocalStack backend successful"
 else
@@ -96,7 +101,7 @@ else
 fi
 
 # Cleanup
-cd -
+cd "$ORIGINAL_DIR"
 rm -rf /tmp/tf-backend-test
 
 echo ""
