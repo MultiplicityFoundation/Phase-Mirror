@@ -1,7 +1,21 @@
 #!/bin/bash
 # Verify S3 backend configuration
 
+# Source environment configuration with error handling
+if [ ! -f .env.aws-bootstrap ]; then
+  echo "❌ ERROR: .env.aws-bootstrap not found"
+  echo "   Run: source .env.aws-bootstrap to set up environment"
+  exit 1
+fi
+
 source .env.aws-bootstrap
+
+# Verify required variables are set
+if [ -z "$TF_STATE_BUCKET" ]; then
+  echo "❌ ERROR: TF_STATE_BUCKET not set"
+  echo "   Ensure .env.aws-bootstrap defines all required variables"
+  exit 1
+fi
 
 echo "=== S3 Backend Verification Report ==="
 echo

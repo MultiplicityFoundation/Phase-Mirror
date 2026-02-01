@@ -1,7 +1,24 @@
 #!/bin/bash
 # Test DynamoDB state locking mechanism
 
+# Source environment configuration with error handling
+if [ ! -f .env.aws-bootstrap ]; then
+  echo "❌ ERROR: .env.aws-bootstrap not found"
+  echo "   Run: source .env.aws-bootstrap to set up environment"
+  exit 1
+fi
+
 source .env.aws-bootstrap
+
+# Verify required variables are set
+if [ -z "$TF_LOCK_TABLE" ] || [ -z "$TF_STATE_BUCKET" ] || [ -z "$AWS_REGION" ]; then
+  echo "❌ ERROR: Required environment variables not set"
+  echo "   TF_LOCK_TABLE: $TF_LOCK_TABLE"
+  echo "   TF_STATE_BUCKET: $TF_STATE_BUCKET"
+  echo "   AWS_REGION: $AWS_REGION"
+  echo "   Ensure .env.aws-bootstrap defines all required variables"
+  exit 1
+fi
 
 echo "=== Testing DynamoDB Lock Mechanism ==="
 echo
@@ -18,7 +35,7 @@ aws dynamodb put-item \
     "Info": {"S": "'"$LOCK_INFO"'"}
   }' \
   --condition-expression "attribute_not_exists(LockID)" \
-  --region $AWS_REGION
+  --region "$AWS_REGION"
 
 if [ $? -eq 0 ]; then
   echo "✅ Lock acquired successfully"
@@ -33,7 +50,7 @@ echo "Step 2: Verifying lock..."
 LOCK_DATA=$(aws dynamodb get-item \
   --table-name "$TF_LOCK_TABLE" \
   --key '{"LockID": {"S": "'"$TF_STATE_BUCKET"'/test/terraform.tfstate"}}' \
-  --region $AWS_REGION \
+  --region "$AWS_REGION" \
   --query 'Item.Info.S' \
   --output text)
 
@@ -49,7 +66,7 @@ if aws dynamodb put-item \
     "Info": {"S": "Duplicate lock attempt"}
   }' \
   --condition-expression "attribute_not_exists(LockID)" \
-  --region $AWS_REGION 2>/dev/null; then
+  --region "$AWS_REGION" 2>/dev/null; then
   echo "❌ ERROR: Duplicate lock should have been prevented!"
   exit 1
 else
@@ -62,14 +79,14 @@ echo "Step 4: Releasing lock..."
 aws dynamodb delete-item \
   --table-name "$TF_LOCK_TABLE" \
   --key '{"LockID": {"S": "'"$TF_STATE_BUCKET"'/test/terraform.tfstate"}}' \
-  --region $AWS_REGION
+  --region "$AWS_REGION"
 
 echo "✅ Lock released"
 
 # Verify lock removed
 echo
 echo "Step 5: Verifying lock removal..."
-ITEM_COUNT=$(aws dynamodb scan --table-name "$TF_LOCK_TABLE" --region $AWS_REGION --select COUNT --query 'Count' --output text)
+ITEM_COUNT=$(aws dynamodb scan --table-name "$TF_LOCK_TABLE" --region "$AWS_REGION" --select COUNT --query 'Count' --output text)
 echo "Remaining locks: $ITEM_COUNT"
 
 if [ "$ITEM_COUNT" -eq 0 ]; then
