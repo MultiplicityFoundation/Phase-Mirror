@@ -38,23 +38,6 @@ resource "aws_kms_key" "cloudwatch_logs" {
             "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:*"
           }
         }
-      },
-      {
-        Sid    = "Deny Unencrypted Operations"
-        Effect = "Deny"
-        Principal = {
-          AWS = "*"
-        }
-        Action = [
-          "kms:Decrypt",
-          "kms:ReEncrypt*"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "kms:BypassPolicyLockoutSafetyCheck" = "true"
-          }
-        }
       }
     ]
   })

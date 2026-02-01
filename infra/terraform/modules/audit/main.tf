@@ -126,6 +126,8 @@ resource "aws_cloudtrail" "main" {
     read_write_type           = "All"
     include_management_events = true
 
+    # Data event monitoring is optional - only configure if ARN lists are provided
+    # If both lists are empty, only management events will be logged
     dynamic "data_resource" {
       for_each = length(var.dynamodb_table_arns) > 0 ? [1] : []
       content {
