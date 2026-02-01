@@ -1,59 +1,34 @@
 import * as validateL0InvariantsTool from "../src/tools/validate-l0-invariants.js";
 import { createMockContext } from "./test-utils.js";
+import { writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 
-describe("validate_l0_invariants tool", () => {
-  it("validates input schema correctly", () => {
+describe("validate_l0_invariants tool (flexible API)", () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    // Create temp directory for test files
+    testDir = join(tmpdir(), `l0-test-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  it("validates input schema correctly with optional fields", () => {
     const validInput = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-123",
-        issuedAt: Date.now(),
+      checks: ["schema_hash", "drift_magnitude"],
+      driftCheck: {
+        currentMetric: { name: "test", value: 100 },
+        baselineMetric: { name: "test", value: 90 },
       },
-      contractionWitnessScore: 1.0,
     };
 
     const result = validateL0InvariantsTool.ValidateL0InvariantsInputSchema.safeParse(validInput);
     expect(result.success).toBe(true);
   });
 
-  it("rejects invalid input - missing required fields", () => {
+  it("rejects invalid input - bad check names", () => {
     const invalidInput = {
-      schemaVersion: "1.0:f7a8b9c0",
-      // Missing other required fields
-    };
-
-    const result = validateL0InvariantsTool.ValidateL0InvariantsInputSchema.safeParse(invalidInput);
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects invalid permissionBits (negative)", () => {
-    const invalidInput = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: -1, // Invalid: negative
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce",
-        issuedAt: Date.now(),
-      },
-      contractionWitnessScore: 1.0,
-    };
-
-    const result = validateL0InvariantsTool.ValidateL0InvariantsInputSchema.safeParse(invalidInput);
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects invalid driftMagnitude (out of range)", () => {
-    const invalidInput = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 1.5, // Invalid: > 1.0
-      nonce: {
-        value: "test-nonce",
-        issuedAt: Date.now(),
-      },
-      contractionWitnessScore: 1.0,
+      checks: ["invalid_check_name"],
     };
 
     const result = validateL0InvariantsTool.ValidateL0InvariantsInputSchema.safeParse(invalidInput);
@@ -62,7 +37,7 @@ describe("validate_l0_invariants tool", () => {
 
   it("returns error response for invalid input", async () => {
     const context = createMockContext();
-    const response = await validateL0InvariantsTool.execute({ schemaVersion: "invalid" }, context);
+    const response = await validateL0InvariantsTool.execute({ checks: ["invalid"] }, context);
 
     expect(response.isError).toBe(true);
     const content = response.content[0];
@@ -71,17 +46,14 @@ describe("validate_l0_invariants tool", () => {
     }
   });
 
-  it("executes validation successfully with valid state", async () => {
+  it("executes drift magnitude check successfully", async () => {
     const context = createMockContext();
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111, // Valid: no reserved bits
-      driftMagnitude: 0.15, // Valid: below threshold
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(), // Fresh nonce
+      driftCheck: {
+        currentMetric: { name: "violations", value: 10 },
+        baselineMetric: { name: "violations", value: 9 },
+        threshold: 0.5,
       },
-      contractionWitnessScore: 1.0, // Perfect coherence
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
@@ -92,173 +64,284 @@ describe("validate_l0_invariants tool", () => {
       const parsed = JSON.parse(content.text);
       expect(parsed.success).toBe(true);
       expect(parsed.validation).toBeDefined();
-      expect(parsed.validation.passed).toBe(true);
-      expect(parsed.validation.decision).toBe("ALLOW");
-      expect(parsed.validation.failedChecks).toHaveLength(0);
-      expect(parsed.validation.checkResults).toBeDefined();
-      expect(parsed.validation.performance).toBeDefined();
-      expect(parsed.validation.performance.latencyNs).toBeDefined();
+      expect(parsed.validation.checksPerformed).toBe(1);
+      expect(parsed.validation.results[0].invariantName).toBe("drift_magnitude");
     }
   });
 
-  it("detects schema hash failure", async () => {
+  it("detects drift magnitude violation", async () => {
     const context = createMockContext();
     const input = {
-      schemaVersion: "1.0:wronghash", // Invalid hash
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
+      driftCheck: {
+        currentMetric: { name: "violations", value: 200 },
+        baselineMetric: { name: "violations", value: 100 },
+        threshold: 0.5, // 50%
       },
-      contractionWitnessScore: 1.0,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.success).toBe(true);
       expect(parsed.validation.passed).toBe(false);
       expect(parsed.validation.decision).toBe("BLOCK");
-      expect(parsed.validation.failedChecks).toContain("schema_hash");
-      expect(parsed.message).toContain("BLOCKED");
+      expect(parsed.validation.results[0].passed).toBe(false);
+      expect(parsed.validation.results[0].message).toContain("exceeds threshold");
     }
   });
 
-  it("detects permission bits failure", async () => {
+  it("executes nonce freshness check successfully", async () => {
     const context = createMockContext();
+    const now = new Date();
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b1111111111111111, // Invalid: reserved bits set
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
+      nonceValidation: {
+        nonce: "test-nonce-123",
+        timestamp: now.toISOString(),
+        maxAgeSeconds: 3600,
       },
-      contractionWitnessScore: 1.0,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.failedChecks).toContain("permission_bits");
+      expect(parsed.validation.passed).toBe(true);
+      expect(parsed.validation.results[0].invariantName).toBe("nonce_freshness");
+      expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
 
-  it("detects drift magnitude failure", async () => {
+  it("detects expired nonce", async () => {
     const context = createMockContext();
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.5, // Invalid: above threshold (0.3)
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
+      nonceValidation: {
+        nonce: "old-nonce",
+        timestamp: twoHoursAgo.toISOString(),
+        maxAgeSeconds: 3600, // 1 hour
       },
-      contractionWitnessScore: 1.0,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
       expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.failedChecks).toContain("drift_magnitude");
+      expect(parsed.validation.results[0].passed).toBe(false);
+      expect(parsed.validation.results[0].message).toContain("expired");
     }
   });
 
-  it("detects nonce freshness failure", async () => {
+  it("executes contraction witness check successfully", async () => {
     const context = createMockContext();
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "old-nonce",
-        issuedAt: Date.now() - (2 * 60 * 60 * 1000), // 2 hours ago (expired)
+      contractionCheck: {
+        previousFPR: 0.15,
+        currentFPR: 0.10,
+        witnessEventCount: 15,
+        minRequiredEvents: 10,
       },
-      contractionWitnessScore: 1.0,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.failedChecks).toContain("nonce_freshness");
+      expect(parsed.validation.passed).toBe(true);
+      expect(parsed.validation.results[0].invariantName).toBe("contraction_witness");
+      expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
 
-  it("detects contraction witness failure", async () => {
+  it("detects insufficient witness events", async () => {
     const context = createMockContext();
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
+      contractionCheck: {
+        previousFPR: 0.15,
+        currentFPR: 0.10,
+        witnessEventCount: 5, // Too few
+        minRequiredEvents: 10,
       },
-      contractionWitnessScore: 0.8, // Invalid: must be 1.0
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
       expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.failedChecks).toContain("contraction_witness");
+      expect(parsed.validation.results[0].passed).toBe(false);
+      expect(parsed.validation.results[0].message).toContain("Insufficient evidence");
     }
   });
 
-  it("detects multiple failures", async () => {
+  it("executes schema hash check with file", async () => {
     const context = createMockContext();
+    const schemaFile = join(testDir, "test-schema.json");
+    const schemaContent = JSON.stringify({ version: "1.0", type: "test" });
+    writeFileSync(schemaFile, schemaContent);
+
+    // Calculate expected hash (first 8 chars of SHA-256)
+    const crypto = await import("crypto");
+    const hash = crypto.createHash('sha256').update(schemaContent).digest('hex').substring(0, 8);
+
     const input = {
-      schemaVersion: "1.0:wronghash", // Fail 1
-      permissionBits: 0b1111111111111111, // Fail 2
-      driftMagnitude: 0.5, // Fail 3
-      nonce: {
-        value: "old-nonce",
-        issuedAt: Date.now() - (2 * 60 * 60 * 1000), // Fail 4
-      },
-      contractionWitnessScore: 0.5, // Fail 5
+      schemaFile,
+      expectedSchemaHash: hash,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
 
-    expect(response.isError).toBeUndefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.validation.passed).toBe(true);
+      expect(parsed.validation.results[0].invariantName).toBe("schema_hash");
+      expect(parsed.validation.results[0].passed).toBe(true);
+    }
+  });
+
+  it("detects schema hash mismatch", async () => {
+    const context = createMockContext();
+    const schemaFile = join(testDir, "test-schema-2.json");
+    const schemaContent = JSON.stringify({ version: "1.0", type: "test" });
+    writeFileSync(schemaFile, schemaContent);
+
+    const input = {
+      schemaFile,
+      expectedSchemaHash: "wronghash",
+    };
+
+    const response = await validateL0InvariantsTool.execute(input, context);
+
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
       expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.failedChecks.length).toBeGreaterThan(1);
+      expect(parsed.validation.results[0].passed).toBe(false);
+      expect(parsed.validation.results[0].message).toContain("mismatch");
+    }
+  });
+
+  it("executes workflow permission check", async () => {
+    const context = createMockContext();
+    const workflowFile = join(testDir, "test-workflow.yml");
+    const workflowContent = `
+name: Test
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v2
+`;
+    writeFileSync(workflowFile, workflowContent);
+
+    const input = {
+      workflowFiles: [workflowFile],
+    };
+
+    const response = await validateL0InvariantsTool.execute(input, context);
+
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.validation.passed).toBe(true);
+      expect(parsed.validation.results[0].invariantName).toBe("permission_bits");
+      expect(parsed.validation.results[0].passed).toBe(true);
+    }
+  });
+
+  it("detects excessive workflow permissions", async () => {
+    const context = createMockContext();
+    const workflowFile = join(testDir, "bad-workflow.yml");
+    const workflowContent = `
+name: Test
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - uses: actions/checkout@v2
+`;
+    writeFileSync(workflowFile, workflowContent);
+
+    const input = {
+      workflowFiles: [workflowFile],
+    };
+
+    const response = await validateL0InvariantsTool.execute(input, context);
+
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.validation.passed).toBe(false);
+      expect(parsed.validation.results[0].passed).toBe(false);
+      expect(parsed.validation.results[0].message).toContain("excessive permissions");
+    }
+  });
+
+  it("executes multiple checks in one call", async () => {
+    const context = createMockContext();
+    const input = {
+      driftCheck: {
+        currentMetric: { name: "test", value: 10 },
+        baselineMetric: { name: "test", value: 9 },
+      },
+      nonceValidation: {
+        nonce: "test-nonce",
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const response = await validateL0InvariantsTool.execute(input, context);
+
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.validation.checksPerformed).toBe(2);
+      expect(parsed.validation.results.length).toBe(2);
+    }
+  });
+
+  it("filters to requested checks only", async () => {
+    const context = createMockContext();
+    const input = {
+      checks: ["drift_magnitude"],  // Only request drift check
+      driftCheck: {
+        currentMetric: { name: "test", value: 10 },
+        baselineMetric: { name: "test", value: 9 },
+      },
+      nonceValidation: {
+        nonce: "test-nonce",
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const response = await validateL0InvariantsTool.execute(input, context);
+
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.validation.checksPerformed).toBe(1);
+      expect(parsed.validation.results[0].invariantName).toBe("drift_magnitude");
     }
   });
 
   it("includes performance metrics in response", async () => {
     const context = createMockContext();
     const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
+      driftCheck: {
+        currentMetric: { name: "test", value: 10 },
+        baselineMetric: { name: "test", value: 9 },
       },
-      contractionWitnessScore: 1.0,
     };
 
     const response = await validateL0InvariantsTool.execute(input, context);
@@ -267,35 +350,9 @@ describe("validate_l0_invariants tool", () => {
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
       expect(parsed.validation.performance).toBeDefined();
-      expect(parsed.validation.performance.latencyNs).toBeGreaterThan(0);
-      expect(parsed.validation.performance.target).toBe("p99 < 100ns");
-    }
-  });
-
-  it("includes detailed check results in response", async () => {
-    const context = createMockContext();
-    const input = {
-      schemaVersion: "1.0:f7a8b9c0",
-      permissionBits: 0b0000111111111111,
-      driftMagnitude: 0.15,
-      nonce: {
-        value: "test-nonce-" + Date.now(),
-        issuedAt: Date.now(),
-      },
-      contractionWitnessScore: 1.0,
-    };
-
-    const response = await validateL0InvariantsTool.execute(input, context);
-
-    const content = response.content[0];
-    if ('text' in content) {
-      const parsed = JSON.parse(content.text);
-      expect(parsed.validation.checkResults).toBeDefined();
-      expect(parsed.validation.checkResults["L0-001 (Schema Hash)"]).toBeDefined();
-      expect(parsed.validation.checkResults["L0-002 (Permission Bits)"]).toBeDefined();
-      expect(parsed.validation.checkResults["L0-003 (Drift Magnitude)"]).toBeDefined();
-      expect(parsed.validation.checkResults["L0-004 (Nonce Freshness)"]).toBeDefined();
-      expect(parsed.validation.checkResults["L0-005 (Contraction Witness)"]).toBeDefined();
+      expect(parsed.validation.performance.totalLatencyMs).toBeDefined();
+      expect(parsed.validation.performance.individualLatenciesNs).toBeDefined();
+      expect(parsed.validation.results[0].latencyNs).toBeGreaterThan(0);
     }
   });
 });

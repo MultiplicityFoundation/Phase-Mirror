@@ -264,3 +264,11 @@ export function createValidState(overrides?: Partial<State>): State {
     ...overrides,
   };
 }
+
+// Export new flexible validator API
+export {
+  L0Validator,
+  type L0ValidatorConfig,
+  type L0ValidationInput,
+  type L0ValidationResult,
+} from './validator.js';
