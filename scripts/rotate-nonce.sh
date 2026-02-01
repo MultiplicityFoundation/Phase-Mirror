@@ -6,11 +6,18 @@ ENVIRONMENT="${1:-staging}"
 CURRENT_VERSION="${2:-1}"
 NEW_VERSION=$((CURRENT_VERSION + 1))
 
+# Validate environment
+if [[ "${ENVIRONMENT}" != "staging" && "${ENVIRONMENT}" != "production" ]]; then
+  echo "❌ ERROR: Invalid environment '${ENVIRONMENT}'"
+  echo "   Valid environments: staging, production"
+  exit 1
+fi
+
 CURRENT_PARAM="/guardian/${ENVIRONMENT}/redaction_nonce_v${CURRENT_VERSION}"
 NEW_PARAM="/guardian/${ENVIRONMENT}/redaction_nonce_v${NEW_VERSION}"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Phase Mirror Nonce Rotation"
+echo "Mirror Dissonance Nonce Rotation"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Environment:     ${ENVIRONMENT}"
 echo "Current Version: v${CURRENT_VERSION}"
