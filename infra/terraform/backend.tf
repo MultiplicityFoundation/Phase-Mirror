@@ -1,4 +1,6 @@
 terraform {
+  # Terraform 1.5.0+ is required for the latest backend features
+  # and workspace key prefix support
   required_version = ">= 1.5.0"
   
   required_providers {

@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+REGION="${AWS_REGION:-us-east-1}"
+LOCK_TABLE="mirror-dissonance-terraform-lock-prod"
+
 cd "$(dirname "$0")/../infra/terraform"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -32,12 +35,12 @@ else
   exit 1
 fi
 
-# Test 3: State file in S3
+# Test 3: Terraform version check
 echo ""
-echo "[3/5] Checking state file location..."
-BACKEND_TYPE=$(terraform version -json | jq -r '.terraform_version')
-if [ -n "$BACKEND_TYPE" ]; then
-  echo "      ✓ Terraform version: $BACKEND_TYPE"
+echo "[3/5] Checking Terraform version..."
+TERRAFORM_VERSION=$(terraform version -json | jq -r '.terraform_version')
+if [ -n "$TERRAFORM_VERSION" ]; then
+  echo "      ✓ Terraform version: $TERRAFORM_VERSION"
 else
   echo "      ✗ Cannot determine Terraform version"
   exit 1
@@ -72,7 +75,7 @@ echo "[5/5] Testing state locking..."
 
 # This will be tested implicitly during actual Terraform operations
 # For now, just verify DynamoDB table is accessible
-if aws dynamodb describe-table --table-name mirror-dissonance-terraform-lock-prod --region us-east-1 &>/dev/null; then
+if aws dynamodb describe-table --table-name "$LOCK_TABLE" --region "$REGION" &>/dev/null; then
   echo "      ✓ Lock table accessible"
 else
   echo "      ✗ Lock table not accessible"

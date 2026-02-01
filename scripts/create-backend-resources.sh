@@ -23,13 +23,17 @@ echo "[1/5] Creating S3 bucket..."
 if aws s3 ls "s3://${BUCKET_NAME}" --region "$REGION" 2>/dev/null; then
   echo "      ✓ Bucket already exists: ${BUCKET_NAME}"
 else
-  aws s3api create-bucket \
-    --bucket "$BUCKET_NAME" \
-    --region "$REGION" \
-    --create-bucket-configuration LocationConstraint="$REGION" 2>/dev/null || \
-  aws s3api create-bucket \
-    --bucket "$BUCKET_NAME" \
-    --region us-east-1
+  # Note: us-east-1 doesn't require LocationConstraint parameter
+  if [ "$REGION" = "us-east-1" ]; then
+    aws s3api create-bucket \
+      --bucket "$BUCKET_NAME" \
+      --region "$REGION"
+  else
+    aws s3api create-bucket \
+      --bucket "$BUCKET_NAME" \
+      --region "$REGION" \
+      --create-bucket-configuration LocationConstraint="$REGION"
+  fi
   
   echo "      ✓ Created S3 bucket: ${BUCKET_NAME}"
 fi
