@@ -1,23 +1,27 @@
 # Mirror Dissonance Protocol CODEOWNERS
 # These owners will be requested for review when someone opens a pull request.
 
-# IMPORTANT: Update these placeholder usernames before deploying!
-# Replace @steward-username, @security-lead, and @ops-team with actual GitHub usernames or teams.
+# Governance & Rule Registry
+/packages/mirror-dissonance/src/rules/   @PhaseMirror
+/docs/governance/                        @PhaseMirror
 
-# Rule registry steward
-/packages/mirror-dissonance/src/rules/  @steward-username
+# Core Library & Infra
+/packages/mirror-dissonance/src/         @PhaseMirror
+/infra/                                  @PhaseMirror
 
-# Policy decisions (requires steward and security lead)
-/packages/mirror-dissonance/src/policy/ @steward-username @security-lead
+# Security-sensitive paths (require Steward approval)
+/packages/mirror-dissonance/src/redaction/  @PhaseMirror
+/packages/mirror-dissonance/src/nonce/      @PhaseMirror
+/packages/mirror-dissonance/src/anonymizer/ @PhaseMirror
+
+# Policy decisions
+/packages/mirror-dissonance/src/policy/ @PhaseMirror
 
 # Schema definitions
-/packages/mirror-dissonance/schemas/    @steward-username
-
-# Infrastructure (operations team)
-/infra/                                 @ops-team
+/packages/mirror-dissonance/schemas/    @PhaseMirror
 
 # GitHub Actions workflows
-/.github/workflows/                     @ops-team @steward-username
+/.github/workflows/                     @PhaseMirror
 
 # Documentation
-/docs/                                  @steward-username
+/docs/                                  @PhaseMirror
