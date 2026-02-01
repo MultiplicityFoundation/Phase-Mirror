@@ -22,7 +22,7 @@ export class NonceLoader {
       const response = await this.client.send(command);
       
       if (!response.Parameter?.Value) {
-        throw new Error('Nonce parameter not found or empty');
+        throw new Error(`Nonce parameter '${parameterName}' exists but has no value`);
       }
 
       this.cachedNonce = {
@@ -32,9 +32,46 @@ export class NonceLoader {
       };
 
       return this.cachedNonce;
-    } catch (error) {
-      console.error('Failed to load nonce from SSM:', error);
-      throw new Error(`Nonce loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (error: unknown) {
+      // Enrich error with context
+      const region = this.client.config.region || 'unknown';
+      
+      // Type guard for AWS SDK errors
+      if (error && typeof error === 'object' && 'name' in error) {
+        const awsError = error as { name: string; code?: string; message?: string };
+        
+        if (awsError.name === 'ParameterNotFound') {
+          throw new Error(
+            `Nonce parameter not found: ${parameterName}. Ensure SSM parameter exists in region ${region}.`
+          );
+        }
+        
+        if (awsError.name === 'AccessDeniedException') {
+          throw new Error(
+            `Access denied to nonce parameter: ${parameterName}. Check IAM permissions for ssm:GetParameter in region ${region}.`
+          );
+        }
+        
+        if (awsError.name === 'InvalidKeyId') {
+          throw new Error(
+            `Failed to decrypt nonce parameter: ${parameterName}. Check KMS key permissions in region ${region}.`
+          );
+        }
+        
+        // Check for network/timeout errors
+        if (awsError.code === 'ECONNREFUSED' || awsError.code === 'ETIMEDOUT' || awsError.code === 'ENOTFOUND') {
+          const message = awsError.message || 'Network error';
+          throw new Error(
+            `Network error loading nonce from ${parameterName} in region ${region}: ${message}`
+          );
+        }
+      }
+      
+      // Generic fallback with context
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to load nonce from ${parameterName} in region ${region}: ${errorMessage}`
+      );
     }
   }
 

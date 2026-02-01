@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 /**
  * CLI for Mirror Dissonance Protocol Oracle
+ * 
+ * Path Resolution Strategy:
+ * Uses fileURLToPath and dirname to dynamically resolve paths relative to the compiled JS file.
+ * This works in all contexts (dev, linked, global install) because:
+ * - __dirname is resolved at runtime based on where the JS file is located
+ * - The monorepo structure (packages/cli and packages/mirror-dissonance) is preserved during installation
+ * - Path joins are relative to __dirname, not process.cwd()
  */
 import { Command } from 'commander';
 import * as fs from 'fs';
