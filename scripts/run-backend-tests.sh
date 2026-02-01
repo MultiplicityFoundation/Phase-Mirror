@@ -42,7 +42,7 @@ run_test "Backend Resources Verification" "verify-backend.sh"
 run_test "Terraform Initialization" "test-terraform-init.sh"
 
 # Test 3: LocalStack backend (optional)
-if docker ps --filter "name=localstack" --format "{{.Names}}" | grep -q localstack; then
+if docker ps --filter "name=localstack" --format "{{.Names}}" | grep -q .; then
   run_test "LocalStack Backend Test" "test-backend-localstack.sh"
 else
   echo "⏭  Skipping LocalStack test (LocalStack not running)"
