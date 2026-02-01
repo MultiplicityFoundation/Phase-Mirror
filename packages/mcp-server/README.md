@@ -1,96 +1,137 @@
-# @phase-mirror/mcp-server
+# Phase Mirror MCP Server
 
-Model Context Protocol (MCP) server for Phase Mirror governance tooling. This package exposes Phase Mirror's governance capabilities as callable tools for GitHub Copilot coding agent and other AI assistants.
-
-## Features
-
-- **MCP Server**: Standards-compliant MCP server implementation
-- **Governance Tools**: Access Phase Mirror's governance capabilities via AI tools
-- **TypeScript**: Full TypeScript support with type definitions
-- **Workspace Integration**: Seamlessly integrates with Phase Mirror's pnpm workspace
+Model Context Protocol server that exposes Phase Mirror governance capabilities as callable tools for GitHub Copilot coding agent.
 
 ## Installation
 
-```bash
-# From the repository root
-pnpm install
+### Global Installation (Recommended)
 
-# Build the package
-cd packages/mcp-server
-pnpm build
+```bash
+npm install -g @phase-mirror/mcp-server
 ```
 
-## Development
+### Local Development
 
 ```bash
-# Watch mode for development
-pnpm dev
-
-# Run tests
-pnpm test
-
-# Lint code
-pnpm lint
-
-# Clean build artifacts
-pnpm clean
+git clone https://github.com/PhaseMirror/Phase-Mirror.git
+cd Phase-Mirror/packages/mcp-server
+pnpm install
+pnpm build
 ```
 
 ## Configuration
 
-The MCP server is configured via environment variables:
+### GitHub Copilot Integration
 
-- `AWS_REGION`: AWS region for DynamoDB/SSM access (default: `us-east-1`)
-- `FP_TABLE_NAME`: DynamoDB table name for FP store
-- `CONSENT_TABLE_NAME`: DynamoDB table name for consent store
-- `NONCE_PARAMETER_NAME`: SSM parameter name for nonce
-- `LOG_LEVEL`: Log level (`debug`, `info`, `warn`, `error`, default: `info`)
+Add to your repository settings → Copilot → Coding Agent → MCP Configuration:
 
-## Usage
-
-### As a CLI Tool
-
-```bash
-# Run the MCP server
-pnpm phase-mirror-mcp
+```json
+{
+  "mcpServers": {
+    "phase-mirror": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "@phase-mirror/mcp-server"],
+      "env": {
+        "AWS_REGION": "COPILOT_MCP_AWS_REGION"
+      }
+    }
+  }
+}
 ```
 
-### In Code
+### Environment Variables
 
-```typescript
-import { MCPServerConfig } from '@phase-mirror/mcp-server';
+All configuration uses `COPILOT_MCP_` prefix (automatically provided by GitHub):
 
-const config: MCPServerConfig = {
-  awsRegion: 'us-east-1',
-  logLevel: 'info',
-};
-```
+- `COPILOT_MCP_AWS_REGION` - AWS region (default: us-east-1)
+- `COPILOT_MCP_FP_TABLE_NAME` - DynamoDB FP store table
+- `COPILOT_MCP_CONSENT_TABLE_NAME` - DynamoDB consent store table
+- `COPILOT_MCP_NONCE_PARAMETER_NAME` - SSM parameter for nonce
+- `COPILOT_MCP_LOG_LEVEL` - Logging level (default: info)
 
 ## Available Tools
 
-- `get_server_info`: Get information about the Phase Mirror MCP server
+### analyze_dissonance
 
-More tools will be added as the package develops.
+Run Mirror Dissonance protocol to detect inconsistencies across requirements, configs, code, and runtime.
 
-## Project Structure
+**Input:**
+
+```typescript
+{
+  files: string[];        // File paths to analyze
+  context?: string;       // Optional issue/PR context
+  mode?: "pull_request" | "issue" | "merge_group" | "drift";
+}
+```
+
+**Output:**
+
+```typescript
+{
+  success: boolean;
+  analysis: {
+    findings: Finding[];
+    summary: Summary;
+    decision: MachineDecision;
+    adrReferences: string[];  // e.g., ["ADR-001", "ADR-004"]
+  }
+}
+```
+
+## Testing
+
+### Unit Tests
+
+```bash
+pnpm test
+```
+
+### MCP Inspector
+
+```bash
+pnpm build
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+### GitHub Copilot Testing
+
+1. Configure MCP server in repository settings
+2. Create test issue
+3. Assign to @copilot
+4. Monitor tool calls in Copilot session logs
+
+## Development
+
+### Project Structure
 
 ```
 packages/mcp-server/
 ├── src/
-│   ├── index.ts        # Main server entry point
-│   ├── types/          # TypeScript type definitions
-│   ├── tools/          # MCP tool implementations
-│   └── utils/          # Utility functions
-├── test/               # Test files
-├── dist/               # Build output
+│   ├── index.ts              # Server entry point
+│   ├── tools/                # Tool implementations
+│   │   └── analyze-dissonance.ts
+│   ├── utils/                # Utilities
+│   │   ├── config.ts
+│   │   └── logger.ts
+│   └── types/                # TypeScript types
+├── test/                     # Unit tests
 ├── package.json
 └── tsconfig.json
 ```
 
+### Adding New Tools
+
+1. Create tool file in `src/tools/your-tool.ts`
+2. Define input schema with Zod
+3. Implement `execute(args, context)` function
+4. Export `toolDefinition` object
+5. Register in `src/index.ts`
+6. Add tests in `test/your-tool.test.ts`
+
 ## License
 
-Apache-2.0
+Apache 2.0 with Managed Service Restriction
 
-## Author
-
-Phase Mirror LLC
+See LICENSE for details.
