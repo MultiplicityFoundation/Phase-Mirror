@@ -175,7 +175,7 @@ class MCPInspectorTestRunner {
       if (part.includes("[")) {
         // Array access: failures[0].invariantId
         const [arrayPart, indexPart] = part.split("[");
-        const index = parseInt(indexPart.replace("]", ""));
+        const index = parseInt(indexPart.replace(/\]/g, ""), 10);
         current = current[arrayPart]?.[index];
       } else {
         current = current?.[part];
