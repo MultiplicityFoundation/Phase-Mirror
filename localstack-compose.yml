@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: phase-mirror-localstack
+    ports:
+      - "4566:4566"            # LocalStack main endpoint
+      - "4571:4571"            # Deprecated but some SDKs still use
+    environment:
+      - SERVICES=dynamodb,ssm,kms,s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=1
+    volumes:
+      - "./localstack-data:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - phase-mirror-test
+
+networks:
+  phase-mirror-test:
+    driver: bridge

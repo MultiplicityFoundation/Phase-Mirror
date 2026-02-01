@@ -8,15 +8,17 @@ import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
 import { MemoryBlockCounter } from './block-counter/index.js';
-import { NoOpFPStore, IFPStore } from './fp-store/index.js';
-import type { EnhancedDynamoDBFPStore } from './fp-store/index.js';
+import { NoOpFPStore, IFPStore, DynamoDBFPStore as EnhancedDynamoDBFPStore } from './fp-store/index.js';
+import { DynamoDBBlockCounter } from './block-counter/dynamodb.js';
 import type { BlockCounter } from './block-counter/dynamodb.js';
+import { DynamoDBConsentStore, NoOpConsentStore, IConsentStore } from './consent-store/index.js';
 import { SSMClient } from '@aws-sdk/client-ssm';
 import { loadNonce } from './nonce/loader.js';
 import { createRedactor, Redactor } from './redaction/redactor.js';
 
 export interface OracleConfig {
   region?: string;
+  endpoint?: string;  // For LocalStack testing
   nonceParameterName?: string;
   fpTableName?: string;
   consentTableName?: string;
@@ -25,8 +27,10 @@ export interface OracleConfig {
 
 export interface OracleComponents {
   fpStore?: IFPStore;
+  consentStore?: IConsentStore;
   redactor?: Redactor;
-  blockCounter?: MemoryBlockCounter;
+  blockCounter?: BlockCounter | MemoryBlockCounter;
+}
 }
 
 /**
@@ -35,27 +39,64 @@ export interface OracleComponents {
  */
 export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
   const components: OracleComponents = {};
+  const region = config.region || 'us-east-1';
 
   // Load nonce first (required for redaction) if SSM parameter name provided
   if (config.nonceParameterName) {
     try {
-      const ssmClient = new SSMClient({ region: config.region || 'us-east-1' });
+      const clientConfig: any = { region };
+      if (config.endpoint) {
+        clientConfig.endpoint = config.endpoint;
+      }
+      const ssmClient = new SSMClient(clientConfig);
       const nonceConfig = await loadNonce(ssmClient, config.nonceParameterName);
       components.redactor = createRedactor(nonceConfig);
     } catch (error) {
       console.warn('Failed to load nonce from SSM, redaction will be limited:', error);
+      // Fail-closed: throw error if nonce cannot be loaded
+      throw error;
     }
   }
 
   // Initialize FP Store if table name provided
   if (config.fpTableName) {
     try {
-      // Would import and create DynamoDBFPStore here
-      // For now, use NoOp to maintain backward compatibility
-      components.fpStore = new NoOpFPStore();
+      components.fpStore = new EnhancedDynamoDBFPStore({
+        tableName: config.fpTableName,
+        region,
+        endpoint: config.endpoint,
+      });
     } catch (error) {
       console.warn('Failed to initialize FP Store:', error);
       components.fpStore = new NoOpFPStore();
+    }
+  }
+
+  // Initialize Consent Store if table name provided
+  if (config.consentTableName) {
+    try {
+      components.consentStore = new DynamoDBConsentStore({
+        tableName: config.consentTableName,
+        region,
+        endpoint: config.endpoint,
+      });
+    } catch (error) {
+      console.warn('Failed to initialize Consent Store:', error);
+      components.consentStore = new NoOpConsentStore();
+    }
+  }
+
+  // Initialize Block Counter if table name provided
+  if (config.blockCounterTableName) {
+    try {
+      components.blockCounter = new DynamoDBBlockCounter(
+        config.blockCounterTableName,
+        region,
+        config.endpoint
+      );
+    } catch (error) {
+      console.warn('Failed to initialize Block Counter:', error);
+      components.blockCounter = new MemoryBlockCounter(24);
     }
   }
 
@@ -63,13 +104,15 @@ export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
 }
 
 export class Oracle {
-  private blockCounter: MemoryBlockCounter;
+  private blockCounter: BlockCounter | MemoryBlockCounter;
   private fpStore: IFPStore;
+  private consentStore: IConsentStore;
   private redactor?: Redactor;
 
   constructor(components: OracleComponents = {}) {
     this.blockCounter = components.blockCounter || new MemoryBlockCounter(24);
     this.fpStore = components.fpStore || new NoOpFPStore();
+    this.consentStore = components.consentStore || new NoOpConsentStore();
     this.redactor = components.redactor;
   }
 
@@ -91,7 +134,7 @@ export class Oracle {
     // Check circuit breaker
     let circuitBreakerTripped = false;
     for (const violation of realViolations) {
-      const count = await this.blockCounter.getCount(violation.ruleId);
+      const count = await this.blockCounter.get(violation.ruleId);
       if (count > 100) { // threshold
         circuitBreakerTripped = true;
         break;

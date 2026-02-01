@@ -22,8 +22,12 @@ export class DynamoDBBlockCounter implements BlockCounter {
   private client: DynamoDBClient;
   private tableName: string;
 
-  constructor(tableName: string, region: string) {
-    this.client = new DynamoDBClient({ region });
+  constructor(tableName: string, region: string, endpoint?: string) {
+    const clientConfig: any = { region };
+    if (endpoint) {
+      clientConfig.endpoint = endpoint;
+    }
+    this.client = new DynamoDBClient(clientConfig);
     this.tableName = tableName;
   }
 

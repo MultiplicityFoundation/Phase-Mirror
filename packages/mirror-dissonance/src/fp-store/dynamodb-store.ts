@@ -18,7 +18,11 @@ export class DynamoDBFPStore implements FPStore {
   private ttlDays: number;
 
   constructor(config: FPStoreConfig) {
-    this.client = new DynamoDBClient({ region: config.region });
+    const clientConfig: any = { region: config.region };
+    if (config.endpoint) {
+      clientConfig.endpoint = config.endpoint;
+    }
+    this.client = new DynamoDBClient(clientConfig);
     this.tableName = config.tableName;
     this.ttlDays = config.ttlDays ?? 90;
   }
