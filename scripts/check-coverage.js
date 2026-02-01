@@ -26,6 +26,16 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
 
 metrics.forEach(metric => {
   const pct = totals[metric].pct;
+  
+  // Handle "Unknown" coverage (no files covered)
+  if (pct === "Unknown" || typeof pct !== 'number') {
+    console.log(
+      `\x1b[31m✗\x1b[0m ${metric.padEnd(12)} Unknown (threshold: ${THRESHOLD}%)`
+    );
+    failures.push({ metric, actual: 0, threshold: THRESHOLD });
+    return;
+  }
+  
   const status = pct >= THRESHOLD ? '✓' : '✗';
   const statusColor = pct >= THRESHOLD ? '\x1b[32m' : '\x1b[31m';
   

@@ -1,24 +1,59 @@
 /** @type {import('jest').Config} */
-export default {
-  preset: 'ts-jest/presets/default-esm',
+module.exports = {
+  displayName: 'mcp-server',
+  preset: 'ts-jest',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
-  transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: true,
-      },
-    ],
-  },
-  testMatch: ['**/test/**/*.test.ts'],
+  
+  rootDir: '.',
+  
+  testMatch: [
+    '<rootDir>/src/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/**/*.test.ts',
+    '<rootDir>/test/**/*.test.ts'
+  ],
+  
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
+    '!src/**/__tests__/**',
+    '!src/**/*.test.ts',
+    '!src/index.ts',
+    '!src/tools/index.ts'  // Tool registry - tested indirectly
   ],
-  testTimeout: 30000, // 30 second default timeout for all tests
-  forceExit: true, // Force exit after tests complete
+  
+  coverageThreshold: {
+    global: {
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75
+    },
+    
+    // Higher threshold for tool implementations
+    './src/tools/**/*.ts': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
+    }
+  },
+  
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1'
+  },
+  
+  extensionsToTreatAsEsm: ['.ts'],
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', {
+      useESM: true,
+      tsconfig: {
+        module: 'ES2020',
+        target: 'ES2020',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true
+      }
+    }]
+  },
+  
+  coverageDirectory: '<rootDir>/coverage'
 };

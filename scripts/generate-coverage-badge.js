@@ -17,17 +17,20 @@ if (!fs.existsSync(COVERAGE_FILE)) {
 const summary = JSON.parse(fs.readFileSync(COVERAGE_FILE, 'utf8'));
 const totalLines = summary.total.lines.pct;
 
+// Handle Unknown coverage
+const pct = (totalLines === "Unknown" || typeof totalLines !== 'number') ? 0 : totalLines;
+
 const color = 
-  totalLines >= 80 ? 'brightgreen' :
-  totalLines >= 60 ? 'yellow' :
-  totalLines >= 40 ? 'orange' : 'red';
+  pct >= 80 ? 'brightgreen' :
+  pct >= 60 ? 'yellow' :
+  pct >= 40 ? 'orange' : 'red';
 
 const badge = {
   schemaVersion: 1,
   label: 'coverage',
-  message: `${totalLines.toFixed(0)}%`,
+  message: `${pct.toFixed(0)}%`,
   color: color
 };
 
 fs.writeFileSync(BADGE_FILE, JSON.stringify(badge, null, 2));
-console.log(`✓ Badge generated: ${totalLines.toFixed(2)}% (${color})`);
+console.log(`✓ Badge generated: ${pct.toFixed(2)}% (${color})`);

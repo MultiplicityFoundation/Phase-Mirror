@@ -73,9 +73,6 @@ module.exports = {
     }]
   },
   
-  // Test timeout
-  testTimeout: 10000,
-  
   // Verbose output
   verbose: true,
   

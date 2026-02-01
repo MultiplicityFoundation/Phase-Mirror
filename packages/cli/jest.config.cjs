@@ -45,7 +45,5 @@ module.exports = {
     }]
   },
   
-  coverageDirectory: '<rootDir>/coverage',
-  
-  testTimeout: 15000  // CLI tests may be slower
+  coverageDirectory: '<rootDir>/coverage'
 };

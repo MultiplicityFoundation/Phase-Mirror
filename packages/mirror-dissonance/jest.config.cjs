@@ -65,7 +65,7 @@ module.exports = {
   },
   
   // Setup files
-  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  // setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   
   // Module name mapper for internal imports
   moduleNameMapper: {
@@ -83,15 +83,5 @@ module.exports = {
   },
   
   // Coverage directory
-  coverageDirectory: '<rootDir>/coverage',
-  
-  // Test timeout
-  testTimeout: 10000,
-  
-  // Globals
-  globals: {
-    'ts-jest': {
-      isolatedModules: true
-    }
-  }
+  coverageDirectory: '<rootDir>/coverage'
 };
