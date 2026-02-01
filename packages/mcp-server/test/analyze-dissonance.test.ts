@@ -1,7 +1,29 @@
 import * as analyzeDissonanceTool from "../src/tools/analyze-dissonance.js";
 import { createMockContext, createMockDissonanceReport } from "./test-utils.js";
+import { writeFile, mkdir, rm } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
 
 describe("analyze_dissonance tool", () => {
+  let testDir: string;
+  let testFile: string;
+
+  beforeAll(async () => {
+    // Create a temporary test directory and file with unique name
+    testDir = join(tmpdir(), `mcp-test-${Date.now()}-${process.pid}`);
+    await mkdir(testDir, { recursive: true });
+    testFile = join(testDir, "test.ts");
+    await writeFile(testFile, 'export function test() { return true; }');
+  });
+
+  afterAll(async () => {
+    // Clean up test directory
+    try {
+      await rm(testDir, { recursive: true, force: true });
+    } catch (error) {
+      // Ignore cleanup errors
+    }
+  });
   it("validates input schema correctly", () => {
     const validInput = {
       files: ["src/index.ts", "src/config.ts"],
@@ -34,16 +56,17 @@ describe("analyze_dissonance tool", () => {
     }
   });
 
-  it("executes analysis successfully with real oracle", async () => {
+  it("executes analysis successfully with real orchestrator", async () => {
     const context = createMockContext();
     const input = {
-      files: ["test.ts"],
+      files: [testFile],
       mode: "issue" as const,
+      context: "test-org/test-repo",
     };
 
     const response = await analyzeDissonanceTool.execute(input, context);
 
-    // Should succeed even with no actual files (using mock oracle)
+    // Should succeed with actual file processed by orchestrator
     expect(response.isError).toBeUndefined();
     const content = response.content[0];
     if ('text' in content) {
@@ -51,6 +74,13 @@ describe("analyze_dissonance tool", () => {
       expect(parsed.success).toBe(true);
       expect(parsed.analysis).toBeDefined();
       expect(parsed.analysis.filesAnalyzed).toBe(1);
+      expect(parsed.analysis.files).toBeDefined();
+      expect(parsed.analysis.files[0]).toMatchObject({
+        path: testFile,
+        type: 'source',
+      });
+      expect(parsed.analysis.files[0].hash).toBeDefined();
+      expect(typeof parsed.analysis.files[0].hash).toBe('string');
     }
   });
 
@@ -76,5 +106,42 @@ describe("analyze_dissonance tool", () => {
       const result = analyzeDissonanceTool.AnalyzeDissonanceInputSchema.safeParse(input);
       expect(result.success).toBe(true);
     });
+  });
+
+  it("handles nested repository paths in context", async () => {
+    const context = createMockContext();
+    const input = {
+      files: [testFile],
+      mode: "issue" as const,
+      context: "org/team/repo",
+    };
+
+    const response = await analyzeDissonanceTool.execute(input, context);
+
+    expect(response.isError).toBeUndefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.success).toBe(true);
+    }
+  });
+
+  it("handles null violations gracefully in ADR extraction", async () => {
+    const context = createMockContext();
+    const input = {
+      files: [testFile],
+      mode: "issue" as const,
+    };
+
+    const response = await analyzeDissonanceTool.execute(input, context);
+
+    // Should not throw even if violations are null/empty
+    expect(response.isError).toBeUndefined();
+    const content = response.content[0];
+    if ('text' in content) {
+      const parsed = JSON.parse(content.text);
+      expect(parsed.analysis.adrReferences).toBeDefined();
+      expect(Array.isArray(parsed.analysis.adrReferences)).toBe(true);
+    }
   });
 });
