@@ -28,7 +28,8 @@ GIT_LAST_MODIFIED="$(git log -1 --format=%cd --date=short 2>/dev/null || echo 'U
 
 # Get build information
 BUILD_DATE="$(date)"
-TESTS_PASSING="$(pnpm test --passWithNoTests 2>&1 | grep -c "PASS" || echo "0")"
+# Skip test count for speed - user can run tests manually
+TESTS_PASSING="Run 'pnpm test' to check"
 
 # Generate the file
 cat > "$TEMP_FILE" << EOF
