@@ -42,6 +42,29 @@ npm install -g @mirror-dissonance/cli
 mirror-dissonance --help
 ```
 
+### MCP Server for GitHub Copilot
+
+Enable governance-aware code generation:
+
+```bash
+npm install -g @phase-mirror/mcp-server
+```
+
+Configure in repository settings → Copilot → Coding Agent:
+
+```json
+{
+  "mcpServers": {
+    "phase-mirror": {
+      "type": "local",
+      "command": "phase-mirror-mcp"
+    }
+  }
+}
+```
+
+See [MCP Server README](packages/mcp-server/README.md) for full documentation.
+
 ### Self-Hosted Deployment
 
 ```bash
