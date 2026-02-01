@@ -22,7 +22,7 @@ export class NonceLoader {
       const response = await this.client.send(command);
       
       if (!response.Parameter?.Value) {
-        throw new Error('Nonce parameter not found or empty');
+        throw new Error(`Nonce parameter '${parameterName}' exists but has no value`);
       }
 
       this.cachedNonce = {
@@ -32,9 +32,39 @@ export class NonceLoader {
       };
 
       return this.cachedNonce;
-    } catch (error) {
-      console.error('Failed to load nonce from SSM:', error);
-      throw new Error(`Nonce loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (error: any) {
+      // Enrich error with context
+      const region = this.client.config.region || 'unknown';
+      
+      if (error.name === 'ParameterNotFound') {
+        throw new Error(
+          `Nonce parameter not found: ${parameterName}. Ensure SSM parameter exists in region ${region}.`
+        );
+      }
+      
+      if (error.name === 'AccessDeniedException') {
+        throw new Error(
+          `Access denied to nonce parameter: ${parameterName}. Check IAM permissions for ssm:GetParameter in region ${region}.`
+        );
+      }
+      
+      if (error.name === 'InvalidKeyId') {
+        throw new Error(
+          `Failed to decrypt nonce parameter: ${parameterName}. Check KMS key permissions in region ${region}.`
+        );
+      }
+      
+      // Check for network/timeout errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+        throw new Error(
+          `Network error loading nonce from ${parameterName} in region ${region}: ${error.message}`
+        );
+      }
+      
+      // Generic fallback with context
+      throw new Error(
+        `Failed to load nonce from ${parameterName} in region ${region}: ${error.message}`
+      );
     }
   }
 
