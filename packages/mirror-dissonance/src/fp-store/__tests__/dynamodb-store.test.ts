@@ -1,6 +1,8 @@
 /**
- * Unit tests for DynamoDBFPStore
- * Tests cover: recordEvent, markFalsePositive, window queries, error handling
+ * FP Store DynamoDB Implementation Tests
+ * 
+ * Coverage target: 80%+
+ * Performance target: <50ms p99 for queries
  */
 
 import { DynamoDBFPStore } from '../dynamodb-store.js';
@@ -27,7 +29,7 @@ describe('DynamoDBFPStore', () => {
     (unmarshall as jest.Mock).mockImplementation((obj) => obj);
 
     store = new DynamoDBFPStore({
-      tableName: 'test-fp-table',
+      tableName: 'test-fp-events',
       region: 'us-east-1',
       ttlDays: 90,
     });
