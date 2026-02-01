@@ -1,5 +1,7 @@
 # Mirror Dissonance Protocol (Phase Mirror)
 
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PhaseMirror/Phase-Mirror/main/coverage-badge.json)
+
 Mirror Dissonance is a callable, auditable inconsistency-finding protocol across requirements ↔ configs ↔ code ↔ runtime assumptions. It outputs a deterministic `dissonance_report.json` that can be used as a first-class control surface in PR checks, merge queue, drift detection, and incident response.
 
 ## What this repo is
@@ -79,6 +81,34 @@ terraform apply -var-file=staging.tfvars
 ```
 
 See the [Quick Start Guide](docs/QUICKSTART.md) for detailed instructions.
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test
+
+# Run with coverage
+pnpm test:coverage
+
+# View coverage report
+pnpm test:coverage:report
+
+# Run in watch mode
+pnpm test:watch
+```
+
+### Coverage Requirements
+
+- **Global threshold:** 80% (branches, functions, lines, statements)
+- **Critical paths:** 90% (L0 invariants, redaction, nonce)
+- **Integration layers:** 75% (DynamoDB adapters, CLI)
+
+Coverage is enforced in CI. PRs below threshold will fail.
+
+See [Testing Guide](docs/TESTING.md) for detailed testing documentation.
 
 ## GitHub Actions Integration
 

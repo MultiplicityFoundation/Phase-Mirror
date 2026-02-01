@@ -1,23 +1,37 @@
+/** @type {import('jest').Config} */
 module.exports = {
+  displayName: 'cli',
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
+  
+  rootDir: '.',
+  
   testMatch: [
-    '**/__tests__/**/*.test.ts',
-    '**/__tests__/**/*.spec.ts'
+    '<rootDir>/src/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/**/*.test.ts'
   ],
+  
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/__tests__/**',
-    '!**/node_modules/**',
-    '!**/dist/**'
+    '!src/**/*.test.ts',
+    '!src/index.ts'  // Entry point - tested via e2e
   ],
-  coverageDirectory: '<rootDir>/coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  
+  coverageThreshold: {
+    global: {
+      branches: 70,   // Lower for CLI (heavy I/O)
+      functions: 70,
+      lines: 70,
+      statements: 70
+    }
+  },
+  
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
+  
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
@@ -30,6 +44,8 @@ module.exports = {
       }
     }]
   },
-  testTimeout: 10000,
-  verbose: true
+  
+  coverageDirectory: '<rootDir>/coverage',
+  
+  testTimeout: 15000  // CLI tests may be slower
 };

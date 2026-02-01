@@ -1,0 +1,29 @@
+# Test files
+**/__tests__/**
+**/*.test.ts
+**/*.spec.ts
+
+# Mock files
+**/__mocks__/**
+
+# Type definitions
+**/*.d.ts
+
+# Build output
+**/dist/**
+**/build/**
+
+# Configuration files
+**/jest.config.cjs
+**/jest.setup.ts
+
+# Entry points (tested via integration)
+**/index.ts
+packages/cli/src/bin.ts
+
+# Generated files
+**/*.generated.ts
+
+# Examples and demos
+**/examples/**
+**/demos/**
