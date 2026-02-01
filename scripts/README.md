@@ -4,6 +4,38 @@ This directory contains operational scripts for Phase Mirror infrastructure mana
 
 ## Environment Validation Scripts (Pre-Flight Week 0)
 
+### `update-progress.sh`
+**Purpose:** Automated daily progress tracking for MVP completion
+
+**Usage:**
+```bash
+./scripts/update-progress.sh <week-number>
+
+# Examples:
+./scripts/update-progress.sh 1  # Week 1 update
+./scripts/update-progress.sh 2  # Week 2 update
+```
+
+**Actions:**
+- Runs test suite and captures results
+- Generates coverage report (if available)
+- Counts known issues from `docs/known-issues.md`
+- Captures git status
+- Appends formatted update to `MVP_COMPLETION_TRACKER.md`
+
+**Generated Entry Includes:**
+- Date and week number
+- Current git branch
+- Test pass/fail counts
+- Coverage percentage
+- Known issues count (critical/important)
+- Uncommitted changes count
+- Sections for: Completed Today, Blockers, Tomorrow's Focus, Metrics
+
+**Run:** Daily at end of workday to track progress
+
+---
+
 ### `validate-environment.sh`
 **Purpose:** Validates the development environment setup
 
