@@ -2,7 +2,78 @@
 
 This directory contains operational scripts for Phase Mirror infrastructure management, deployment, and testing.
 
-## Bootstrap Scripts (Day 15)
+## Environment Validation Scripts (Pre-Flight Week 0)
+
+### `validate-environment.sh`
+**Purpose:** Validates the development environment setup
+
+**Usage:**
+```bash
+./scripts/validate-environment.sh
+```
+
+**Checks:**
+- Prerequisites (node, pnpm, git, aws, terraform)
+- Repository structure
+- Build artifacts
+- AWS connectivity
+- Git status
+
+**Run:** Anytime to verify environment health
+
+---
+
+### `generate-environment-doc.sh`
+**Purpose:** Generates populated ENVIRONMENT.md documentation
+
+**Usage:**
+```bash
+./scripts/generate-environment-doc.sh
+```
+
+**Creates:**
+- Populated environment documentation with actual system values
+- System information (OS, Node, pnpm, AWS, Terraform versions)
+- AWS configuration details
+- Repository status
+- Build status
+
+**Output:** `ENVIRONMENT.md.generated` (review and rename to `ENVIRONMENT.md`)
+
+---
+
+## Bootstrap Scripts (Day -1 & Day 15)
+
+### `bootstrap-terraform-backend-env.sh`
+**Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management (with environment support)
+
+**Usage:**
+```bash
+# Use default values (dev environment)
+./scripts/bootstrap-terraform-backend-env.sh
+
+# Specify environment
+ENVIRONMENT=staging ./scripts/bootstrap-terraform-backend-env.sh
+ENVIRONMENT=production ./scripts/bootstrap-terraform-backend-env.sh
+
+# Full customization
+AWS_REGION=us-west-2 ENVIRONMENT=staging PROJECT_NAME=mirror-dissonance ./scripts/bootstrap-terraform-backend-env.sh
+```
+
+**Creates:**
+- S3 bucket with versioning, encryption, and lifecycle policies
+- DynamoDB table with Point-in-Time Recovery
+- Backend configuration file (`infra/terraform/backend-{env}.hcl`)
+
+**Features:**
+- Environment-specific naming (dev, staging, production)
+- Lifecycle policies (90-day version retention)
+- Comprehensive security settings
+- Auto-generated backend configuration
+
+**Run Once:** Before first `terraform init` for each environment
+
+---
 
 ### `bootstrap-terraform-backend.sh`
 **Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management
@@ -220,17 +291,24 @@ cd infra/terraform
 
 ## Usage Patterns
 
-### First-Time Setup (Day 15)
+### First-Time Setup (Pre-Flight Week 0 & Day 15)
 ```bash
-# 1. Bootstrap backend
-./scripts/bootstrap-terraform-backend.sh
+# 0. Validate environment (Pre-Flight Week 0)
+./scripts/validate-environment.sh
 
-# 2. Bootstrap nonce
+# 1. Generate environment documentation
+./scripts/generate-environment-doc.sh
+mv ENVIRONMENT.md.generated ENVIRONMENT.md
+
+# 2. Bootstrap backend (Day -1)
+ENVIRONMENT=dev ./scripts/bootstrap-terraform-backend-env.sh
+
+# 3. Bootstrap nonce (Day 15)
 ./scripts/bootstrap-nonce.sh staging
 
-# 3. Initialize Terraform
+# 4. Initialize Terraform
 cd infra/terraform
-terraform init
+terraform init -backend-config=backend-dev.hcl
 ```
 
 ### Staging Deployment (Days 16-17)
