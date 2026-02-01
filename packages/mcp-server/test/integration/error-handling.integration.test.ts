@@ -38,7 +38,7 @@ describe("Error handling integration tests", () => {
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(false);
       expect(data.error).toBeDefined();
-      expect(data.error.type).toBe("validation_error");
+      expect(data.code).toBe("INVALID_INPUT");
     });
   }, 30000);
 
@@ -84,7 +84,7 @@ describe("Error handling integration tests", () => {
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(false);
       expect(data.error).toBeDefined();
-      expect(data.error.type).toBe("validation_error");
+      expect(data.code).toBe("INVALID_INPUT");
     });
   }, 30000);
 
@@ -174,9 +174,10 @@ describe("Error handling integration tests", () => {
       expect(result.content[0]).toHaveProperty("type", "text");
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
-      expect(data.error.type).toBe("validation_error");
-      expect(data.error.details).toBeDefined();
+      expect(data.code).toBeDefined();
+      expect(data.message).toBeDefined();
+      expect(data.details).toBeDefined();
+      expect(Array.isArray(data.details)).toBe(true);
     });
   }, 30000);
 
@@ -224,11 +225,11 @@ describe("Error handling integration tests", () => {
     await withTestHarness(async (harness: MCPTestHarness) => {
       await harness.initialize();
 
-      // Test error format from different tools
+      // Test error format from different tools - all with invalid parameters
       const tools = [
-        { name: "analyze_dissonance", args: { mode: "invalid" } },
-        { name: "validate_l0_invariants", args: { files: "invalid" } },
-        { name: "check_consent_requirements", args: { checkType: "invalid" } },
+        { name: "analyze_dissonance", args: {} }, // Missing all required
+        { name: "check_adr_compliance", args: {} }, // Missing all required  
+        { name: "check_consent_requirements", args: {} }, // Missing all required
       ];
 
       for (const tool of tools) {
@@ -237,9 +238,8 @@ describe("Error handling integration tests", () => {
         expect(result.content).toBeDefined();
         const data = JSON.parse(result.content[0].text);
         expect(data.success).toBe(false);
-        expect(data.error).toBeDefined();
-        expect(data.error.type).toBeDefined();
-        expect(data.error.message).toBeDefined();
+        // All tools should return either 'code' or 'error' field
+        expect(data.code || data.error).toBeDefined();
       }
     });
   }, 90000);

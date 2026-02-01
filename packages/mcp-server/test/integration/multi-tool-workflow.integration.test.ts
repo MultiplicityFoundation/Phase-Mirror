@@ -110,8 +110,9 @@ jobs:
       const complianceResult = await harness.callTool(
         "check_adr_compliance",
         {
+          files: [join(testDir, ".github", "workflows", "ci.yml")],
           context: "test-owner/test-repo",
-          checkType: "summarize",
+          adrPath: "/home/runner/work/Phase-Mirror/Phase-Mirror/docs/adr",
         },
         30000
       );
@@ -148,8 +149,9 @@ jobs:
         const fpResult = await harness.callTool(
           "query_fp_store",
           {
-            operation: "fp_rate",
+            queryType: "fp_rate",
             ruleId: "MD-001",
+            orgId: "test-org",
           },
           30000
         );
