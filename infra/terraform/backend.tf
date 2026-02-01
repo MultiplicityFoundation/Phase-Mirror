@@ -3,10 +3,13 @@ terraform {
   
   backend "s3" {
     bucket         = "mirror-dissonance-terraform-state-prod"
-    key            = "production/terraform.tfstate"
+    key            = "phase-mirror/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "terraform-state-lock"
+    
+    # Optional: Use different state files per environment
+    # workspace_key_prefix = "env"
     
     # Prevent accidental state corruption
     skip_credentials_validation = false
