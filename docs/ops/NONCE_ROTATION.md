@@ -111,3 +111,55 @@ If seeing validation errors:
 - Old nonces should be deleted promptly after grace period
 - Log nonce rotation events to CloudWatch for audit trail
 - Never log nonce values themselves
+
+## Automated Testing
+
+### Unit Tests
+
+Run nonce rotation tests:
+
+```bash
+# Start LocalStack for integration tests
+docker-compose -f localstack-compose.yml up -d
+
+# Run integration tests
+cd packages/mirror-dissonance
+npm test -- nonce-rotation
+
+# Run specific test suites
+npm test -- --testPathPattern=integration/nonce-rotation
+npm test -- --testPathPattern=integration/rotation-script
+
+# Stop LocalStack
+docker-compose -f localstack-compose.yml down
+```
+
+### Test Coverage
+
+The test suite includes 40+ tests covering:
+
+- Multi-version loading (2-5 versions simultaneously)
+- Grace period validation (old + new nonces valid)
+- HMAC integrity (tamper detection)
+- Cache management (eviction, clearing)
+- Performance (<5ms redaction, <1ms validation)
+- Concurrent operations during rotation
+- Script automation validation
+
+### Validation Checklist
+
+After rotation:
+
+- ✅ New nonce loaded successfully
+- ✅ Old redacted text still validates (grace period)
+- ✅ New redacted text uses new version
+- ✅ No errors in application logs
+- ✅ Performance within targets
+- ✅ Cache shows both versions
+
+After grace period:
+
+- ✅ Old version evicted from cache
+- ✅ Old redacted text fails validation (expected)
+- ✅ New redacted text continues to validate
+- ✅ Single version in cache
