@@ -4,6 +4,7 @@ set -euo pipefail
 
 ENVIRONMENT="${1:-staging}"
 
+# Note: "mirror-dissonance" is the project name used in AWS resources
 BASELINE_BUCKET="mirror-dissonance-${ENVIRONMENT}-baselines"
 BASELINE_KEY="baseline-latest.json"
 LOCAL_PATH=".baseline.json"
