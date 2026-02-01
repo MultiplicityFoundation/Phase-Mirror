@@ -6,3 +6,4 @@
  */
 
 export * as analyzeDissonance from "./analyze-dissonance.js";
+export * as validateL0Invariants from "./validate-l0-invariants.js";
