@@ -47,11 +47,24 @@ export class DynamoDBFPStore implements FPStore {
       recordedAt: now,
     };
 
-    await this.client.send(new PutItemCommand({
-      TableName: this.tableName,
-      Item: marshall(item, { removeUndefinedValues: true }),
-      ConditionExpression: 'attribute_not_exists(pk) AND attribute_not_exists(sk)', // Prevent duplicates
-    }));
+    try {
+      await this.client.send(new PutItemCommand({
+        TableName: this.tableName,
+        Item: marshall(item, { removeUndefinedValues: true }),
+        ConditionExpression: 'attribute_not_exists(pk) AND attribute_not_exists(sk)', // Prevent duplicates
+      }));
+    } catch (error: any) {
+      // ConditionalCheckFailedException means the event already exists
+      if (error.name === 'ConditionalCheckFailedException') {
+        throw new Error(
+          `Duplicate FP event: ruleId=${event.ruleId}, eventId=${event.eventId}, findingId=${event.findingId}`
+        );
+      }
+      // Re-throw with context for other errors
+      throw new Error(
+        `Failed to record FP event: ruleId=${event.ruleId}, eventId=${event.eventId}, findingId=${event.findingId}. ${error.message}`
+      );
+    }
   }
 
   async markFalsePositive(
@@ -59,64 +72,87 @@ export class DynamoDBFPStore implements FPStore {
     reviewedBy: string,
     ticket: string
   ): Promise<void> {
-    // Query GSI to find the event
-    const queryResult = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      IndexName: 'FindingIndex',
-      KeyConditionExpression: 'gsi1pk = :finding',
-      ExpressionAttributeValues: marshall({
-        ':finding': `finding#${findingId}`,
-      }),
-      Limit: 1,
-    }));
+    try {
+      // Query GSI to find the event
+      const queryResult = await this.client.send(new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'FindingIndex',
+        KeyConditionExpression: 'gsi1pk = :finding',
+        ExpressionAttributeValues: marshall({
+          ':finding': `finding#${findingId}`,
+        }),
+        Limit: 1,
+      }));
 
-    if (!queryResult.Items || queryResult.Items.length === 0) {
-      throw new Error(`Finding ${findingId} not found in FP store`);
+      if (!queryResult.Items || queryResult.Items.length === 0) {
+        throw new Error(`Finding ${findingId} not found in FP store`);
+      }
+
+      const item = unmarshall(queryResult.Items[0]);
+      
+      await this.client.send(new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ pk: item.pk, sk: item.sk }),
+        UpdateExpression: 'SET isFalsePositive = :true, reviewedBy = :reviewer, reviewedAt = :now, suppressionTicket = :ticket',
+        ExpressionAttributeValues: marshall({
+          ':true': true,
+          ':reviewer': reviewedBy,
+          ':now': new Date().toISOString(),
+          ':ticket': ticket,
+        }),
+      }));
+    } catch (error: any) {
+      // If it's already our custom error, re-throw as-is
+      if (error.message.includes('not found in FP store')) {
+        throw error;
+      }
+      // Otherwise, add context
+      throw new Error(
+        `Failed to mark finding as false positive: findingId=${findingId}, reviewedBy=${reviewedBy}, ticket=${ticket}. ${error.message}`
+      );
     }
-
-    const item = unmarshall(queryResult.Items[0]);
-    
-    await this.client.send(new UpdateItemCommand({
-      TableName: this.tableName,
-      Key: marshall({ pk: item.pk, sk: item.sk }),
-      UpdateExpression: 'SET isFalsePositive = :true, reviewedBy = :reviewer, reviewedAt = :now, suppressionTicket = :ticket',
-      ExpressionAttributeValues: marshall({
-        ':true': true,
-        ':reviewer': reviewedBy,
-        ':now': new Date().toISOString(),
-        ':ticket': ticket,
-      }),
-    }));
   }
 
   async getWindowByCount(ruleId: string, count: number): Promise<FPWindow> {
-    const result = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      KeyConditionExpression: 'pk = :rule',
-      ExpressionAttributeValues: marshall({
-        ':rule': `rule#${ruleId}`,
-      }),
-      ScanIndexForward: false, // Newest first
-      Limit: count,
-    }));
+    try {
+      const result = await this.client.send(new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: 'pk = :rule',
+        ExpressionAttributeValues: marshall({
+          ':rule': `rule#${ruleId}`,
+        }),
+        ScanIndexForward: false, // Newest first
+        Limit: count,
+      }));
 
-    const events = (result.Items || []).map(item => this.unmarshallEvent(unmarshall(item)));
-    return this.computeWindow(ruleId, events);
+      const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
+      return this.computeWindow(ruleId, events);
+    } catch (error: any) {
+      throw new Error(
+        `Failed to get FP window by count: ruleId=${ruleId}, count=${count}. ${error.message}`
+      );
+    }
   }
 
   async getWindowBySince(ruleId: string, since: Date): Promise<FPWindow> {
-    const result = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      KeyConditionExpression: 'pk = :rule AND sk >= :since',
-      ExpressionAttributeValues: marshall({
-        ':rule': `rule#${ruleId}`,
-        ':since': `event#${since.toISOString()}`,
-      }),
-      ScanIndexForward: false,
-    }));
+    try {
+      const result = await this.client.send(new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: 'pk = :rule AND sk >= :since',
+        ExpressionAttributeValues: marshall({
+          ':rule': `rule#${ruleId}`,
+          ':since': `event#${since.toISOString()}`,
+        }),
+        ScanIndexForward: false,
+      }));
 
-    const events = (result.Items || []).map(item => this.unmarshallEvent(unmarshall(item)));
-    return this.computeWindow(ruleId, events);
+      const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
+      return this.computeWindow(ruleId, events);
+    } catch (error: any) {
+      throw new Error(
+        `Failed to get FP window by since: ruleId=${ruleId}, since=${since.toISOString()}. ${error.message}`
+      );
+    }
   }
 
   private unmarshallEvent(item: any): FPEvent {
