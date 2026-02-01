@@ -754,21 +754,60 @@ Saved to staging-outputs.json:
 ---
 
 #### Day 18: GitHub Actions OIDC Setup
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-02-01)
 
 **Tasks:**
-- [ ] Create OIDC provider in AWS
-- [ ] Configure GitHub Actions role with trust policy
-- [ ] Test OIDC authentication from workflow
-- [ ] Update workflows to use OIDC instead of access keys
-- [ ] Verify drift detection workflow can access S3
-- [ ] Document OIDC setup in runbook
+- [x] Create OIDC provider in AWS
+- [x] Configure GitHub Actions role with trust policy
+- [x] Test OIDC authentication from workflow
+- [x] Update workflows to use OIDC instead of access keys
+- [x] Verify drift detection workflow can access S3
+- [x] Document OIDC setup in runbook
+
+**Implementation Summary:**
+
+**OIDC Provider:**
+- URL: `https://token.actions.githubusercontent.com`
+- Thumbprint: `6938fd4d98bab03faadb97b34396831e3780aea1`
+- Client ID: `sts.amazonaws.com`
+
+**IAM Roles (2):**
+
+1. **Terraform Role** (`mirror-dissonance-staging-github-terraform`)
+   - Purpose: Infrastructure management
+   - Permissions: Terraform state (S3/DynamoDB), resource provisioning (DynamoDB, KMS, SSM, S3, CloudWatch, SNS)
+   - Session duration: 1 hour
+   - Trust: `main`, `develop` branches + PRs
+
+2. **Deploy Role** (`mirror-dissonance-staging-github-deploy`)
+   - Purpose: Application deployment/testing
+   - Permissions: DynamoDB read/write, SSM read, KMS decrypt, CloudWatch logs
+   - Session duration: 1 hour
+   - Trust: All branches + PRs
+
+**Workflows (3):**
+- `terraform.yml` - Infrastructure deployment with plan/apply automation
+- `integration-tests.yml` - E2E testing with AWS services
+- `backend-verify.yml` - Terraform backend verification
+
+**Scripts:**
+- `scripts/oidc/create-oidc-provider.sh` - Create OIDC provider
+- `scripts/oidc/setup-oidc.sh` - Complete OIDC + roles setup
+- `scripts/oidc/verify-oidc.sh` - 6-point verification checklist
+
+**Security Features:**
+- ✅ No long-lived AWS credentials in GitHub
+- ✅ Automatic credential rotation (1-hour sessions)
+- ✅ Least privilege IAM policies
+- ✅ Branch-restricted role assumption
+- ✅ CloudTrail audit trail
+- ✅ Multi-environment isolation
 
 **Deliverables:**
-- [ ] OIDC provider configured
-- [ ] GitHub Actions authenticated via OIDC
-- [ ] No long-lived credentials in use
-- **Commit:** `infra: configure GitHub Actions OIDC authentication`
+- [x] OIDC provider configured
+- [x] GitHub Actions authenticated via OIDC
+- [x] No long-lived credentials in use
+- **Commit:** `infra: implement GitHub Actions OIDC authentication`
 
 ---
 
