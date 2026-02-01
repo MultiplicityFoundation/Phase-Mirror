@@ -16,20 +16,69 @@ Source: `packages/mirror-dissonance/src/l0-invariants/`
 
 The `validate_l0_invariants` MCP tool exposes Phase Mirror's L0 invariants validation to GitHub Copilot agents, enabling code generation time enforcement of foundation-tier governance rules.
 
-### Usage
+**New in v2**: The tool now supports a flexible API with optional, selective checking of individual invariants, file-based validation, and configurable thresholds.
+
+### Usage - Flexible API
+
+The tool accepts multiple optional parameters and checks only what you provide:
+
+#### Example 1: Drift Magnitude Check
 
 ```json
 {
   "name": "validate_l0_invariants",
   "arguments": {
-    "schemaVersion": "1.0:f7a8b9c0",
-    "permissionBits": 4095,
-    "driftMagnitude": 0.15,
-    "nonce": {
-      "value": "nonce-value",
-      "issuedAt": 1706745600000
+    "driftCheck": {
+      "currentMetric": { "name": "violations", "value": 120 },
+      "baselineMetric": { "name": "violations", "value": 100 },
+      "threshold": 0.5
+    }
+  }
+}
+```
+
+#### Example 2: Schema Hash Validation (File-Based)
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "schemaFile": "./schemas/dissonance-report.schema.json",
+    "expectedSchemaHash": "f7a8b9c0"
+  }
+}
+```
+
+#### Example 3: Workflow Permission Check
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "workflowFiles": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/deploy.yml"
+    ]
+  }
+}
+```
+
+#### Example 4: Multiple Checks with Selective Filtering
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "checks": ["drift_magnitude", "nonce_freshness"],
+    "driftCheck": {
+      "currentMetric": { "name": "violations", "value": 120 },
+      "baselineMetric": { "name": "violations", "value": 100 }
     },
-    "contractionWitnessScore": 1.0
+    "nonceValidation": {
+      "nonce": "nonce-abc123",
+      "timestamp": "2026-02-01T08:00:00.000Z",
+      "maxAgeSeconds": 3600
+    }
   }
 }
 ```
@@ -39,44 +88,65 @@ The `validate_l0_invariants` MCP tool exposes Phase Mirror's L0 invariants valid
 ```json
 {
   "success": true,
-  "timestamp": "2026-02-01T07:48:00.000Z",
+  "timestamp": "2026-02-01T08:00:00.000Z",
   "requestId": "req-123",
   "validation": {
     "passed": true,
     "decision": "ALLOW",
-    "failedChecks": [],
-    "checkResults": {
-      "L0-001 (Schema Hash)": {
+    "checksPerformed": 2,
+    "results": [
+      {
+        "invariantId": "L0-003",
+        "invariantName": "drift_magnitude",
         "passed": true,
-        "description": "Schema version and hash integrity"
+        "message": "Drift 20.0% within acceptable range",
+        "evidence": {
+          "drift": 0.2,
+          "threshold": 0.5,
+          "current": { "name": "violations", "value": 120 },
+          "baseline": { "name": "violations", "value": 100 }
+        },
+        "latencyNs": 45320
       },
-      "L0-002 (Permission Bits)": {
+      {
+        "invariantId": "L0-004",
+        "invariantName": "nonce_freshness",
         "passed": true,
-        "description": "GitHub Actions permissions follow least privilege"
-      },
-      "L0-003 (Drift Magnitude)": {
-        "passed": true,
-        "description": "Changes within safety thresholds"
-      },
-      "L0-004 (Nonce Freshness)": {
-        "passed": true,
-        "description": "Cryptographic nonce is fresh and valid"
-      },
-      "L0-005 (Contraction Witness)": {
-        "passed": true,
-        "description": "State coherence validated"
+        "message": "Nonce fresh (age: 120.5s)",
+        "evidence": {
+          "age": 120.5,
+          "maxAge": 3600
+        },
+        "latencyNs": 28910
       }
-    },
+    ],
+    "failedChecks": [],
     "performance": {
-      "latencyNs": 103904,
-      "latencyMs": 0,
-      "target": "p99 < 100ns"
-    },
-    "context": {}
+      "totalLatencyMs": "1.245",
+      "individualLatenciesNs": [
+        { "check": "drift_magnitude", "latencyNs": 45320 },
+        { "check": "nonce_freshness", "latencyNs": 28910 }
+      ],
+      "target": "p99 < 100ns per check"
+    }
   },
-  "message": "All L0 invariants passed - state transition is valid"
+  "message": "All 2 L0 invariant checks passed"
 }
 ```
+
+### Input Parameters
+
+All parameters are **optional**. Provide only the checks you want to perform:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `checks` | `string[]` | Optional filter to only run specific checks: `schema_hash`, `permission_bits`, `drift_magnitude`, `nonce_freshness`, `contraction_witness` |
+| `schemaFile` | `string` | Path to schema file for hash validation |
+| `expectedSchemaHash` | `string` | Expected SHA-256 hash (first 8 chars) |
+| `workflowFiles` | `string[]` | GitHub Actions workflow files to check |
+| `driftCheck` | `object` | Drift magnitude comparison parameters |
+| `nonceValidation` | `object` | Nonce freshness check parameters |
+| `contractionCheck` | `object` | FPR contraction witness parameters |
 
 ---
 
@@ -247,14 +317,33 @@ If any L0 invariant fails → immediate BLOCK, no further processing.
 
 ## Configuration
 
-L0 invariants have **no user configuration** - they are always enabled.
+The flexible API allows configurable thresholds per check:
 
-Thresholds are hardcoded:
-- **Drift magnitude**: 0.3 (30%)
-- **Nonce max age**: 3600000ms (1 hour)
-- **Contraction witness**: 1.0 (exact)
+- **Drift magnitude threshold**: Configurable (default: 0.5 = 50%)
+- **Nonce max age**: Configurable (default: 3600s = 1 hour)
+- **Contraction witness min events**: Configurable (default: 10 events)
 
-**Rationale** (ADR-003): Foundation checks must be consistent and predictable.
+**Example with custom thresholds**:
+```json
+{
+  "driftCheck": {
+    "currentMetric": { "name": "violations", "value": 120 },
+    "baselineMetric": { "name": "violations", "value": 100 },
+    "threshold": 0.3
+  },
+  "nonceValidation": {
+    "nonce": "nonce-abc",
+    "timestamp": "2026-02-01T08:00:00Z",
+    "maxAgeSeconds": 7200
+  },
+  "contractionCheck": {
+    "previousFPR": 0.15,
+    "currentFPR": 0.10,
+    "witnessEventCount": 20,
+    "minRequiredEvents": 15
+  }
+}
+```
 
 ---
 
@@ -292,55 +381,87 @@ Thresholds are hardcoded:
 
 ## Examples
 
-### Example 1: All Checks Pass
+### Example 1: Drift Magnitude Check Only
 
 ```javascript
 const input = {
-  schemaVersion: "1.0:f7a8b9c0",
-  permissionBits: 4095,  // 0b0000111111111111
-  driftMagnitude: 0.15,
-  nonce: {
-    value: "nonce-" + Date.now(),
-    issuedAt: Date.now()
-  },
-  contractionWitnessScore: 1.0
+  driftCheck: {
+    currentMetric: { name: "violations", value: 110 },
+    baselineMetric: { name: "violations", value: 100 },
+    threshold: 0.5
+  }
 };
 
-// Result: decision = "ALLOW", passed = true
+// Result: decision = "ALLOW", checksPerformed = 1, drift = 10%
 ```
 
-### Example 2: Schema Hash Failure
+### Example 2: Workflow Permission Check (File-Based)
 
 ```javascript
 const input = {
-  schemaVersion: "1.0:wronghash",  // ❌ Invalid hash
-  permissionBits: 4095,
-  driftMagnitude: 0.15,
-  nonce: {
-    value: "nonce-" + Date.now(),
-    issuedAt: Date.now()
-  },
-  contractionWitnessScore: 1.0
+  workflowFiles: [
+    ".github/workflows/ci.yml",
+    ".github/workflows/deploy.yml"
+  ]
 };
 
-// Result: decision = "BLOCK", failedChecks = ["schema_hash"]
+// Checks each workflow file for excessive permissions
+// Result: decision = "ALLOW" or "BLOCK" based on permissions found
 ```
 
-### Example 3: Multiple Failures
+### Example 3: Multiple Checks with Selective Filter
 
 ```javascript
 const input = {
-  schemaVersion: "1.0:wronghash",  // ❌ Fail 1
-  permissionBits: 65535,           // ❌ Fail 2 (reserved bits set)
-  driftMagnitude: 0.5,             // ❌ Fail 3 (above threshold)
-  nonce: {
-    value: "old",
-    issuedAt: Date.now() - 7200000 // ❌ Fail 4 (2 hours old)
+  checks: ["drift_magnitude", "nonce_freshness"],  // Only run these two
+  driftCheck: {
+    currentMetric: { name: "violations", value: 150 },
+    baselineMetric: { name: "violations", value: 100 },
+    threshold: 0.3  // 30% threshold
   },
-  contractionWitnessScore: 0.8     // ❌ Fail 5 (not 1.0)
+  nonceValidation: {
+    nonce: "nonce-abc123",
+    timestamp: new Date().toISOString(),
+    maxAgeSeconds: 3600
+  },
+  // This would be ignored due to checks filter:
+  contractionCheck: {
+    previousFPR: 0.15,
+    currentFPR: 0.10,
+    witnessEventCount: 5
+  }
 };
 
-// Result: decision = "BLOCK", failedChecks = [all 5 checks]
+// Result: Only drift_magnitude and nonce_freshness are checked
+// checksPerformed = 2
+```
+
+### Example 4: Schema Hash with File
+
+```javascript
+const input = {
+  schemaFile: "./schemas/dissonance-report.schema.json",
+  expectedSchemaHash: "f7a8b9c0"  // First 8 chars of SHA-256
+};
+
+// Reads the file, computes hash, compares
+// Result: decision = "ALLOW" or "BLOCK" based on hash match
+```
+
+### Example 5: Contraction Witness Check
+
+```javascript
+const input = {
+  contractionCheck: {
+    previousFPR: 0.20,
+    currentFPR: 0.12,  // FPR decreased by 8%
+    witnessEventCount: 15,  // Need evidence for decrease
+    minRequiredEvents: 10
+  }
+};
+
+// Validates that FPR decrease has sufficient reviewed evidence
+// Result: decision = "ALLOW" (sufficient events)
 ```
 
 ---
@@ -354,11 +475,13 @@ cd packages/mcp-server
 pnpm test validate-l0-invariants
 ```
 
-The validate-l0-invariants test suite includes 14 test cases covering:
+The validate-l0-invariants test suite includes 16 test cases covering:
 - Input validation
-- Individual invariant checks
+- Individual invariant checks (all 5 types)
+- File-based schema and workflow validation
 - Multiple failure scenarios
 - Performance metrics
+- Selective check filtering
 - Error handling
 
 All tests in the mcp-server package (24 total) should pass.

@@ -84,18 +84,43 @@ Run Mirror Dissonance protocol to detect inconsistencies across requirements, co
 
 Validate foundation-tier L0 invariants that enforce non-negotiable governance rules. These checks run in <100ns and include: schema hash integrity, permission bits validation, drift magnitude checks, nonce freshness, and contraction witness validation.
 
+**New flexible API**: All parameters are optional. Provide only the checks you want to perform.
+
 **Input:**
 
 ```typescript
 {
-  schemaVersion: string;            // Format: "version:hash" (e.g., "1.0:f7a8b9c0")
-  permissionBits: number;           // 16-bit integer (0-65535), bits 12-15 must be 0
-  driftMagnitude: number;           // 0.0 to 1.0, threshold: 0.3
-  nonce: {
-    value: string;
-    issuedAt: number;               // Unix timestamp in milliseconds
+  // Optional: Filter to specific checks
+  checks?: ("schema_hash" | "permission_bits" | "drift_magnitude" | "nonce_freshness" | "contraction_witness")[];
+  
+  // Schema hash validation (file-based)
+  schemaFile?: string;
+  expectedSchemaHash?: string;  // SHA-256 hash (first 8 chars)
+  
+  // Workflow permission validation
+  workflowFiles?: string[];  // Paths to GitHub Actions workflows
+  
+  // Drift magnitude check
+  driftCheck?: {
+    currentMetric: { name: string; value: number };
+    baselineMetric: { name: string; value: number };
+    threshold?: number;  // Default: 0.5
   };
-  contractionWitnessScore: number;  // Must be 1.0 for validation
+  
+  // Nonce freshness check
+  nonceValidation?: {
+    nonce: string;
+    timestamp: string;  // ISO 8601 format
+    maxAgeSeconds?: number;  // Default: 3600
+  };
+  
+  // Contraction witness check
+  contractionCheck?: {
+    previousFPR: number;
+    currentFPR: number;
+    witnessEventCount: number;
+    minRequiredEvents?: number;  // Default: 10
+  };
 }
 ```
 
@@ -107,22 +132,51 @@ Validate foundation-tier L0 invariants that enforce non-negotiable governance ru
   validation: {
     passed: boolean;
     decision: "ALLOW" | "BLOCK";
-    failedChecks: string[];         // e.g., ["schema_hash", "drift_magnitude"]
-    checkResults: {
-      "L0-001 (Schema Hash)": { passed: boolean, description: string },
-      "L0-002 (Permission Bits)": { passed: boolean, description: string },
-      "L0-003 (Drift Magnitude)": { passed: boolean, description: string },
-      "L0-004 (Nonce Freshness)": { passed: boolean, description: string },
-      "L0-005 (Contraction Witness)": { passed: boolean, description: string }
-    };
-    performance: {
+    checksPerformed: number;
+    results: Array<{
+      invariantId: string;
+      invariantName: string;
+      passed: boolean;
+      message: string;
+      evidence: Record<string, unknown>;
       latencyNs: number;
-      latencyMs: number;
+    }>;
+    failedChecks: Array<{
+      invariantId: string;
+      invariantName: string;
+      message: string;
+    }>;
+    performance: {
+      totalLatencyMs: string;
+      individualLatenciesNs: Array<{ check: string; latencyNs: number }>;
       target: string;
     };
-    context: Record<string, unknown>;
   };
   message: string;
+}
+```
+
+**Examples:**
+
+```typescript
+// Check drift magnitude only
+{
+  "driftCheck": {
+    "currentMetric": { "name": "violations", "value": 110 },
+    "baselineMetric": { "name": "violations", "value": 100 }
+  }
+}
+
+// Check workflow permissions (file-based)
+{
+  "workflowFiles": [".github/workflows/ci.yml"]
+}
+
+// Multiple checks with filtering
+{
+  "checks": ["drift_magnitude", "nonce_freshness"],
+  "driftCheck": { ... },
+  "nonceValidation": { ... }
 }
 ```
 
