@@ -64,8 +64,8 @@ describe("validate_l0_invariants tool (flexible API)", () => {
       const parsed = JSON.parse(content.text);
       expect(parsed.success).toBe(true);
       expect(parsed.validation).toBeDefined();
-      expect(parsed.validation.checksPerformed).toBe(1);
-      expect(parsed.validation.results[0].invariantName).toBe("drift_magnitude");
+      expect(parsed.validation.checksRun).toBe(1);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-003");
     }
   });
 
@@ -84,8 +84,8 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
-      expect(parsed.validation.decision).toBe("BLOCK");
+      expect(parsed.validation.allPassed).toBe(false);
+      expect(parsed.validation.failed).toBe(1);
       expect(parsed.validation.results[0].passed).toBe(false);
       expect(parsed.validation.results[0].message).toContain("exceeds threshold");
     }
@@ -107,8 +107,8 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(true);
-      expect(parsed.validation.results[0].invariantName).toBe("nonce_freshness");
+      expect(parsed.validation.allPassed).toBe(true);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-004");
       expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
@@ -129,7 +129,7 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
+      expect(parsed.validation.allPassed).toBe(false);
       expect(parsed.validation.results[0].passed).toBe(false);
       expect(parsed.validation.results[0].message).toContain("expired");
     }
@@ -151,8 +151,8 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(true);
-      expect(parsed.validation.results[0].invariantName).toBe("contraction_witness");
+      expect(parsed.validation.allPassed).toBe(true);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-005");
       expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
@@ -173,7 +173,7 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
+      expect(parsed.validation.allPassed).toBe(false);
       expect(parsed.validation.results[0].passed).toBe(false);
       expect(parsed.validation.results[0].message).toContain("Insufficient evidence");
     }
@@ -199,8 +199,8 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(true);
-      expect(parsed.validation.results[0].invariantName).toBe("schema_hash");
+      expect(parsed.validation.allPassed).toBe(true);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-001");
       expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
@@ -221,7 +221,7 @@ describe("validate_l0_invariants tool (flexible API)", () => {
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
+      expect(parsed.validation.allPassed).toBe(false);
       expect(parsed.validation.results[0].passed).toBe(false);
       expect(parsed.validation.results[0].message).toContain("mismatch");
     }
@@ -252,8 +252,8 @@ jobs:
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(true);
-      expect(parsed.validation.results[0].invariantName).toBe("permission_bits");
+      expect(parsed.validation.allPassed).toBe(true);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-002");
       expect(parsed.validation.results[0].passed).toBe(true);
     }
   });
@@ -282,7 +282,7 @@ jobs:
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.passed).toBe(false);
+      expect(parsed.validation.allPassed).toBe(false);
       expect(parsed.validation.results[0].passed).toBe(false);
       expect(parsed.validation.results[0].message).toContain("excessive permissions");
     }
@@ -306,7 +306,7 @@ jobs:
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.checksPerformed).toBe(2);
+      expect(parsed.validation.checksRun).toBe(2);
       expect(parsed.validation.results.length).toBe(2);
     }
   });
@@ -330,8 +330,8 @@ jobs:
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.checksPerformed).toBe(1);
-      expect(parsed.validation.results[0].invariantName).toBe("drift_magnitude");
+      expect(parsed.validation.checksRun).toBe(1);
+      expect(parsed.validation.results[0].invariantId).toBe("L0-003");
     }
   });
 
@@ -349,10 +349,9 @@ jobs:
     const content = response.content[0];
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
-      expect(parsed.validation.performance).toBeDefined();
-      expect(parsed.validation.performance.totalLatencyMs).toBeDefined();
-      expect(parsed.validation.performance.individualLatenciesNs).toBeDefined();
-      expect(parsed.validation.results[0].latencyNs).toBeGreaterThan(0);
+      expect(parsed.validation.performanceNs).toBeDefined();
+      expect(parsed.validation.withinPerformanceTarget).toBeDefined();
+      expect(parsed.validation.performanceNs).toBeGreaterThan(0);
     }
   });
 });
