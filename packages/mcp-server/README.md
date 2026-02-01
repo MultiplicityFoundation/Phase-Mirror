@@ -141,134 +141,301 @@ Run Phase Mirror's Mirror Dissonance protocol to detect governance violations be
 }
 ```
 
-**PR Validation:**
-```json
-{
-  "name": "analyze_dissonance",
-  "arguments": {
-    "files": [".github/workflows/deploy.yml"],
-    "context": "acme-corp/api-gateway",
-    "mode": "pull_request"
-  }
-}
-```
+### `validate_l0_invariants`
 
-See [Usage Examples](./examples/analyze-dissonance-examples.md) for detailed scenarios.
+Validate Phase Mirror's foundation-tier L0 invariants (non-negotiable governance checks).
 
-#### Error Codes
+#### When to Use
 
-| Code | Description | Action |
-|------|-------------|--------|
-| `INVALID_INPUT` | Invalid parameters | Check input schema |
-| `EXECUTION_FAILED` | Analysis failed | Check logs, verify files exist |
+- **Pre-implementation**: Validate proposed changes against foundational rules
+- **CI/CD gates**: Enforce L0 checks in deployment pipeline
+- **Nonce rotation**: Validate cryptographic freshness after rotation
+- **FPR audits**: Verify rule improvement claims with evidence
+- **Drift detection**: Ensure changes don't exceed safety thresholds
 
-#### Performance
+#### L0 Invariants
 
-- **Latency**: < 2s for typical analysis (5-10 files)
-- **Timeout**: 30s maximum
-- **Rate Limits**: None (local execution)
+| ID | Invariant | Target Latency | Severity |
+|----|-----------|----------------|----------|
+| L0-001 | Schema Hash Integrity | <50ns | Critical |
+| L0-002 | Permission Bits | <100ns | Critical |
+| L0-003 | Drift Magnitude | <75ns | High |
+| L0-004 | Nonce Freshness | <60ns | Critical |
+| L0-005 | Contraction Witness | <100ns | Critical |
 
----
+**Performance Target**: <100ns p99 for all checks combined
 
-### validate_l0_invariants
+#### Input Parameters
 
-Validate foundation-tier L0 invariants that enforce non-negotiable governance rules. These checks run in <100ns and include: schema hash integrity, permission bits validation, drift magnitude checks, nonce freshness, and contraction witness validation.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `checks` | `string[]` | ❌ | Specific invariants to validate |
+| `schemaFile` | `string` | ❌ | Schema file path for hash validation |
+| `expectedSchemaHash` | `string` | ❌ | Expected SHA-256 hash |
+| `workflowFiles` | `string[]` | ❌ | Workflow files to check permissions |
+| `driftCheck` | `object` | ❌ | Current vs baseline metric comparison |
+| `nonceValidation` | `object` | ❌ | Nonce freshness validation |
+| `contractionCheck` | `object` | ❌ | FPR decrease evidence validation |
 
-**New flexible API**: All parameters are optional. Provide only the checks you want to perform.
+**At least one validation input required.**
 
-**Input:**
-
-```typescript
-{
-  // Optional: Filter to specific checks
-  checks?: ("schema_hash" | "permission_bits" | "drift_magnitude" | "nonce_freshness" | "contraction_witness")[];
-  
-  // Schema hash validation (file-based)
-  schemaFile?: string;
-  expectedSchemaHash?: string;  // SHA-256 hash (first 8 chars)
-  
-  // Workflow permission validation
-  workflowFiles?: string[];  // Paths to GitHub Actions workflows
-  
-  // Drift magnitude check
-  driftCheck?: {
-    currentMetric: { name: string; value: number };
-    baselineMetric: { name: string; value: number };
-    threshold?: number;  // Default: 0.5
-  };
-  
-  // Nonce freshness check
-  nonceValidation?: {
-    nonce: string;
-    timestamp: string;  // ISO 8601 format
-    maxAgeSeconds?: number;  // Default: 3600
-  };
-  
-  // Contraction witness check
-  contractionCheck?: {
-    previousFPR: number;
-    currentFPR: number;
-    witnessEventCount: number;
-    minRequiredEvents?: number;  // Default: 10
-  };
-}
-```
-
-**Output:**
+#### Output Structure
 
 ```typescript
 {
   success: boolean;
   validation: {
-    passed: boolean;
-    decision: "ALLOW" | "BLOCK";
-    checksPerformed: number;
+    allPassed: boolean;
+    checksRun: number;
+    passed: number;
+    failed: number;
+    performanceNs: number;
+    withinPerformanceTarget: boolean;
+    
     results: Array<{
-      invariantId: string;
-      invariantName: string;
+      invariantId: string;  // e.g., "L0-002"
       passed: boolean;
       message: string;
-      evidence: Record<string, unknown>;
-      latencyNs: number;
+      severity?: "critical" | "high";
+      evidence?: Record<string, unknown>;
+      remediation?: string;
     }>;
-    failedChecks: Array<{
-      invariantId: string;
-      invariantName: string;
-      message: string;
-    }>;
-    performance: {
-      totalLatencyMs: string;
-      individualLatenciesNs: Array<{ check: string; latencyNs: number }>;
-      target: string;
-    };
+    
+    recommendations?: string[];
+    report?: string;
   };
-  message: string;
 }
 ```
 
-**Examples:**
+#### Example 3: Drift Detection
 
-```typescript
-// Check drift magnitude only
+**Scenario**: Weekly baseline comparison - ensure no unauthorized large changes.
+
+**Tool Call:**
+
+```json
 {
-  "driftCheck": {
-    "currentMetric": { "name": "violations", "value": 110 },
-    "baselineMetric": { "name": "violations", "value": 100 }
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "driftCheck": {
+      "currentMetric": {
+        "name": "workflow_permission_score",
+        "value": 85
+      },
+      "baselineMetric": {
+        "name": "workflow_permission_score",
+        "value": 100
+      },
+      "threshold": 0.2
+    }
   }
 }
+```
 
-// Check workflow permissions (file-based)
-{
-  "workflowFiles": [".github/workflows/ci.yml"]
-}
+**Response** (drift within threshold):
 
-// Multiple checks with filtering
+```json
 {
-  "checks": ["drift_magnitude", "nonce_freshness"],
-  "driftCheck": { ... },
-  "nonceValidation": { ... }
+  "success": true,
+  "validation": {
+    "allPassed": true,
+    "results": [
+      {
+        "invariantId": "L0-003",
+        "passed": true,
+        "message": "Drift within acceptable range",
+        "evidence": {
+          "drift": 0.15,
+          "threshold": 0.2
+        }
+      }
+    ]
+  }
 }
 ```
+
+#### Example 4: Nonce Rotation Validation
+
+**Scenario**: After nonce rotation, validate new nonce is fresh.
+
+**Tool Call:**
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "nonceValidation": {
+      "nonce": "prod-nonce-v2-20260201",
+      "timestamp": "2026-02-01T06:00:00Z",
+      "maxAgeSeconds": 3600
+    }
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "validation": {
+    "allPassed": true,
+    "results": [
+      {
+        "invariantId": "L0-004",
+        "passed": true,
+        "message": "Nonce fresh",
+        "evidence": {
+          "age": 120,
+          "maxAge": 3600
+        }
+      }
+    ]
+  }
+}
+```
+
+#### Example 5: FPR Contraction Witness
+
+**Scenario**: Rule improvement claims lower FPR - validate with evidence.
+
+**Tool Call:**
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "contractionCheck": {
+      "previousFPR": 0.08,
+      "currentFPR": 0.03,
+      "witnessEventCount": 25,
+      "minRequiredEvents": 10
+    }
+  }
+}
+```
+
+**Response** (legitimate):
+
+```json
+{
+  "success": true,
+  "validation": {
+    "allPassed": true,
+    "results": [
+      {
+        "invariantId": "L0-005",
+        "passed": true,
+        "message": "FPR decrease validated with evidence",
+        "evidence": {
+          "decrease": 0.05,
+          "eventCount": 25,
+          "reviewed": 25
+        }
+      }
+    ]
+  }
+}
+```
+
+**Response** (illegitimate - insufficient evidence):
+
+```json
+{
+  "success": true,
+  "validation": {
+    "allPassed": false,
+    "results": [
+      {
+        "invariantId": "L0-005",
+        "passed": false,
+        "message": "Insufficient evidence for FPR decrease",
+        "severity": "critical",
+        "evidence": {
+          "decrease": 0.05,
+          "eventCount": 3,
+          "reviewed": 3
+        },
+        "remediation": "Provide at least 10 reviewed FP events to justify FPR decrease"
+      }
+    ]
+  }
+}
+```
+
+#### Example 6: Multi-Check Validation
+
+**Scenario**: Comprehensive foundation check before production deployment.
+
+**Tool Call:**
+
+```json
+{
+  "name": "validate_l0_invariants",
+  "arguments": {
+    "workflowFiles": [".github/workflows/deploy.yml"],
+    "nonceValidation": {
+      "nonce": "prod-nonce-v2",
+      "timestamp": "2026-02-01T05:00:00Z"
+    },
+    "driftCheck": {
+      "currentMetric": { "name": "security_score", "value": 95 },
+      "baselineMetric": { "name": "security_score", "value": 100 }
+    }
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "validation": {
+    "allPassed": true,
+    "checksRun": 3,
+    "passed": 3,
+    "failed": 0,
+    "performanceNs": 87,
+    "withinPerformanceTarget": true,
+    "results": [
+      { "invariantId": "L0-002", "passed": true },
+      { "invariantId": "L0-003", "passed": true },
+      { "invariantId": "L0-004", "passed": true }
+    ],
+    "recommendations": [
+      "✅ All L0 invariants passed. Foundation governance checks satisfied."
+    ],
+    "report": "L0 Invariants Validation Report\n===...==="
+  }
+}
+```
+
+#### Performance Expectations
+
+All L0 validations should complete in <100ns (p99 latency).
+
+**Typical latencies:**
+
+- Single check: 20-50ns
+- Multiple checks (3-5): 60-90ns
+- Full suite: <100ns
+
+If performance degrades:
+
+```json
+{
+  "validation": {
+    "performanceNs": 250,
+    "withinPerformanceTarget": false,
+    "recommendations": [
+      "⚠️  L0 validation took 250ns (target: <100ns). Performance degradation detected."
+    ]
+  }
+}
+```
+
+**Action**: Investigate system load, check file I/O bottlenecks.
 
 **Documentation:** See [L0 Invariants Reference](./docs/l0-invariants-reference.md) for detailed documentation.
 

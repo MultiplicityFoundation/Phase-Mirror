@@ -313,49 +313,84 @@ export async function execute(
 
     const endTime = performance.now();
     const totalLatencyMs = endTime - startTime;
+    const totalLatencyNs = Math.round(totalLatencyMs * 1_000_000); // Convert ms to ns
 
     // Check if all passed
     const allPassed = results.every(r => r.passed);
     const failedChecks = results.filter(r => !r.passed);
+    const passedCount = results.filter(r => r.passed).length;
 
-    // Format response
+    // Check if performance is within target (<100ns)
+    const performanceTarget = 100;
+    const withinPerformanceTarget = totalLatencyNs < performanceTarget;
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+    if (allPassed) {
+      recommendations.push("✅ All L0 invariants passed. Foundation governance checks satisfied.");
+    } else {
+      recommendations.push(`⚠️  ${failedChecks.length} L0 check(s) failed. Review violations before proceeding.`);
+    }
+    if (!withinPerformanceTarget) {
+      recommendations.push(`⚠️  L0 validation took ${totalLatencyNs}ns (target: <${performanceTarget}ns). Performance degradation detected.`);
+    }
+
+    // Generate simple report
+    const report = `L0 Invariants Validation Report
+${"=".repeat(40)}
+Total checks: ${results.length}
+Passed: ${passedCount}
+Failed: ${failedChecks.length}
+Performance: ${totalLatencyNs}ns (target: <${performanceTarget}ns)
+Status: ${allPassed ? "PASS" : "FAIL"}
+${"=".repeat(40)}`;
+
+    // Format response to match documented structure
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
             success: true,
-            timestamp: context.timestamp.toISOString(),
-            requestId: context.requestId,
             validation: {
-              passed: allPassed,
-              decision: allPassed ? "ALLOW" : "BLOCK",
-              checksPerformed: results.length,
-              results: results.map(r => ({
-                invariantId: r.invariantId,
-                invariantName: r.invariantName,
-                passed: r.passed,
-                message: r.message,
-                evidence: r.evidence,
-                latencyNs: r.latencyNs,
-              })),
-              failedChecks: failedChecks.map(r => ({
-                invariantId: r.invariantId,
-                invariantName: r.invariantName,
-                message: r.message,
-              })),
-              performance: {
-                totalLatencyMs: totalLatencyMs.toFixed(3),
-                individualLatenciesNs: results.map(r => ({
-                  check: r.invariantName,
-                  latencyNs: r.latencyNs,
-                })),
-                target: "p99 < 100ns per check",
-              },
+              allPassed,
+              checksRun: results.length,
+              passed: passedCount,
+              failed: failedChecks.length,
+              performanceNs: totalLatencyNs,
+              withinPerformanceTarget,
+              results: results.map(r => {
+                const result: Record<string, unknown> = {
+                  invariantId: r.invariantId,
+                  passed: r.passed,
+                  message: r.message,
+                };
+                
+                // Add optional fields
+                if (r.evidence) {
+                  result.evidence = r.evidence;
+                }
+                
+                // Add severity for failed checks
+                if (!r.passed) {
+                  // Determine severity based on invariant ID
+                  const criticalIds = ["L0-001", "L0-002", "L0-004", "L0-005"];
+                  result.severity = criticalIds.includes(r.invariantId) ? "critical" : "high";
+                  
+                  // Add remediation advice
+                  if (r.invariantId === "L0-005" && r.message.includes("Insufficient evidence")) {
+                    const minRequired = (r.evidence && typeof r.evidence === "object" && "minRequired" in r.evidence) 
+                      ? (r.evidence as { minRequired: number }).minRequired 
+                      : 10;
+                    result.remediation = `Provide at least ${minRequired} reviewed FP events to justify FPR decrease`;
+                  }
+                }
+                
+                return result;
+              }),
+              recommendations,
+              report,
             },
-            message: allPassed
-              ? `All ${results.length} L0 invariant checks passed`
-              : `${failedChecks.length} of ${results.length} L0 invariant checks failed - BLOCKED`,
           }, null, 2),
         },
       ],
