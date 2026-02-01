@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "Model Context Protocol server for Phase Mirror governance tooling",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/src/index.js",
   "bin": {
-    "phase-mirror-mcp": "./dist/index.js"
+    "phase-mirror-mcp": "./dist/src/index.js"
   },
   "scripts": {
     "build": "tsc",
