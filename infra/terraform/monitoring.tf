@@ -14,6 +14,8 @@ resource "aws_sns_topic" "ops_alerts" {
 }
 
 resource "aws_sns_topic_subscription" "ops_email" {
+  count = var.ops_email_address != "" ? 1 : 0
+  
   topic_arn = aws_sns_topic.ops_alerts.arn
   protocol  = "email"
   endpoint  = var.ops_email_address
