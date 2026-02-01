@@ -10,23 +10,14 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   extensionsToTreatAsEsm: ['.ts'],
-  globals: {
-    'ts-jest': {
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ES2020',
         target: 'ES2020',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true
-      }
-    }
-  },
-  transform: {
-    '^.+\\.ts$': ['ts-jest', {
-      useESM: true,
-      tsconfig: {
-        module: 'ES2020',
-        target: 'ES2020'
       }
     }]
   },
