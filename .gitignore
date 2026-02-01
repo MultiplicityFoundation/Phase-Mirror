@@ -33,3 +33,6 @@ coverage/
 # Test artifacts
 **/__tests__/**/*.js
 **/__tests__/**/*.d.ts
+
+# MCP Inspector automated test results
+packages/mcp-server/test-results/inspector-automated-results.json
