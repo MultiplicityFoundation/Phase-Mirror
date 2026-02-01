@@ -119,7 +119,7 @@ Automated checks verify no deprecated APIs are used.
       const parsed = JSON.parse(content.text);
       expect(parsed.success).toBe(true);
       expect(parsed.compliance).toBeDefined();
-      expect(parsed.compliance.adrsChecked).toContain("ADR-001");
+      expect(parsed.compliance.adrList).toContain("ADR-001");
       expect(Array.isArray(parsed.compliance.violations)).toBe(true);
     }
   });
@@ -139,7 +139,7 @@ Automated checks verify no deprecated APIs are used.
     if ('text' in content) {
       const parsed = JSON.parse(content.text);
       expect(parsed.success).toBe(true);
-      expect(parsed.compliance.adrsChecked).toEqual(["ADR-001"]);
+      expect(parsed.compliance.adrList).toEqual(["ADR-001"]);
     }
   });
 

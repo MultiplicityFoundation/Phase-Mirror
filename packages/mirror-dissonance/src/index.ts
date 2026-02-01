@@ -28,17 +28,22 @@ export type {
   FilePattern,
 } from "./adr/index.js";
 
-// FP Store
+// FP Store - export from fp-store/index which has all the exports
 export {
   createFPStore,
-  DynamoDBFPStore,
   NoOpFPStore,
-} from "./fp-store/store.js";
+  FPStoreQuery,
+  createFPStoreQuery,
+  LegacyDynamoDBFPStore as DynamoDBFPStore,
+} from "./fp-store/index.js";
 
 export type {
   IFPStore,
-  FPStoreConfig,
-} from "./fp-store/store.js";
+  LegacyFPStoreConfig as FPStoreConfig,
+  FPRateResult,
+  FPPattern,
+  FPTrendPoint,
+} from "./fp-store/index.js";
 
 // Re-export commonly used types
 export type { FalsePositiveEvent } from "../schemas/types.js";
