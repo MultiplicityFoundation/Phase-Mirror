@@ -115,7 +115,12 @@ const DRIFT_THRESHOLD = 0.3;
  * Nonce lifetime in milliseconds (1 hour)
  * See ADR-005: Nonce Rotation & Fail-Closed Availability
  */
-const NONCE_LIFETIME_MS = 60 * 60 * 1000; // 1 hour
+const NONCE_LIFETIME_MS = 3600000; // Pre-computed: 60 * 60 * 1000
+
+/**
+ * Minimum nonce length
+ */
+const MIN_NONCE_LENGTH = 64;
 
 /**
  * Contraction witness threshold
@@ -169,7 +174,7 @@ function checkDriftMagnitude(state: State): boolean {
  * @returns true if nonce is fresh, false otherwise
  */
 function checkNonceFreshness(state: State, nowMs?: number): boolean {
-  if (!state.nonce || !state.nonce.value || state.nonce.value.length < 64) {
+  if (!state.nonce || !state.nonce.value || state.nonce.value.length < MIN_NONCE_LENGTH) {
     return false;
   }
   const now = nowMs ?? Date.now();
@@ -204,29 +209,62 @@ function checkContractionWitness(state: State): boolean {
  * @returns InvariantCheckResult indicating pass/fail and details
  */
 export function checkL0Invariants(state: State, nowMs?: number): InvariantCheckResult {
+  // Fast path: Run all checks first without building error messages
+  // This optimizes for the common case where all checks pass
+  
+  // Check 1: Schema hash - inline for performance
+  const schemaValid = state.schemaHash && state.schemaVersion && 
+                      state.schemaVersion === EXPECTED_SCHEMA_VERSION && 
+                      state.schemaHash === EXPECTED_SCHEMA_HASH;
+  
+  // Check 2: Permission bits - inline for performance
+  const permissionsValid = (state.permissionBits & RESERVED_PERMISSION_BITS_MASK) === 0;
+  
+  // Check 3: Drift magnitude - inline for performance
+  const driftValid = state.driftMagnitude >= 0.0 && state.driftMagnitude <= DRIFT_THRESHOLD;
+  
+  // Check 4: Nonce freshness - inline for performance
+  const nonceValid = state.nonce && state.nonce.value && 
+                     state.nonce.value.length >= MIN_NONCE_LENGTH &&
+                     (() => {
+                       const now = nowMs ?? Date.now();
+                       const age = now - state.nonce.issuedAt;
+                       return age >= 0 && age < NONCE_LIFETIME_MS;
+                     })();
+  
+  // Check 5: Contraction witness - inline for performance
+  const witnessValid = state.contractionWitnessScore === undefined || 
+                       state.contractionWitnessScore === CONTRACTION_WITNESS_THRESHOLD;
+  
+  // Fast return for happy path - no allocations needed
+  if (schemaValid && permissionsValid && driftValid && nonceValid && witnessValid) {
+    return {
+      passed: true,
+      failedChecks: [],
+      violations: undefined
+    };
+  }
+  
+  // Slow path: Build detailed error messages only when checks fail
   const failedChecks: string[] = [];
   const violations: Record<string, string> = {};
   
-  // Check 1: Schema hash
-  if (!checkSchemaHash(state)) {
+  if (!schemaValid) {
     failedChecks.push('schema_hash');
     violations.schema_hash = `Schema hash mismatch. Expected version: ${EXPECTED_SCHEMA_VERSION}, hash: ${EXPECTED_SCHEMA_HASH}`;
   }
   
-  // Check 2: Permission bits
-  if (!checkPermissionBits(state)) {
+  if (!permissionsValid) {
     failedChecks.push('permission_bits');
     violations.permission_bits = `Reserved bits are set. Permission bits: ${state.permissionBits.toString(2).padStart(16, '0')}`;
   }
   
-  // Check 3: Drift magnitude
-  if (!checkDriftMagnitude(state)) {
+  if (!driftValid) {
     failedChecks.push('drift_magnitude');
     violations.drift_magnitude = `Drift magnitude exceeds threshold. Value: ${state.driftMagnitude}, threshold: ${DRIFT_THRESHOLD}`;
   }
   
-  // Check 4: Nonce freshness
-  if (!checkNonceFreshness(state, nowMs)) {
+  if (!nonceValid) {
     failedChecks.push('nonce_freshness');
     if (!state.nonce) {
       violations.nonce_freshness = `Nonce is missing`;
@@ -234,7 +272,7 @@ export function checkL0Invariants(state: State, nowMs?: number): InvariantCheckR
       const age = (nowMs ?? Date.now()) - state.nonce.issuedAt;
       if (age < 0) {
         violations.nonce_freshness = `Nonce timestamp is in the future`;
-      } else if (!state.nonce.value || state.nonce.value.length < 64) {
+      } else if (!state.nonce.value || state.nonce.value.length < MIN_NONCE_LENGTH) {
         violations.nonce_freshness = `Nonce value is missing or too short`;
       } else {
         violations.nonce_freshness = `Nonce is expired or stale. Age: ${age}ms, lifetime: ${NONCE_LIFETIME_MS}ms`;
@@ -242,16 +280,15 @@ export function checkL0Invariants(state: State, nowMs?: number): InvariantCheckR
     }
   }
   
-  // Check 5: Contraction witness (optional check)
-  if (state.contractionWitnessScore !== undefined && !checkContractionWitness(state)) {
+  if (!witnessValid) {
     failedChecks.push('contraction_witness');
     violations.contraction_witness = `Contraction witness score is not perfect. Score: ${state.contractionWitnessScore}, required: ${CONTRACTION_WITNESS_THRESHOLD}`;
   }
   
   return {
-    passed: failedChecks.length === 0,
+    passed: false,
     failedChecks,
-    violations: failedChecks.length > 0 ? violations : undefined,
+    violations
   };
 }
 
@@ -279,7 +316,7 @@ export function createValidState(overrides?: Partial<State>): State {
     permissionBits: 0b0000111111111111, // All defined bits set, no reserved bits
     driftMagnitude: 0.15, // Well below threshold
     nonce: {
-      value: 'a'.repeat(64), // Valid 64-char nonce
+      value: 'a'.repeat(MIN_NONCE_LENGTH), // Valid nonce with minimum length
       issuedAt: Date.now(),
     },
     contractionWitnessScore: 1.0, // Perfect coherence
