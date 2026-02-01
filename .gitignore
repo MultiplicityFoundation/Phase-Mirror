@@ -36,3 +36,6 @@ coverage/
 
 # MCP Inspector automated test results
 packages/mcp-server/test-results/inspector-automated-results.json
+
+# Copilot integration test artifacts (keep templates, exclude filled logs)
+packages/mcp-server/test-results/*-filled.md

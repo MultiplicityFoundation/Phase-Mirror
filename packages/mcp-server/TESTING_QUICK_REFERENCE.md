@@ -1,6 +1,6 @@
-# Quick Reference: MCP Inspector Testing
+# Quick Reference: MCP Testing (Day 6-7)
 
-This is a quick reference for the Day 6-7 testing infrastructure.
+This is a quick reference for the Day 6-7 testing infrastructure covering both MCP Inspector (local) and GitHub Copilot (production) testing.
 
 ## File Structure
 
@@ -13,17 +13,27 @@ packages/mcp-server/
 ├── test-cases/
 │   └── inspector-test-cases.json   # 13 test scenarios (5 + 8)
 ├── test-results/
-│   ├── inspector-test-log.md       # Manual testing template
-│   └── inspector-automated-results.json  # Auto-generated (gitignored)
+│   ├── inspector-test-log.md           # Manual testing template
+│   ├── inspector-automated-results.json  # Auto-generated (gitignored)
+│   └── copilot-integration-log.md      # Copilot test tracking
+├── test-templates/
+│   ├── README.md                       # Test template documentation
+│   ├── test-issue-template.md          # Basic Copilot test
+│   └── advanced-scenarios/             # Advanced test scenarios
+│       ├── scenario-2-permission-escalation.md
+│       ├── scenario-3-multi-file-context.md
+│       ├── scenario-4-nonce-rotation.md
+│       └── scenario-5-error-recovery.md
 └── docs/
-    ├── testing-guide.md            # Complete Day 6-7 guide
-    ├── github-copilot-integration.md  # Copilot setup guide
-    └── l0-invariants-reference.md  # L0 invariants docs
+    ├── testing-guide.md                  # Complete Day 6-7 guide
+    ├── github-copilot-integration.md     # Copilot setup guide
+    ├── COPILOT_INTEGRATION_REPORT.md     # Integration report template
+    └── l0-invariants-reference.md        # L0 invariants docs
 ```
 
 ## Commands
 
-### Quick Start
+### Day 6: MCP Inspector Testing
 
 ```bash
 # Build the server
@@ -38,6 +48,27 @@ node scripts/run-inspector-tests.js
 
 # Run unit tests
 pnpm test
+```
+
+### Day 7: GitHub Copilot Testing
+
+```bash
+# Create basic integration test issue
+gh issue create \
+  --title "Test: Phase Mirror MCP Integration" \
+  --body-file packages/mcp-server/test-templates/test-issue-template.md \
+  --label "copilot-test,mcp-integration" \
+  --assignee "@copilot"
+
+# Create advanced test issues
+gh issue create \
+  --title "Test: Detect GitHub Actions Permission Escalation" \
+  --body-file packages/mcp-server/test-templates/advanced-scenarios/scenario-2-permission-escalation.md \
+  --label "copilot-test,mcp-integration,security" \
+  --assignee "@copilot"
+
+# Monitor session logs
+# Navigate to: Settings → Copilot → Coding Agent → Session Logs
 ```
 
 ### What Each Script Does
@@ -154,11 +185,47 @@ After Day 6 testing:
 - ✅ Proceed to Day 7: GitHub Copilot integration
 - ✅ Follow [github-copilot-integration.md](./github-copilot-integration.md)
 
+## Day 7 Copilot Testing Workflow
+
+1. **Setup** (one-time):
+   ```bash
+   # Configure MCP server in repository settings
+   # See: docs/github-copilot-integration.md
+   ```
+
+2. **Create test issues**:
+   ```bash
+   # Use templates in test-templates/
+   gh issue create --body-file [template] --assignee "@copilot"
+   ```
+
+3. **Monitor execution**:
+   - Watch for Copilot comments on issue
+   - Check session logs: Settings → Copilot → Session Logs
+   - Verify tool calls in logs
+
+4. **Document results**:
+   - Record in `test-results/copilot-integration-log.md`
+   - Include tool calls, timings, and outcomes
+
+5. **Generate report**:
+   - Fill out `docs/COPILOT_INTEGRATION_REPORT.md`
+   - Summarize findings and recommendations
+
 ## Documentation Links
 
-- **Complete Guide**: [docs/testing-guide.md](./testing-guide.md)
-- **Copilot Setup**: [docs/github-copilot-integration.md](./github-copilot-integration.md)
-- **L0 Reference**: [docs/l0-invariants-reference.md](./l0-invariants-reference.md)
+### Day 6: Inspector Testing
+- **Complete Guide**: [docs/testing-guide.md](./docs/testing-guide.md)
+- **Scripts Docs**: [scripts/README.md](./scripts/README.md)
+
+### Day 7: Copilot Testing
+- **Copilot Setup**: [docs/github-copilot-integration.md](./docs/github-copilot-integration.md)
+- **Test Templates**: [test-templates/README.md](./test-templates/README.md)
+- **Integration Log**: [test-results/copilot-integration-log.md](./test-results/copilot-integration-log.md)
+- **Integration Report**: [docs/COPILOT_INTEGRATION_REPORT.md](./docs/COPILOT_INTEGRATION_REPORT.md)
+
+### Reference
+- **L0 Invariants**: [docs/l0-invariants-reference.md](./docs/l0-invariants-reference.md)
 - **Main README**: [README.md](./README.md)
 
 ## Support
