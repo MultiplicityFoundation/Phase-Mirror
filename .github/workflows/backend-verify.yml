@@ -1,0 +1,42 @@
+name: Backend Verification
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'scripts/*backend*.sh'
+      - 'scripts/*terraform*.sh'
+  pull_request:
+    paths:
+      - 'scripts/*backend*.sh'
+      - 'scripts/*terraform*.sh'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  verify-backend:
+    name: Verify Terraform Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-BackendVerify
+      
+      - name: Run backend verification
+        run: ./scripts/verify-backend.sh
+      
+      - name: Test Terraform init
+        run: ./scripts/test-terraform-init.sh

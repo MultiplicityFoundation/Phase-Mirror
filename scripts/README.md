@@ -76,6 +76,86 @@ This directory contains operational scripts for Phase Mirror infrastructure mana
 
 ## Bootstrap Scripts (Day -1 & Day 15)
 
+### `oidc/create-oidc-provider.sh`
+**Purpose:** Creates GitHub OIDC provider in AWS for GitHub Actions authentication
+
+**Usage:**
+```bash
+# Use default region
+./scripts/oidc/create-oidc-provider.sh
+
+# Specify region
+AWS_REGION=us-west-2 ./scripts/oidc/create-oidc-provider.sh
+```
+
+**Creates:**
+- GitHub OIDC provider in AWS IAM
+- Configures trust relationship with GitHub Actions
+- Sets up thumbprint for token validation
+- Tags provider with project metadata
+
+**Features:**
+- Idempotent (safe to run multiple times)
+- Checks for existing provider before creating
+- Uses official GitHub Actions thumbprint
+- Region-aware configuration
+
+**Run Once:** Before deploying GitHub Actions IAM roles
+
+**See also:** `GITHUB_OIDC_DAY13.md` for complete OIDC setup guide
+
+---
+
+### `oidc/setup-oidc.sh`
+**Purpose:** Complete end-to-end OIDC setup for GitHub Actions
+
+**Usage:**
+```bash
+./scripts/oidc/setup-oidc.sh
+```
+
+**Actions:**
+1. Creates OIDC provider (via `create-oidc-provider.sh`)
+2. Deploys IAM roles via Terraform
+3. Retrieves role ARNs
+4. Displays GitHub secrets configuration
+
+**Interactive:** Prompts for confirmation before applying Terraform changes
+
+**Output:**
+- Role ARNs for GitHub secrets
+- Configuration instructions
+
+**Run Once:** Initial OIDC setup
+
+---
+
+### `oidc/verify-oidc.sh`
+**Purpose:** Verify OIDC setup and IAM roles configuration
+
+**Usage:**
+```bash
+./scripts/oidc/verify-oidc.sh
+```
+
+**Checks:**
+1. OIDC provider exists
+2. Terraform role configured with trust policy
+3. Deploy role configured
+4. Role policies attached
+
+**Exit Codes:**
+- `0` - All checks passed
+- `1` - One or more checks failed
+
+**Output:**
+- Verification results (6 checks)
+- Role ARNs for GitHub secrets
+
+**Run:** After setup and periodically to verify configuration
+
+---
+
 ### `bootstrap-terraform-backend-env.sh`
 **Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management (with environment support)
 

@@ -1,10 +1,13 @@
 # Production Environment Configuration
 
-aws_region  = "us-east-1"
-environment = "production"
+environment                  = "production"
+aws_region                   = "us-east-1"
+project_name                 = "mirror-dissonance"
+enable_pitr                  = true
+kms_deletion_window_days     = 30
+alert_email                  = "" # Set via environment variable or after deployment
+enable_circuit_breaker_alarm = true
 
-# Enable all protections in production
-enable_point_in_time_recovery = true
-enable_deletion_protection    = true
-
-fp_ingestion_lambda_name = ""
+# GitHub OIDC Configuration
+github_org  = "PhaseMirror"
+github_repo = "Phase-Mirror"
