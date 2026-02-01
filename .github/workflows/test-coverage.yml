@@ -17,16 +17,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
       
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build packages
+        run: pnpm build
       
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: pnpm test:coverage
       
       - name: Enforce coverage thresholds
-        run: npm run coverage:enforce
+        run: pnpm coverage:enforce
         continue-on-error: true
       
       - name: Upload coverage to Codecov
@@ -39,7 +46,7 @@ jobs:
       
       - name: Generate coverage badge
         if: github.ref == 'refs/heads/main'
-        run: npm run coverage:badge
+        run: pnpm coverage:badge
       
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
