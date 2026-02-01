@@ -52,30 +52,91 @@ All configuration uses `COPILOT_MCP_` prefix (automatically provided by GitHub):
 
 ## Available Tools
 
-### analyze_dissonance
+### `analyze_dissonance`
 
-Run Mirror Dissonance protocol to detect inconsistencies across requirements, configs, code, and runtime.
+Run Phase Mirror's Mirror Dissonance protocol to detect governance violations before code implementation.
 
-**Input:**
+#### When to Use
 
-```typescript
-{
-  files: string[];        // File paths to analyze
-  context?: string;       // Optional issue/PR context
-  mode?: "pull_request" | "issue" | "merge_group" | "drift";
-}
-```
+- **Before implementing features**: Check if approach violates governance rules
+- **During PR review**: Validate changes meet organizational constraints
+- **Drift detection**: Compare current state to approved baseline
+- **Planning**: Understand architectural constraints from ADRs
 
-**Output:**
+#### Input Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `files` | `string[]` | ✅ | File paths to analyze (relative to repo root) |
+| `context` | `string` | ❌ | Optional issue description or PR context (format: "owner/repo") |
+| `mode` | `enum` | ❌ | Analysis mode (default: "issue") |
+
+#### Analysis Modes
+
+| Mode | Purpose | Use Case |
+|------|---------|----------|
+| `issue` | Planning phase | Developer assigned to implement issue |
+| `pull_request` | PR validation | Validate PR changes meet governance |
+| `merge_group` | Merge queue | Final check before merge to main |
+| `drift` | Baseline comparison | Detect unauthorized changes |
+
+#### Output Structure
 
 ```typescript
 {
   success: boolean;
+  timestamp: string;
+  requestId: string;
   analysis: {
-    findings: Finding[];
-    summary: Summary;
-    decision: MachineDecision;
+    mode: string;
+    filesAnalyzed: number;
+    files: Array<{
+      path: string;
+      type: "workflow" | "config" | "source";
+      hash: string;  // SHA-256
+    }>;
+    
+    findings: Array<{
+      ruleId: string;
+      severity: "critical" | "high" | "medium" | "low";
+      message: string;
+      context: Record<string, unknown>;
+    }>;
+    
+    summary: string;
+    
+    decision: {
+      outcome: "allow" | "warn" | "block";
+      reasons: string[];
+      metadata: {
+        timestamp: string;
+        mode: string;
+        rulesEvaluated: string[];
+      };
+    };
+    
+    report: {
+      rulesChecked: number;
+      violationsFound: number;
+      criticalIssues: number;
+    };
+    
+    degradedMode: boolean;
     adrReferences: string[];  // e.g., ["ADR-001", "ADR-004"]
+  };
+}
+```
+
+#### Example Usage
+
+**Basic Analysis:**
+```json
+{
+  "name": "analyze_dissonance",
+  "arguments": {
+    "files": ["src/auth/jwt.ts", ".github/workflows/deploy.yml"],
+    "context": "acme-corp/api-gateway",
+    "mode": "issue"
   }
 }
 ```
@@ -382,23 +443,73 @@ If performance degrades:
 
 ### Unit Tests
 
+Run all unit tests:
 ```bash
 pnpm test
 ```
 
+Run specific test file:
+```bash
+pnpm test analyze-dissonance.test.ts
+```
+
+### Integration Tests
+
+Run integration tests with real orchestrator:
+```bash
+pnpm test analyze-dissonance.integration.test.ts
+```
+
+### Test with Real Repository
+
+Use the provided script to test with actual repository files:
+```bash
+./scripts/test-real-analysis.sh
+```
+
 ### MCP Inspector
 
+Interactive testing with MCP Inspector:
 ```bash
 pnpm build
-npx @modelcontextprotocol/inspector node dist/index.js
+npx @modelcontextprotocol/inspector node dist/src/index.js
+```
+
+Open browser to http://localhost:5173 and test tool calls interactively.
+
+### Manual Testing
+
+Test tool list:
+```bash
+echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node dist/src/index.js
 ```
 
 ### GitHub Copilot Testing
 
 1. Configure MCP server in repository settings
 2. Create test issue
-3. Assign to @copilot
+3. Assign to @copilot with instructions to use analyze_dissonance
 4. Monitor tool calls in Copilot session logs
+
+### Test Coverage
+
+- **Unit Tests**: 28 tests covering schema validation, mode handling, error cases
+- **Integration Tests**: 8 tests with real file processing and orchestrator
+- **Total**: 36 tests, 100% passing
+
+See [Test Scenarios](./test/scenarios/README.md) for comprehensive test documentation.
+
+---
+
+## Documentation
+
+- [Usage Examples](./examples/analyze-dissonance-examples.md) - Real-world usage scenarios
+- [Test Scenarios](./test/scenarios/README.md) - Comprehensive test cases
+- [CLI Analysis Flow](./docs/cli-analysis-flow.md) - Architecture documentation
+- [L0 Invariants Reference](./docs/l0-invariants-reference.md) - Foundation checks
+- [Implementation Summary](./docs/IMPLEMENTATION_SUMMARY.md) - Development history
+
+---
 
 ## Development
 
