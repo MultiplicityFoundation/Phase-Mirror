@@ -1,0 +1,102 @@
+{
+  "check_adr_compliance": {
+    "test_1_workflow_permissions": {
+      "description": "Check workflow against ADR-001 (permissions)",
+      "input": {
+        "files": [".github/workflows/ci.yml"],
+        "adrs": ["ADR-001"]
+      },
+      "expected": {
+        "success": true,
+        "compliance.compliant": "boolean"
+      }
+    },
+    "test_2_auto_match_adrs": {
+      "description": "Auto-match relevant ADRs to files",
+      "input": {
+        "files": [".github/workflows/deploy.yml", "src/fp-store/index.ts"]
+      },
+      "expected": {
+        "success": true,
+        "compliance.adrsChecked": "number"
+      }
+    },
+    "test_3_multiple_violations": {
+      "description": "Detect multiple ADR violations",
+      "input": {
+        "files": [".github/workflows/test-violations.yml"],
+        "context": "Workflow with intentional violations for testing"
+      },
+      "expected": {
+        "success": true,
+        "compliance.violations": "array"
+      }
+    }
+  },
+  "query_fp_store": {
+    "test_1_fp_rate": {
+      "description": "Query FP rate for a rule",
+      "input": {
+        "queryType": "fp_rate",
+        "ruleId": "MD-001",
+        "orgId": "PhaseMirror"
+      },
+      "expected": {
+        "success": true,
+        "result.fpr": "number"
+      }
+    },
+    "test_2_recent_patterns": {
+      "description": "Get recent FP patterns",
+      "input": {
+        "queryType": "recent_patterns",
+        "ruleId": "MD-001",
+        "orgId": "PhaseMirror",
+        "daysBack": 30,
+        "limit": 50
+      },
+      "expected": {
+        "success": true,
+        "result.patterns": "array"
+      }
+    },
+    "test_3_trend_analysis": {
+      "description": "Analyze FP trend over time",
+      "input": {
+        "queryType": "trend_analysis",
+        "ruleId": "MD-001",
+        "orgId": "PhaseMirror",
+        "daysBack": 90
+      },
+      "expected": {
+        "success": true,
+        "result.trend": "string"
+      }
+    },
+    "test_4_cross_rule_comparison": {
+      "description": "Compare FP rates across rules",
+      "input": {
+        "queryType": "cross_rule_comparison",
+        "ruleIds": ["MD-001", "MD-002", "MD-003"],
+        "orgId": "PhaseMirror",
+        "threshold": 0.1
+      },
+      "expected": {
+        "success": true,
+        "result.rules": "array"
+      }
+    },
+    "test_5_no_consent": {
+      "description": "Handle missing consent gracefully",
+      "input": {
+        "queryType": "fp_rate",
+        "ruleId": "MD-001",
+        "orgId": "UnauthorizedOrg"
+      },
+      "expected": {
+        "success": false,
+        "code": "CONSENT_REQUIRED"
+      }
+    }
+  }
+}

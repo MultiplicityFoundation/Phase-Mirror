@@ -439,6 +439,171 @@ If performance degrades:
 
 **Documentation:** See [L0 Invariants Reference](./docs/l0-invariants-reference.md) for detailed documentation.
 
+### `check_adr_compliance`
+
+Validate code changes against Architecture Decision Records (ADRs).
+
+#### When to Use
+
+- **Pre-implementation**: Check if proposed changes comply with architectural decisions
+- **PR validation**: Ensure changes adhere to documented governance policies
+- **Policy enforcement**: Proactively enforce architectural standards
+- **Refactoring**: Verify refactors maintain compliance with ADRs
+
+#### Input Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `files` | `string[]` | ✅ | File paths to check for ADR compliance |
+| `adrs` | `string[]` | ❌ | Specific ADR IDs to check (e.g., `["ADR-001"]`) |
+| `adrPath` | `string` | ❌ | Path to ADR directory (default: `docs/adr`) |
+| `context` | `string` | ❌ | Optional context about the changes |
+
+#### Output Structure
+
+```typescript
+{
+  success: boolean;
+  timestamp: string;
+  requestId: string;
+  compliance: {
+    compliant: boolean;
+    adrsChecked: string[];  // e.g., ["ADR-001", "ADR-002"]
+    
+    violations: Array<{
+      adrId: string;        // e.g., "ADR-001"
+      ruleId: string;       // e.g., "ADR-001-R2"
+      file: string;
+      line?: number;
+      message: string;
+      severity: "high" | "medium" | "low";
+      remediation?: string;
+    }>;
+    
+    suggestions: string[];
+    timestamp: string;
+  };
+}
+```
+
+#### Example Usage
+
+**Check workflow files against ADR-001:**
+```json
+{
+  "name": "check_adr_compliance",
+  "arguments": {
+    "files": [".github/workflows/deploy.yml"],
+    "adrs": ["ADR-001"],
+    "context": "Adding deployment workflow"
+  }
+}
+```
+
+**Response** (compliant):
+```json
+{
+  "success": true,
+  "compliance": {
+    "compliant": true,
+    "adrsChecked": ["ADR-001"],
+    "violations": [],
+    "suggestions": []
+  }
+}
+```
+
+**Documentation:** See [ADR & FP Tools Reference](./docs/ADR_FP_TOOLS.md) for detailed documentation.
+
+### `query_fp_store`
+
+Query the false positive store to check if findings are known false positives or retrieve patterns for rule calibration.
+
+#### When to Use
+
+- **Suppression**: Check if a finding is already marked as a false positive
+- **Calibration**: Analyze false positive patterns to improve rules
+- **Trend analysis**: Track false positive rates over time
+- **Quality metrics**: Measure rule precision and recall
+
+#### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `check_false_positive` | Check if a finding is a known FP | `findingId` |
+| `get_by_rule` | Get FPs for a specific rule | `ruleId` |
+| `get_statistics` | Get general statistics | None |
+
+#### Input Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `operation` | `enum` | ✅ | Operation type (see above) |
+| `findingId` | `string` | Conditional | Finding ID (for `check_false_positive`) |
+| `ruleId` | `string` | Conditional | Rule ID (for `get_by_rule`) |
+| `limit` | `number` | ❌ | Max results (default: 100) |
+
+#### Output Structure
+
+**For `check_false_positive`:**
+```typescript
+{
+  success: boolean;
+  operation: "check_false_positive";
+  result: {
+    findingId: string;
+    isFalsePositive: boolean;
+  };
+}
+```
+
+**For `get_by_rule`:**
+```typescript
+{
+  success: boolean;
+  operation: "get_by_rule";
+  result: {
+    ruleId: string;
+    count: number;
+    falsePositives: Array<{
+      id: string;
+      findingId: string;
+      ruleId: string;
+      timestamp: string;
+      resolvedBy: string;
+      context: Record<string, unknown>;
+    }>;
+  };
+}
+```
+
+#### Example Usage
+
+**Check if finding is a false positive:**
+```json
+{
+  "name": "query_fp_store",
+  "arguments": {
+    "operation": "check_false_positive",
+    "findingId": "sha256:abc123..."
+  }
+}
+```
+
+**Get false positives for rule calibration:**
+```json
+{
+  "name": "query_fp_store",
+  "arguments": {
+    "operation": "get_by_rule",
+    "ruleId": "MD-001",
+    "limit": 50
+  }
+}
+```
+
+**Documentation:** See [ADR & FP Tools Reference](./docs/ADR_FP_TOOLS.md) for detailed documentation.
+
 ## Testing
 
 ### Unit Tests
