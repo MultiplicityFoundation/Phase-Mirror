@@ -1,6 +1,6 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  displayName: 'cli',
+  displayName: 'mcp-server',
   preset: 'ts-jest',
   testEnvironment: 'node',
   
@@ -8,7 +8,8 @@ module.exports = {
   
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.test.ts',
-    '<rootDir>/src/**/*.test.ts'
+    '<rootDir>/src/**/*.test.ts',
+    '<rootDir>/test/**/*.test.ts'
   ],
   
   collectCoverageFrom: [
@@ -16,15 +17,24 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/__tests__/**',
     '!src/**/*.test.ts',
-    '!src/index.ts'  // Entry point - tested via e2e
+    '!src/index.ts',
+    '!src/tools/index.ts'  // Tool registry - tested indirectly
   ],
   
   coverageThreshold: {
     global: {
-      branches: 70,   // Lower for CLI (heavy I/O)
-      functions: 70,
-      lines: 70,
-      statements: 70
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75
+    },
+    
+    // Higher threshold for tool implementations
+    './src/tools/**/*.ts': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
     }
   },
   
@@ -34,7 +44,7 @@ module.exports = {
   
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: {
         module: 'ES2020',

@@ -6,7 +6,14 @@
   "scripts": {
     "oracle:run": "pnpm --filter @mirror-dissonance/cli run start",
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "test:coverage:report": "jest --coverage && open coverage/lcov-report/index.html",
+    "test:unit": "jest --testPathIgnorePattern=integration --passWithNoTests",
+    "test:integration": "jest --testPathPattern=integration",
+    "coverage:enforce": "jest --coverage --coverageReporters=text-summary && node scripts/check-coverage.js",
+    "coverage:badge": "node scripts/generate-coverage-badge.js",
     "lint": "pnpm -r run lint",
     "clean": "pnpm -r run clean"
   },
