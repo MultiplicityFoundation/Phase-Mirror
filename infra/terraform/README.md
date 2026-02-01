@@ -79,6 +79,44 @@ This script will:
 - Create DynamoDB table: `terraform-state-lock` for state locking
 - Wait for resources to be available
 
+**Alternative:** You can also use the new comprehensive backend creation script:
+
+```bash
+# From the repository root
+./scripts/create-backend-resources.sh
+```
+
+This enhanced script provides:
+- Idempotent operations (safe to run multiple times)
+- Better error handling and progress reporting
+- Automatic DynamoDB table configuration with PAY_PER_REQUEST billing
+
+### Step 2b: Verify Backend Configuration
+
+After creating backend resources, verify the setup:
+
+```bash
+# Run comprehensive verification (8 tests)
+./scripts/verify-backend.sh
+```
+
+This verification script checks:
+- ✓ S3 bucket exists
+- ✓ Versioning enabled
+- ✓ Encryption enabled (AES256/KMS)
+- ✓ Public access blocked
+- ✓ DynamoDB table exists
+- ✓ Key schema correct (LockID)
+- ✓ Billing mode configured
+- ✓ S3 read/write functionality
+
+You can also run the full backend test suite:
+
+```bash
+# Run all backend tests
+./scripts/run-backend-tests.sh
+```
+
 ### Step 3: Bootstrap SSM Nonce
 
 The application requires a nonce parameter in SSM Parameter Store. Bootstrap it before running Terraform:

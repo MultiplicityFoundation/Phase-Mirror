@@ -1,0 +1,43 @@
+name: Terraform Backend Verification
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infra/terraform/**'
+      - 'scripts/*backend*.sh'
+      - 'scripts/*terraform*.sh'
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+
+jobs:
+  verify-backend:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+      
+      - name: Verify backend resources
+        run: ./scripts/verify-backend.sh
+      
+      - name: Test Terraform initialization
+        run: ./scripts/test-terraform-init.sh
+      
+      - name: Run backend test suite
+        run: ./scripts/run-backend-tests.sh
