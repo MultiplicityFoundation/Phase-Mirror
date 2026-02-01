@@ -52,6 +52,16 @@ All configuration uses `COPILOT_MCP_` prefix (automatically provided by GitHub):
 
 ## Available Tools
 
+Phase Mirror provides **5 production-ready MCP tools** for governance automation:
+
+1. **analyze_dissonance** - Detect governance violations before implementation
+2. **validate_l0_invariants** - Validate foundation-tier governance constraints
+3. **check_adr_compliance** - Check compliance with architectural decisions
+4. **query_fp_store** - Query and manage false positives
+5. **check_consent_requirements** - Verify consent for sensitive data access
+
+---
+
 ### `analyze_dissonance`
 
 Run Phase Mirror's Mirror Dissonance protocol to detect governance violations before code implementation.
@@ -603,6 +613,189 @@ Query the false positive store to check if findings are known false positives or
 ```
 
 **Documentation:** See [ADR & FP Tools Reference](./docs/ADR_FP_TOOLS.md) for detailed documentation.
+
+---
+
+### `check_consent_requirements`
+
+Verify organization consent status before accessing sensitive governance data, ensuring compliance with ADR-004, GDPR, and EU AI Act requirements.
+
+#### When to Use
+
+- **Before query_fp_store**: Check consent for FP patterns/metrics access
+- **Before sensitive operations**: Verify authorization for cross-org benchmarks
+- **Consent management**: Get overview of organization consent status
+- **Compliance checking**: Ensure GDPR Article 7 compliance
+
+#### Check Types
+
+| Check Type | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `validate` | Validate consent for specific resources | `resources` |
+| `summary` | Get full consent profile for organization | None |
+| `required_for_operation` | Check requirements for a tool operation | `tool`, optionally `operation` |
+
+#### Input Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `orgId` | `string` | ✅ | Organization ID to check |
+| `checkType` | `enum` | ✅ | Type of check (see above) |
+| `resources` | `string[]` | Conditional | Resources to validate (for `validate`) |
+| `tool` | `string` | Conditional | Tool name (for `required_for_operation`) |
+| `operation` | `string` | ❌ | Tool operation (for `required_for_operation`) |
+| `includePolicy` | `boolean` | ❌ | Include full policy details |
+
+#### Consent Resources
+
+| Resource | Risk Level | Description |
+|----------|------------|-------------|
+| `fp_patterns` | Medium | Access to false positive patterns |
+| `fp_metrics` | Low | Access to FP rate metrics |
+| `cross_org_benchmarks` | High | Compare against anonymized org data |
+| `rule_calibration` | Medium | Access to rule tuning recommendations |
+| `audit_logs` | High | Access to governance audit logs |
+| `drift_baselines` | Low | Access to historical drift baselines |
+
+#### Output Structure
+
+**For `validate`:**
+```typescript
+{
+  success: boolean;
+  checkType: "validate";
+  orgId: string;
+  validation: {
+    allValid: boolean;
+    checkedResources: string[];
+    summary: string;
+    resourceResults: Record<string, {
+      valid: boolean;
+      state: "granted" | "expired" | "revoked" | "pending" | "not_requested";
+      grantedAt?: string;
+      expiresAt?: string;
+      version?: string;
+      reason?: string;
+    }>;
+    issues: {
+      missingConsents: string[];
+      expiredConsents: string[];
+      needsReconsent: string[];
+    };
+    actionRequired: boolean;
+    actionUrl?: string;
+  };
+  recommendations: string[];
+  compliance: {
+    gdprCompliant: boolean;
+    adr004Compliant: boolean;
+    policyVersion: string;
+  };
+}
+```
+
+**For `summary`:**
+```typescript
+{
+  success: boolean;
+  checkType: "summary";
+  orgId: string;
+  consentSummary: {
+    hasAnyConsent: boolean;
+    policyVersion: string;
+    currentPolicyVersion: string;
+    needsReconsent: boolean;
+    resources: {
+      granted: string[];
+      pending: string[];
+      expired: string[];
+      revoked: string[];
+      notRequested: string[];
+    };
+    statistics: {
+      totalResources: number;
+      grantedCount: number;
+      pendingCount: number;
+      expiredCount: number;
+      revokedCount: number;
+      notRequestedCount: number;
+      coveragePercent: number;
+    };
+  };
+  recommendations: string[];
+  consentUrl: string;
+  compliance: {...};
+}
+```
+
+**For `required_for_operation`:**
+```typescript
+{
+  success: boolean;
+  checkType: "required_for_operation";
+  orgId: string;
+  requiredConsents: {
+    tool: string;
+    operation: string | null;
+    requiredResources: string[];
+    resourceDescriptions: Record<string, string>;
+    requiresConsent: boolean;
+  };
+  currentStatus?: {
+    allGranted: boolean;
+    summary: string;
+    missingConsents: string[];
+    actionUrl?: string;
+  };
+  canProceed: boolean;
+  blockedReason?: string;
+  recommendations?: string[];
+  resourceDetails?: Array<{...}>; // When includePolicy=true
+}
+```
+
+#### Example Usage
+
+**Validate consent before querying FP store:**
+```json
+{
+  "name": "check_consent_requirements",
+  "arguments": {
+    "orgId": "PhaseMirror",
+    "checkType": "validate",
+    "resources": ["fp_patterns", "fp_metrics"]
+  }
+}
+```
+
+**Get organization consent summary:**
+```json
+{
+  "name": "check_consent_requirements",
+  "arguments": {
+    "orgId": "PhaseMirror",
+    "checkType": "summary",
+    "includePolicy": true
+  }
+}
+```
+
+**Check requirements for an operation:**
+```json
+{
+  "name": "check_consent_requirements",
+  "arguments": {
+    "orgId": "PhaseMirror",
+    "checkType": "required_for_operation",
+    "tool": "query_fp_store",
+    "operation": "cross_rule_comparison"
+  }
+}
+```
+
+**Documentation:** See [Consent Requirements Usage](./docs/check-consent-requirements-usage.md) and [Examples](./examples/check-consent-requirements-examples.md).
+
+---
 
 ## Testing
 
