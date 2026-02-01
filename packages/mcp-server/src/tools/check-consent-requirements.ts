@@ -31,7 +31,7 @@ export const CheckConsentRequirementsInputSchema = z.object({
     .describe("Type of consent check operation to perform"),
   
   resources: z
-    .array(z.enum(CONSENT_RESOURCES as [string, ...string[]]))
+    .array(z.enum(CONSENT_RESOURCES as unknown as [string, ...string[]]))
     .optional()
     .describe("Array of resources to validate (required for 'validate' checkType)"),
   
