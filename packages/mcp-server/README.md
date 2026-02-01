@@ -875,12 +875,6 @@ For production integration with GitHub Copilot coding agent, see:
 3. Assign to @copilot with instructions to use analyze_dissonance
 4. Monitor tool calls in Copilot session logs
 
-### Test Coverage
-
-- **Unit Tests**: 28 tests covering schema validation, mode handling, error cases
-- **Integration Tests**: 8 tests with real file processing and orchestrator
-- **Total**: 36 tests, 100% passing
-
 See [Test Scenarios](./test/scenarios/README.md) for comprehensive test documentation.
 
 ---
@@ -999,10 +993,10 @@ await withTestHarness(async (harness) => {
 
 | Test Type | Count | Status | Coverage |
 |-----------|-------|--------|----------|
-| Unit Tests | 36 | ✅ All Passing | Core functionality |
+| Unit Tests | 66 | ✅ All Passing | Core functionality |
 | Integration Tests | 18 | ✅ All Passing | End-to-end workflows |
 | Manual Test Cases | 12+ | ✅ Verified | Interactive validation |
-| **Total** | **66+** | **✅ Production Ready** | **Comprehensive** |
+| **Total** | **96+** | **✅ Production Ready** | **Comprehensive** |
 
 ### Running All Tests
 
