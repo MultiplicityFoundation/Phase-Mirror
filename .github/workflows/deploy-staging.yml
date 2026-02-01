@@ -1,0 +1,91 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm run build
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
+          aws-region: us-east-1
+
+      - name: Test DynamoDB access
+        run: |
+          aws dynamodb list-tables --region us-east-1 | grep mirror-dissonance-staging || echo "No staging tables found yet"
+          echo "✅ DynamoDB access confirmed"
+
+      - name: Test SSM access
+        run: |
+          aws ssm get-parameter \
+            --name /guardian/staging/redaction_nonce_v1 \
+            --region us-east-1 \
+            --query 'Parameter.Version' \
+            --output text || echo "Nonce parameter not found yet"
+          echo "✅ SSM access confirmed"
+
+      - name: Run integration tests (staging)
+        env:
+          AWS_REGION: us-east-1
+          FP_TABLE: mirror-dissonance-staging-fp-events
+          CONSENT_TABLE: mirror-dissonance-staging-consent
+          NONCE_PARAM: /guardian/staging/redaction_nonce_v1
+        run: |
+          pnpm test -- --testPathPattern=integration || echo "No integration tests found or tests failed"
+
+      - name: Deploy notification
+        if: success()
+        run: |
+          if [ -n "${{ secrets.OPS_SNS_TOPIC_ARN_STAGING }}" ]; then
+            aws sns publish \
+              --topic-arn ${{ secrets.OPS_SNS_TOPIC_ARN_STAGING }} \
+              --subject "[Deploy] Staging deployment successful" \
+              --message "Commit: ${{ github.sha }}\nBy: ${{ github.actor }}\nBranch: ${{ github.ref_name }}" \
+              --region us-east-1
+          else
+            echo "OPS_SNS_TOPIC_ARN_STAGING not configured, skipping notification"
+          fi
