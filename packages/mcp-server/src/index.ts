@@ -18,6 +18,7 @@ import * as analyzeDissonance from "./tools/analyze-dissonance.js";
 import * as validateL0Invariants from "./tools/validate-l0-invariants.js";
 import * as checkADRCompliance from "./tools/check-adr-compliance.js";
 import * as queryFPStore from "./tools/query-fp-store.js";
+import * as checkConsentRequirements from "./tools/check-consent-requirements.js";
 import { generateRequestId } from "./utils/index.js";
 
 /**
@@ -68,6 +69,7 @@ async function main() {
         validateL0Invariants.toolDefinition,
         checkADRCompliance.toolDefinition,
         queryFPStore.toolDefinition,
+        checkConsentRequirements.toolDefinition,
       ],
     };
   });
@@ -115,6 +117,9 @@ async function main() {
 
       case "query_fp_store":
         return await queryFPStore.execute(args, toolContext);
+
+      case "check_consent_requirements":
+        return await checkConsentRequirements.execute(args, toolContext);
 
       default:
         throw new Error(`Unknown tool: ${name}`);
