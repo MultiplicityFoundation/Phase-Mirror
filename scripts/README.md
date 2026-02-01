@@ -76,6 +76,36 @@ This directory contains operational scripts for Phase Mirror infrastructure mana
 
 ## Bootstrap Scripts (Day -1 & Day 15)
 
+### `oidc/create-oidc-provider.sh`
+**Purpose:** Creates GitHub OIDC provider in AWS for GitHub Actions authentication
+
+**Usage:**
+```bash
+# Use default region
+./scripts/oidc/create-oidc-provider.sh
+
+# Specify region
+AWS_REGION=us-west-2 ./scripts/oidc/create-oidc-provider.sh
+```
+
+**Creates:**
+- GitHub OIDC provider in AWS IAM
+- Configures trust relationship with GitHub Actions
+- Sets up thumbprint for token validation
+- Tags provider with project metadata
+
+**Features:**
+- Idempotent (safe to run multiple times)
+- Checks for existing provider before creating
+- Uses official GitHub Actions thumbprint
+- Region-aware configuration
+
+**Run Once:** Before deploying GitHub Actions IAM roles
+
+**See also:** `GITHUB_OIDC_DAY13.md` for complete OIDC setup guide
+
+---
+
 ### `bootstrap-terraform-backend-env.sh`
 **Purpose:** Creates S3 bucket and DynamoDB table for Terraform state management (with environment support)
 
