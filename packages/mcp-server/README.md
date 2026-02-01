@@ -80,6 +80,108 @@ Run Mirror Dissonance protocol to detect inconsistencies across requirements, co
 }
 ```
 
+### validate_l0_invariants
+
+Validate foundation-tier L0 invariants that enforce non-negotiable governance rules. These checks run in <100ns and include: schema hash integrity, permission bits validation, drift magnitude checks, nonce freshness, and contraction witness validation.
+
+**New flexible API**: All parameters are optional. Provide only the checks you want to perform.
+
+**Input:**
+
+```typescript
+{
+  // Optional: Filter to specific checks
+  checks?: ("schema_hash" | "permission_bits" | "drift_magnitude" | "nonce_freshness" | "contraction_witness")[];
+  
+  // Schema hash validation (file-based)
+  schemaFile?: string;
+  expectedSchemaHash?: string;  // SHA-256 hash (first 8 chars)
+  
+  // Workflow permission validation
+  workflowFiles?: string[];  // Paths to GitHub Actions workflows
+  
+  // Drift magnitude check
+  driftCheck?: {
+    currentMetric: { name: string; value: number };
+    baselineMetric: { name: string; value: number };
+    threshold?: number;  // Default: 0.5
+  };
+  
+  // Nonce freshness check
+  nonceValidation?: {
+    nonce: string;
+    timestamp: string;  // ISO 8601 format
+    maxAgeSeconds?: number;  // Default: 3600
+  };
+  
+  // Contraction witness check
+  contractionCheck?: {
+    previousFPR: number;
+    currentFPR: number;
+    witnessEventCount: number;
+    minRequiredEvents?: number;  // Default: 10
+  };
+}
+```
+
+**Output:**
+
+```typescript
+{
+  success: boolean;
+  validation: {
+    passed: boolean;
+    decision: "ALLOW" | "BLOCK";
+    checksPerformed: number;
+    results: Array<{
+      invariantId: string;
+      invariantName: string;
+      passed: boolean;
+      message: string;
+      evidence: Record<string, unknown>;
+      latencyNs: number;
+    }>;
+    failedChecks: Array<{
+      invariantId: string;
+      invariantName: string;
+      message: string;
+    }>;
+    performance: {
+      totalLatencyMs: string;
+      individualLatenciesNs: Array<{ check: string; latencyNs: number }>;
+      target: string;
+    };
+  };
+  message: string;
+}
+```
+
+**Examples:**
+
+```typescript
+// Check drift magnitude only
+{
+  "driftCheck": {
+    "currentMetric": { "name": "violations", "value": 110 },
+    "baselineMetric": { "name": "violations", "value": 100 }
+  }
+}
+
+// Check workflow permissions (file-based)
+{
+  "workflowFiles": [".github/workflows/ci.yml"]
+}
+
+// Multiple checks with filtering
+{
+  "checks": ["drift_magnitude", "nonce_freshness"],
+  "driftCheck": { ... },
+  "nonceValidation": { ... }
+}
+```
+
+**Documentation:** See [L0 Invariants Reference](./docs/l0-invariants-reference.md) for detailed documentation.
+
 ## Testing
 
 ### Unit Tests
@@ -111,12 +213,15 @@ packages/mcp-server/
 ├── src/
 │   ├── index.ts              # Server entry point
 │   ├── tools/                # Tool implementations
-│   │   └── analyze-dissonance.ts
+│   │   ├── analyze-dissonance.ts
+│   │   └── validate-l0-invariants.ts
 │   ├── utils/                # Utilities
 │   │   ├── config.ts
 │   │   └── logger.ts
 │   └── types/                # TypeScript types
 ├── test/                     # Unit tests
+├── docs/                     # Documentation
+│   └── l0-invariants-reference.md
 ├── package.json
 └── tsconfig.json
 ```

@@ -15,6 +15,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { MCPServerConfig, ToolContext } from "./types/index.js";
 import * as analyzeDissonance from "./tools/analyze-dissonance.js";
+import * as validateL0Invariants from "./tools/validate-l0-invariants.js";
 import { generateRequestId } from "./utils/index.js";
 
 /**
@@ -62,6 +63,7 @@ async function main() {
           },
         },
         analyzeDissonance.toolDefinition,
+        validateL0Invariants.toolDefinition,
       ],
     };
   });
@@ -100,6 +102,9 @@ async function main() {
 
       case "analyze_dissonance":
         return await analyzeDissonance.execute(args, toolContext);
+
+      case "validate_l0_invariants":
+        return await validateL0Invariants.execute(args, toolContext);
 
       default:
         throw new Error(`Unknown tool: ${name}`);
