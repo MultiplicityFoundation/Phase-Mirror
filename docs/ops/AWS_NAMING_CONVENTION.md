@@ -78,10 +78,10 @@ Before creating resources, validate names:
 
 ```bash
 # Check name length (S3 bucket limit: 63 chars)
-echo "mirror-dissonance-terraform-state-prod" | wc -c
-# Expected: ≤63
+echo -n "mirror-dissonance-terraform-state-prod" | wc -c
+# Expected: ≤63 (actual: 39)
 
 # Check DNS compliance (lowercase, hyphens only)
-echo "mirror-dissonance-terraform-state-prod" | grep -E '^[a-z0-9-]+$'
-# Expected: matches pattern
+echo "mirror-dissonance-terraform-state-prod" | grep -E '^[a-z0-9-]+$' > /dev/null && echo "✓ Valid DNS name" || echo "✗ Invalid DNS name"
+# Expected: ✓ Valid DNS name
 ```
