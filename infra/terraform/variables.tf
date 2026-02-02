@@ -50,3 +50,15 @@ variable "github_repo" {
   type        = string
   default     = "Phase-Mirror"
 }
+
+variable "audit_log_retention_days" {
+  description = "CloudWatch Logs retention for audit logs (days)"
+  type        = number
+  default     = 90
+}
+
+variable "backup_notification_email" {
+  description = "Email address for backup notifications"
+  type        = string
+  default     = ""
+}
