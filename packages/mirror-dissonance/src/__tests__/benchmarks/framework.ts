@@ -77,7 +77,12 @@ export async function benchmark(
   const avgMs = sum / actualIterations;
   const minMs = durations[0];
   const maxMs = durations[actualIterations - 1];
-  const medianMs = durations[Math.floor(actualIterations / 2)];
+  
+  // Calculate median (handle both odd and even length arrays)
+  const medianMs = actualIterations % 2 === 0
+    ? (durations[actualIterations / 2 - 1] + durations[actualIterations / 2]) / 2
+    : durations[Math.floor(actualIterations / 2)];
+  
   const p95Ms = durations[Math.floor(actualIterations * 0.95)];
   const p99Ms = durations[Math.floor(actualIterations * 0.99)];
   const opsPerSec = (actualIterations / totalMs) * 1000;
