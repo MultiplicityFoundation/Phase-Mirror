@@ -33,6 +33,32 @@ This document describes the comprehensive end-to-end staging integration tests t
      - Tamper detection
      - Performance benchmarks
 
+4. **`packages/mirror-dissonance/src/__tests__/e2e/circuit-breaker.test.ts`**
+   - Circuit breaker with DynamoDB block counter tests
+   - Tests for:
+     - Block counter increment
+     - Threshold detection
+     - Time-based bucket isolation
+     - Multi-rule isolation
+     - TTL expiration for buckets
+
+5. **`packages/mirror-dissonance/src/__tests__/e2e/drift-baseline.test.ts`**
+   - Drift baseline storage with S3 tests
+   - Tests for:
+     - Baseline storage in S3
+     - Versioning support
+     - Drift detection calculations
+     - Server-side encryption verification
+
+6. **`packages/mirror-dissonance/src/__tests__/e2e/complete-workflow.test.ts`**
+   - Complete end-to-end workflow integration test
+   - Tests complete false positive submission flow with:
+     - Sensitive data redaction
+     - Circuit breaker enforcement
+     - FP event storage
+     - Drift baseline updates
+     - Multi-component verification
+
 ## Test Categories
 
 ### 1. False Positive Tracking (DynamoDB)
@@ -46,14 +72,14 @@ This document describes the comprehensive end-to-end staging integration tests t
 - ✅ HMAC validation
 
 ### 3. Circuit Breaker (DynamoDB block counter)
-- ⏳ Threshold enforcement (planned)
-- ⏳ Time-based bucket reset (planned)
-- ⏳ Multi-rule isolation (planned)
+- ✅ Threshold enforcement
+- ✅ Time-based bucket reset
+- ✅ Multi-rule isolation
 
 ### 4. Drift Baseline (S3)
-- ⏳ Baseline storage (planned)
-- ⏳ Drift detection (planned)
-- ⏳ Versioning (planned)
+- ✅ Baseline storage
+- ✅ Drift detection
+- ✅ Versioning
 
 ### 5. Monitoring & Alerts (CloudWatch)
 - ⏳ Metrics publishing (planned)
@@ -61,9 +87,9 @@ This document describes the comprehensive end-to-end staging integration tests t
 - ⏳ Log aggregation (planned)
 
 ### 6. Complete Workflow (All Components)
-- ⏳ End-to-end false positive flow (planned)
-- ⏳ Redacted data persistence (planned)
-- ⏳ Circuit breaker integration (planned)
+- ✅ End-to-end false positive flow
+- ✅ Redacted data persistence
+- ✅ Circuit breaker integration
 
 ## Dependencies Added
 - `@aws-sdk/client-s3@^3.980.0` - For S3 baseline storage tests
@@ -99,6 +125,9 @@ npm test -- src/__tests__/e2e
 # Run specific test file
 npm test -- src/__tests__/e2e/fp-events.test.ts
 npm test -- src/__tests__/e2e/redaction-nonce.test.ts
+npm test -- src/__tests__/e2e/circuit-breaker.test.ts
+npm test -- src/__tests__/e2e/drift-baseline.test.ts
+npm test -- src/__tests__/e2e/complete-workflow.test.ts
 
 # Run with environment variables
 ENVIRONMENT=staging AWS_REGION=us-east-1 npm test -- src/__tests__/e2e
@@ -111,15 +140,29 @@ All test files:
 - ✅ Follow existing test patterns in the repository
 - ✅ Include proper error handling and cleanup
 
+## Test Summary
+
+### Total Test Files: 5
+1. **fp-events.test.ts** - 6 test cases for false positive event tracking
+2. **redaction-nonce.test.ts** - 8 test cases for SSM nonce and redaction
+3. **circuit-breaker.test.ts** - 5 test cases for block counter and rate limiting
+4. **drift-baseline.test.ts** - 4 test cases for S3 baseline storage
+5. **complete-workflow.test.ts** - 1 comprehensive end-to-end test
+
+### Total Test Cases: 24
+
 ## Next Steps
 1. Deploy staging infrastructure if not already done
 2. Configure AWS credentials in CI/CD pipeline
-3. Add remaining test categories (Circuit Breaker, Drift Baseline, Monitoring)
-4. Set up automated E2E test runs in GitHub Actions
+3. Set up automated E2E test runs in GitHub Actions
+4. Add CloudWatch monitoring integration tests (future)
 5. Add test result reporting and notifications
 
 ## Notes
 - These are **integration tests** that require real AWS resources
-- Tests include cleanup logic to remove test data
+- Tests include cleanup logic to remove test data (or rely on TTL)
 - Infrastructure verification runs before each test suite
 - Proper AWS credentials are required to run these tests
+- Circuit breaker tests validate rate limiting with hourly buckets
+- Drift baseline tests verify S3 encryption and versioning
+- Complete workflow test demonstrates all components working together
