@@ -10,7 +10,8 @@ module.exports = {
   // Test match patterns
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.test.ts',
-    '<rootDir>/src/**/*.test.ts'
+    '<rootDir>/src/**/*.test.ts',
+    '<rootDir>/src/**/__tests__/**/*.bench.ts'
   ],
   
   // Coverage collection
