@@ -3,9 +3,7 @@
 
 set -euo pipefail
 
-# Get the repository root directory
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-REPORT_DIR="${REPO_ROOT}/security-audit-reports"
+REPORT_DIR="./security-audit-reports"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 REPORT_FILE="${REPORT_DIR}/dependency-scan-${TIMESTAMP}.json"
 
@@ -16,7 +14,7 @@ echo "Dependency Security Scan"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-cd "${REPO_ROOT}/packages/mirror-dissonance" 2>/dev/null || cd "$REPO_ROOT"
+cd packages/mirror-dissonance 2>/dev/null || cd .
 
 if [ ! -f "package.json" ]; then
   echo "✗ package.json not found"
@@ -26,18 +24,11 @@ fi
 echo "[1/4] Running pnpm audit..."
 pnpm audit --json > "$REPORT_FILE" 2>/dev/null || true
 
-# Parse results - ensure we have numeric values
-CRITICAL=$(jq -r '.metadata.vulnerabilities.critical // 0' "$REPORT_FILE" 2>/dev/null || echo "0")
-HIGH=$(jq -r '.metadata.vulnerabilities.high // 0' "$REPORT_FILE" 2>/dev/null || echo "0")
-MODERATE=$(jq -r '.metadata.vulnerabilities.moderate // 0' "$REPORT_FILE" 2>/dev/null || echo "0")
-LOW=$(jq -r '.metadata.vulnerabilities.low // 0' "$REPORT_FILE" 2>/dev/null || echo "0")
-
-# Ensure values are numeric (default to 0 if empty)
-CRITICAL=${CRITICAL:-0}
-HIGH=${HIGH:-0}
-MODERATE=${MODERATE:-0}
-LOW=${LOW:-0}
-
+# Parse results
+CRITICAL=$(jq -r '.metadata.vulnerabilities.critical // 0' "$REPORT_FILE")
+HIGH=$(jq -r '.metadata.vulnerabilities.high // 0' "$REPORT_FILE")
+MODERATE=$(jq -r '.metadata.vulnerabilities.moderate // 0' "$REPORT_FILE")
+LOW=$(jq -r '.metadata.vulnerabilities.low // 0' "$REPORT_FILE")
 TOTAL=$((CRITICAL + HIGH + MODERATE + LOW))
 
 echo ""

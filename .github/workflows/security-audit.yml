@@ -1,0 +1,151 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * *' # Daily at midnight
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to audit'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install pnpm
+        run: npm install -g pnpm
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: packages/mirror-dissonance
+      
+      - name: Run npm audit
+        run: |
+          pnpm audit --json > audit-results.json || true
+          cat audit-results.json
+        working-directory: packages/mirror-dissonance
+      
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL=$(jq -r '.metadata.vulnerabilities.critical // 0' audit-results.json)
+          HIGH=$(jq -r '.metadata.vulnerabilities.high // 0' audit-results.json)
+          
+          echo "Critical: $CRITICAL"
+          echo "High: $HIGH"
+          
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Critical vulnerabilities found"
+            exit 1
+          fi
+          
+          if [ "$HIGH" -gt 5 ]; then
+            echo "::warning::Multiple high vulnerabilities found"
+          fi
+        working-directory: packages/mirror-dissonance
+      
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: packages/mirror-dissonance/audit-results.json
+
+  infrastructure-audit:
+    name: Infrastructure Security Audit
+    runs-on: ubuntu-latest
+    needs: dependency-scan
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Run Terraform security scan
+        run: ./scripts/security/scan-terraform.sh
+      
+      - name: Run infrastructure audit
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          ./scripts/security/full-security-audit.sh "$ENVIRONMENT"
+      
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-reports
+          path: security-audit-reports/
+
+  pre-production-check:
+    name: Pre-Production Checklist
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, infrastructure-audit]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install pnpm
+        run: npm install -g pnpm
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: packages/mirror-dissonance
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Run pre-production checklist
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          ./scripts/security/pre-production-checklist.sh "$ENVIRONMENT"
+      
+      - name: Upload checklist report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-production-report
+          path: pre-prod-reports/
+      
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Pre-Production Checklist Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat pre-prod-reports/*.md >> $GITHUB_STEP_SUMMARY || echo "Report not generated" >> $GITHUB_STEP_SUMMARY
