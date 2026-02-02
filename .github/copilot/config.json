@@ -1,0 +1,26 @@
+{
+  "mcp": {
+    "timeouts": {
+      "connection": 30000,
+      "request": 60000
+    },
+    "resilience": {
+      "retryPolicy": {
+        "maxRetries": 3,
+        "strategy": "exponential_backoff",
+        "initialDelayMs": 1000
+      },
+      "circuitBreaker": {
+        "enabled": true,
+        "threshold": 5
+      }
+    },
+    "observability": {
+      "loggingLevel": "verbose",
+      "logCategories": {
+        "connection": true,
+        "transientErrors": true
+      }
+    }
+  }
+}
