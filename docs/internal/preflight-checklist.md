@@ -180,7 +180,7 @@
 ### MVP Tracking
 - [ ] MVP completion tracker created
   ```bash
-  cat MVP_COMPLETION_TRACKER.md
+  cat docs/internal/mvp-completion-tracker.md
   # Should show 4-week roadmap with daily tasks
   ```
 
@@ -193,7 +193,7 @@
 ### Environment Documentation
 - [ ] Environment documentation created
   ```bash
-  cat ENVIRONMENT.md
+  cat docs/guides/environment.md
   # Should contain system info, setup instructions, and troubleshooting
   ```
 
@@ -221,7 +221,7 @@
 
 - [ ] Initial commit created with all setup files
   ```bash
-  git add scripts/ MVP_COMPLETION_TRACKER.md ENVIRONMENT.md docs/ops/
+  git add scripts/ docs/internal/mvp-completion-tracker.md docs/guides/environment.md docs/ops/
   git commit -m "chore: complete Week 0 environment setup"
   ```
 
@@ -406,7 +406,7 @@ Week 0 is complete when **ALL** of the following are true:
 # Morning: Update progress tracker
 ./scripts/update-progress.sh 1
 
-# Throughout day: Work on tasks from MVP_COMPLETION_TRACKER.md
+# Throughout day: Work on tasks from docs/internal/mvp-completion-tracker.md
 
 # Evening: Review and commit
 git add -A

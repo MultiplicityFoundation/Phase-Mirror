@@ -240,13 +240,13 @@ pnpm outdated
 ### View Documentation
 ```bash
 # MVP completion tracker
-cat MVP_COMPLETION_TRACKER.md
+cat docs/internal/mvp-completion-tracker.md
 
 # Environment documentation
-cat ENVIRONMENT.md
+cat docs/guides/environment.md
 
 # Pre-flight checklist
-cat PREFLIGHT_CHECKLIST.md
+cat docs/internal/preflight-checklist.md
 
 # Terraform backend docs
 cat docs/ops/TERRAFORM_BACKEND.md

@@ -17,8 +17,8 @@
   - [ ] DynamoDB lock table active
   - [ ] Terraform backend configured
 - [ ] Day 0 tracking systems ready
-  - [ ] MVP_COMPLETION_TRACKER.md created
-  - [ ] ENVIRONMENT.md documented
+  - [ ] docs/internal/mvp-completion-tracker.md created
+  - [ ] docs/guides/environment.md documented
   - [ ] Progress script tested
 
 ### Code Preparation
@@ -225,8 +225,8 @@ By end of Friday (Day 5):
 - Create issue with `priority-high` label
 
 **Key Files:**
-- MVP Tracker: `MVP_COMPLETION_TRACKER.md`
-- Environment: `ENVIRONMENT.md`
+- MVP Tracker: `docs/internal/mvp-completion-tracker.md`
+- Environment: `docs/guides/environment.md`
 - Known Issues: `docs/known-issues.md`
 - Architecture: `docs/adr/`
 

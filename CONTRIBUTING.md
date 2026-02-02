@@ -363,7 +363,7 @@ When reporting a bug, include:
 
 ### Before Proposing
 
-1. **Check roadmap**: Review [MVP_COMPLETION_TRACKER.md](./MVP_COMPLETION_TRACKER.md) and GitHub Projects
+1. **Check roadmap**: Review [MVP_COMPLETION_TRACKER.md](./docs/internal/mvp-completion-tracker.md) and GitHub Projects
 2. **Search discussions**: See if the feature has been discussed in [GitHub Discussions](https://github.com/PhaseMirror/Phase-Mirror/discussions)
 3. **Consider scope**: Is this appropriate for the open-core tier or Pro features?
 

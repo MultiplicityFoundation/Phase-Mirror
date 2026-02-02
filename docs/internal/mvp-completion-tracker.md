@@ -240,7 +240,7 @@ Week 4: [░░░░░░░░░░] 0% Integration & Documentation (Days 22
 - ✅ Created automated infrastructure setup with 3 DynamoDB tables, SSM parameters, S3 bucket
 - ✅ Implemented 7 test suites with 20+ integration tests
 - ✅ Added multi-version nonce rotation testing
-- ✅ Comprehensive documentation in ORACLE_INTEGRATION_DAY5.md
+- ✅ Comprehensive documentation in docs/sprints/day-05-oracle-integration.md
 
 **Files Created:**
 - `localstack-compose.yml` - Docker Compose configuration
@@ -248,7 +248,7 @@ Week 4: [░░░░░░░░░░] 0% Integration & Documentation (Days 22
 - `test-harness/localstack/oracle-integration.test.ts` - Main integration tests
 - `test-harness/localstack/nonce-rotation.integration.test.ts` - Rotation tests
 - `test-harness/localstack/jest.config.cjs` - Test configuration
-- `ORACLE_INTEGRATION_DAY5.md` - Complete documentation
+- `docs/sprints/day-05-oracle-integration.md` - Complete documentation
 
 **Estimated Time:** 6-8 hours → **Actual:** 6 hours
 
@@ -564,7 +564,7 @@ All files               |   80.5  |   78.2   |  82.1   |  80.8   |
   - `run-backend-tests.sh` - Complete test suite runner
 
 - [x] Documentation:
-  - Backend configuration guide (TERRAFORM_BACKEND_DAY15.md)
+  - Backend configuration guide (docs/sprints/day-15-terraform-backend.md)
   - Updated infra/terraform/README.md with verification steps
   - Workspace management instructions
   - Troubleshooting procedures
@@ -1625,7 +1625,7 @@ Testing, Documentation - all included
 - phase-mirror-1.0.0-mvp.tar.gz (+ .sha256)
 - phase-mirror-1.0.0-mvp.zip (+ .sha256)
 
-**Release Notes:** docs/RELEASE_NOTES_v1.0.0-mvp.md
+**Release Notes:** docs/releases/RELEASE_NOTES_v1.0.0-mvp.md
 
 #### Post-Release Checklist
 
@@ -1662,7 +1662,7 @@ gh release create v1.0.0-mvp \
   release-artifacts/phase-mirror-1.0.0-mvp.tar.gz \
   release-artifacts/phase-mirror-1.0.0-mvp.zip \
   --title "Phase Mirror MVP v1.0.0" \
-  --notes-file docs/RELEASE_NOTES_v1.0.0-mvp.md
+  --notes-file docs/releases/RELEASE_NOTES_v1.0.0-mvp.md
 ```
 
 **MVP Completion Summary:**
