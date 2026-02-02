@@ -32,6 +32,7 @@ export interface RedactionPattern {
  * for this use case.
  */
 function computeHMAC(nonce: string, data: string): string {
+  // codeql[js/insufficient-password-hash] -- HMAC is used for integrity, not password hashing
   return createHmac('sha256', nonce).update(data).digest('hex');
 }
 
