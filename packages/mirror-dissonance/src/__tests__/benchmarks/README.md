@@ -5,13 +5,17 @@ This directory contains performance benchmarking tests for the Phase Mirror syst
 ## Quick Start
 
 ```bash
-# Run all benchmarks
+# Run all benchmarks (excluding load tests)
 npm test -- src/__tests__/benchmarks/
+
+# Run all benchmarks including load tests (5+ minutes)
+RUN_LOAD_TESTS=true ./scripts/test/run-benchmarks.sh
 
 # Run specific benchmark suite
 npm test -- src/__tests__/benchmarks/crypto.bench.ts
 npm test -- src/__tests__/benchmarks/dynamodb.bench.ts
 npm test -- src/__tests__/benchmarks/e2e-workflow.bench.ts
+npm test -- src/__tests__/benchmarks/load.bench.ts --testTimeout=600000
 ```
 
 ## Benchmark Suites
@@ -44,6 +48,15 @@ Tests the performance of complete workflows from start to finish.
 **Tests:**
 - Complete FP Submission (redaction + DynamoDB + S3)
 - Component Latency Breakdown
+
+### 4. Load Testing (`load.bench.ts`)
+Tests sustained throughput and burst handling capabilities.
+
+**Tests:**
+- Sustained Throughput (5 minutes)
+- Burst Throughput (100 concurrent ops)
+
+**Note:** Load tests take 5+ minutes to complete. Use the benchmark runner script with `RUN_LOAD_TESTS=true` to include them.
 
 ## Framework
 
@@ -88,6 +101,27 @@ export ENVIRONMENT=staging
 | DynamoDB Batch (25) | <500ms | - |
 | DynamoDB Query | <50ms | - |
 | Complete Workflow | <500ms | <750ms |
+| Sustained Throughput | >10 ops/sec | - |
+| Burst Throughput | >20 ops/sec | - |
+
+## Running with Script
+
+Use the provided script for comprehensive benchmark execution:
+
+```bash
+# Quick benchmarks (excludes load tests)
+./scripts/test/run-benchmarks.sh
+
+# Full benchmarks including load tests (5+ minutes)
+RUN_LOAD_TESTS=true ./scripts/test/run-benchmarks.sh
+```
+
+The script will:
+1. Verify AWS credentials
+2. Build the package
+3. Run crypto, DynamoDB, and E2E benchmarks
+4. Optionally run load tests (if RUN_LOAD_TESTS=true)
+5. Generate summary report
 
 ## Notes
 
@@ -95,5 +129,6 @@ export ENVIRONMENT=staging
 - The benchmarks attempt to clean up test data but manual verification is recommended
 - Run benchmarks on consistent hardware for reliable results
 - Close unnecessary applications to reduce system load
+- Load tests take 5+ minutes and should be run separately
 
 For more details, see the main documentation at `/PERFORMANCE_BENCHMARKS_DAY21.md`.

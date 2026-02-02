@@ -142,13 +142,43 @@ Tests complete workflow performance:
 npm test -- src/__tests__/benchmarks/e2e-workflow.bench.ts
 ```
 
+### 4. Load Testing (`load.bench.ts`)
+
+Tests sustained throughput and burst handling:
+
+**Sustained Throughput (5 minutes):**
+- Target: >10 ops/sec sustained
+- Target: p99 latency <500ms
+- Measures: operations count, throughput, latency distribution
+
+**Burst Throughput (100 concurrent):**
+- Target: >20 ops/sec burst
+- Target: 100 ops in <5 seconds
+- Tests: concurrent write handling
+
+**Running:**
+```bash
+# Load tests take 5+ minutes
+npm test -- src/__tests__/benchmarks/load.bench.ts --testTimeout=600000
+```
+
+**Note:** Load tests are resource-intensive and should be run separately from quick benchmarks.
+
 ## Running All Benchmarks
 
 To run the complete benchmark suite:
 
 ```bash
 cd packages/mirror-dissonance
+
+# Quick benchmarks (excludes load tests)
 npm test -- src/__tests__/benchmarks/
+
+# Or use the benchmark runner script
+./../../scripts/test/run-benchmarks.sh
+
+# Full suite including load tests (5+ minutes)
+RUN_LOAD_TESTS=true ./../../scripts/test/run-benchmarks.sh
 ```
 
 ## Configuration
@@ -179,6 +209,9 @@ npm test -- src/__tests__/benchmarks/
 | DynamoDB Batch Write (25) | <500ms | - | - |
 | DynamoDB Query | <50ms | - | - |
 | Complete FP Workflow | <500ms | <750ms | <1000ms |
+| Sustained Throughput | >10 ops/sec | - | - |
+| Burst Throughput | >20 ops/sec | - | - |
+| Load Test p99 Latency | - | - | <500ms |
 
 ## Interpreting Results
 
