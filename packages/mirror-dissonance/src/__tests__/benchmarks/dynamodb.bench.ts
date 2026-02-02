@@ -11,6 +11,9 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';
 const TABLE_NAME = `mirror-dissonance-${ENVIRONMENT}-fp-events`;
 
+// TTL constant
+const TTL_NINETY_DAYS = 7776000; // seconds
+
 describe('Benchmark: DynamoDB Operations', () => {
   let dynamodbClient: DynamoDBClient;
   const results: BenchmarkResult[] = [];
@@ -55,7 +58,7 @@ describe('Benchmark: DynamoDB Operations', () => {
               sk: `event:test#bench`,
               ruleId: id,
               createdAt: new Date().toISOString(),
-              expiresAt: Math.floor(Date.now() / 1000) + 7776000
+              expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
             })
           }));
         },
@@ -84,7 +87,7 @@ describe('Benchmark: DynamoDB Operations', () => {
                 ruleId: batchId,
                 eventId: `${i}`,
                 createdAt: new Date().toISOString(),
-                expiresAt: Math.floor(Date.now() / 1000) + 7776000
+                expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
               })
             }
           }));
@@ -122,7 +125,7 @@ describe('Benchmark: DynamoDB Operations', () => {
             ruleId,
             eventId: `${i}`,
             createdAt: new Date().toISOString(),
-            expiresAt: Math.floor(Date.now() / 1000) + 7776000
+            expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
           })
         }));
       }
@@ -189,7 +192,7 @@ describe('Benchmark: DynamoDB Operations', () => {
                 ruleId: batchId,
                 eventId: `${i}`,
                 createdAt: new Date().toISOString(),
-                expiresAt: Math.floor(Date.now() / 1000) + 7776000
+                expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
               })
             }))
           );

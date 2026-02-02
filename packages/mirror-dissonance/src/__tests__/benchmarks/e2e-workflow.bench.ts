@@ -14,6 +14,10 @@ import { redact } from '../../redaction/redactor-multi-version.js';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';
 
+// TTL constants
+const TTL_TWO_HOURS = 7200; // seconds
+const TTL_NINETY_DAYS = 7776000; // seconds
+
 const config = {
   fpEventsTable: `mirror-dissonance-${ENVIRONMENT}-fp-events`,
   blockCounterTable: `mirror-dissonance-${ENVIRONMENT}-block-counter`,
@@ -68,7 +72,7 @@ describe('Benchmark: End-to-End Workflows', () => {
             UpdateExpression: 'ADD blockCount :inc SET expiresAt = :ttl',
             ExpressionAttributeValues: marshall({
               ':inc': 1,
-              ':ttl': Math.floor(Date.now() / 1000) + 7200
+              ':ttl': Math.floor(Date.now() / 1000) + TTL_TWO_HOURS
             }),
             ReturnValues: 'ALL_NEW'
           }));
@@ -85,7 +89,7 @@ describe('Benchmark: End-to-End Workflows', () => {
                 ruleId,
                 reason: redactedReason,
                 createdAt: timestamp,
-                expiresAt: Math.floor(Date.now() / 1000) + 7776000
+                expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
               })
             }));
           }
@@ -148,10 +152,10 @@ describe('Benchmark: End-to-End Workflows', () => {
         await dynamodbClient.send(new UpdateItemCommand({
           TableName: config.blockCounterTable,
           Key: marshall({ bucketKey }),
-          UpdateExpression: 'ADD blockCount :inc SET expiresAt :ttl',
+          UpdateExpression: 'ADD blockCount :inc SET expiresAt = :ttl',
           ExpressionAttributeValues: marshall({
             ':inc': 1,
-            ':ttl': Math.floor(Date.now() / 1000) + 7200
+            ':ttl': Math.floor(Date.now() / 1000) + TTL_TWO_HOURS
           })
         }));
         latencies.circuitBreaker += performance.now() - start;
@@ -166,7 +170,7 @@ describe('Benchmark: End-to-End Workflows', () => {
             ruleId,
             reason: redactedReason,
             createdAt: timestamp,
-            expiresAt: Math.floor(Date.now() / 1000) + 7776000
+            expiresAt: Math.floor(Date.now() / 1000) + TTL_NINETY_DAYS
           })
         }));
         latencies.fpStorage += performance.now() - start;
