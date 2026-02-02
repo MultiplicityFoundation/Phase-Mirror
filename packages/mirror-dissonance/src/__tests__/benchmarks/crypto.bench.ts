@@ -4,16 +4,16 @@
  */
 
 import { SSMClient } from '@aws-sdk/client-ssm';
-import { benchmark, BenchmarkResult, generateReport } from './framework';
+import { benchmark, BenchmarkResult, generateReport } from './framework.js';
 import {
   loadNonce,
   getLatestNonce,
   clearNonceCache
-} from '../../nonce/multi-version-loader';
+} from '../../nonce/multi-version-loader.js';
 import {
   redact,
   isValidRedactedText
-} from '../../redaction/redactor-multi-version';
+} from '../../redaction/redactor-multi-version.js';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';

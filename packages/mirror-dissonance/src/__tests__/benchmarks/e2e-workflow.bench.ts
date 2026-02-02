@@ -7,9 +7,9 @@ import { DynamoDBClient, PutItemCommand, UpdateItemCommand, GetItemCommand } fro
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { SSMClient } from '@aws-sdk/client-ssm';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { benchmark, BenchmarkResult, generateReport } from './framework';
-import { loadNonce, clearNonceCache } from '../../nonce/multi-version-loader';
-import { redact } from '../../redaction/redactor-multi-version';
+import { benchmark, BenchmarkResult, generateReport } from './framework.js';
+import { loadNonce, clearNonceCache } from '../../nonce/multi-version-loader.js';
+import { redact } from '../../redaction/redactor-multi-version.js';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';

@@ -5,7 +5,7 @@
 
 import { DynamoDBClient, PutItemCommand, QueryCommand, BatchWriteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { benchmark, BenchmarkResult, generateReport } from './framework';
+import { benchmark, BenchmarkResult, generateReport } from './framework.js';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const ENVIRONMENT = process.env.ENVIRONMENT || 'staging';
