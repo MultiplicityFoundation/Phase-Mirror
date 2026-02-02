@@ -1523,11 +1523,6 @@ gh workflow run security-audit.yml -f environment=staging
 ---
 
 #### Day 24: Performance Benchmarking
-- **Commit:** `test: add end-to-end staging integration tests`
-
----
-
-#### Day 24: Performance Benchmarking
 **Status:** ⬜ Not Started
 
 **Tasks:**
