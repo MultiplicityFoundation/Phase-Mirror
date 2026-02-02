@@ -1039,7 +1039,7 @@ CI validates:
 - [Test Scenarios](./test/scenarios/README.md) - Comprehensive test cases
 - [CLI Analysis Flow](./docs/cli-analysis-flow.md) - Architecture documentation
 - [L0 Invariants Reference](./docs/l0-invariants-reference.md) - Foundation checks
-- [Implementation Summary](./docs/IMPLEMENTATION_SUMMARY.md) - Development history
+- [Implementation Summary](../../docs/internal/implementation-summary.md) - Development history
 
 ---
 

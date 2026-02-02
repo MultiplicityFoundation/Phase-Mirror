@@ -194,5 +194,5 @@ terraform plan -target=module.kms
 ## Documentation
 
 For deployment instructions, see:
-- [STAGING_DEPLOYMENT_DAY16-17.md](../../STAGING_DEPLOYMENT_DAY16-17.md) - Complete deployment guide
+- [day-16-17-staging-deployment.md](../../docs/sprints/day-16-17-staging-deployment.md) - Complete deployment guide
 - [README.md](./README.md) - Terraform configuration overview

@@ -50,8 +50,8 @@ check_file() {
 
 # Tracking Systems
 echo "## Tracking Systems"
-check_file "MVP Completion Tracker created" "MVP_COMPLETION_TRACKER.md"
-check_file "Environment baseline documented" "ENVIRONMENT.md"
+check_file "MVP Completion Tracker created" "docs/internal/mvp-completion-tracker.md"
+check_file "Environment baseline documented" "docs/guides/environment.md"
 check_file "Progress tracking script created" "scripts/update-progress.sh"
 check "Progress script is executable" "test -x scripts/update-progress.sh"
 echo
@@ -67,7 +67,7 @@ echo
 echo "## Git Workflow"
 check "On MVP feature branch" "git rev-parse --abbrev-ref HEAD | grep -qE '(mvp|copilot|feature)'"
 check "Day 0 changes committed" "git log --oneline | head -5 | grep -qE '(Day 0|baseline|tracking|documentation|Day -1|AWS)'"
-check "No uncommitted tracker changes" "! git diff MVP_COMPLETION_TRACKER.md | grep -q '^[\+\-]'"
+check "No uncommitted tracker changes" "! git diff docs/internal/mvp-completion-tracker.md | grep -q '^[\+\-]'"
 echo
 
 # Development Environment

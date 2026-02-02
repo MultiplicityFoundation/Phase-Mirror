@@ -116,7 +116,7 @@ Successfully implemented and verified Oracle integration with LocalStack, provid
 7. `test-harness/localstack/jest.setup.ts` - Test setup
 8. `test-harness/localstack/oracle-integration.test.ts` - Main integration tests
 9. `test-harness/localstack/nonce-rotation.integration.test.ts` - Rotation tests
-10. `ORACLE_INTEGRATION_DAY5.md` - Complete documentation
+10. `docs/sprints/day-05-oracle-integration.md` - Complete documentation
 
 ## Performance Results
 

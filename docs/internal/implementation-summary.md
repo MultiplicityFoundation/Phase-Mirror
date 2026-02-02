@@ -93,7 +93,7 @@ Successfully implemented comprehensive Oracle integration verification using Loc
 ### 4. Documentation (✅ Complete)
 
 #### Documents Created:
-1. **ORACLE_INTEGRATION_DAY5.md**
+1. **docs/sprints/day-05-oracle-integration.md**
    - Complete setup guide
    - Quick start instructions
    - Test coverage details
@@ -110,7 +110,7 @@ Successfully implemented comprehensive Oracle integration verification using Loc
    - Known limitations
    - Next steps
 
-3. **MVP_COMPLETION_TRACKER.md**
+3. **docs/internal/mvp-completion-tracker.md**
    - Day 5 marked as complete
    - Detailed achievements listed
    - Files created/modified documented
@@ -225,7 +225,7 @@ cd Phase-Mirror
 7. `test-harness/localstack/jest.setup.ts` - Test setup
 8. `test-harness/localstack/oracle-integration.test.ts` - Main tests
 9. `test-harness/localstack/nonce-rotation.integration.test.ts` - Rotation tests
-10. `ORACLE_INTEGRATION_DAY5.md` - Complete guide
+10. `docs/sprints/day-05-oracle-integration.md` - Complete guide
 11. `test-harness/localstack/TEST_RESULTS.md` - Results summary
 
 ## Files Modified (6 source files)

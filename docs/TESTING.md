@@ -174,7 +174,7 @@ Coverage is enforced in GitHub Actions:
 ### "Coverage below threshold"
 
 1. Run `pnpm test:coverage:report`
-2. Check `COVERAGE_GAPS.md` for prioritized gaps
+2. Check `docs/internal/coverage-gaps.md` for prioritized gaps
 3. Add tests for uncovered branches/functions
 4. Re-run `pnpm coverage:enforce`
 

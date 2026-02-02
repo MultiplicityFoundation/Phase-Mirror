@@ -195,4 +195,4 @@ Primary costs:
 
 ---
 
-For more details on any release, see the [Release Notes](./RELEASE_NOTES_v1.0.0-rc1.md).
+For more details on any release, see the [Release Notes](./docs/releases/RELEASE_NOTES_v1.0.0-rc1.md).

@@ -21,7 +21,7 @@ This directory contains operational scripts for Phase Mirror infrastructure mana
 - Generates coverage report (if available)
 - Counts known issues from `docs/known-issues.md`
 - Captures git status
-- Appends formatted update to `MVP_COMPLETION_TRACKER.md`
+- Appends formatted update to `docs/internal/mvp-completion-tracker.md`
 
 **Generated Entry Includes:**
 - Date and week number
@@ -70,7 +70,7 @@ This directory contains operational scripts for Phase Mirror infrastructure mana
 - Repository status
 - Build status
 
-**Output:** `ENVIRONMENT.md.generated` (review and rename to `ENVIRONMENT.md`)
+**Output:** `ENVIRONMENT.md.generated` (review and rename to `docs/guides/environment.md`)
 
 ---
 
@@ -102,7 +102,7 @@ AWS_REGION=us-west-2 ./scripts/oidc/create-oidc-provider.sh
 
 **Run Once:** Before deploying GitHub Actions IAM roles
 
-**See also:** `GITHUB_OIDC_DAY13.md` for complete OIDC setup guide
+**See also:** `docs/sprints/day-13-github-oidc.md` for complete OIDC setup guide
 
 ---
 
@@ -441,7 +441,7 @@ cd infra/terraform
 
 # 1. Generate environment documentation
 ./scripts/generate-environment-doc.sh
-mv ENVIRONMENT.md.generated ENVIRONMENT.md
+mv ENVIRONMENT.md.generated docs/guides/environment.md
 
 # 2. Bootstrap backend (Day -1)
 ENVIRONMENT=dev ./scripts/bootstrap-terraform-backend-env.sh

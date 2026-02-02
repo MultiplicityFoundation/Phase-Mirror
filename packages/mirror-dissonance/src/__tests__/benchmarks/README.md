@@ -131,4 +131,4 @@ The script will:
 - Close unnecessary applications to reduce system load
 - Load tests take 5+ minutes and should be run separately
 
-For more details, see the main documentation at `/PERFORMANCE_BENCHMARKS_DAY21.md`.
+For more details, see the main documentation at `/docs/sprints/day-21-performance-benchmarks.md`.

@@ -31,8 +31,8 @@ echo -e "${BLUE}=== Daily Progress Update: Week ${WEEK} - ${DATE} ${TIME} ===${N
 echo ""
 
 # Check if tracker exists
-if [ ! -f "MVP_COMPLETION_TRACKER.md" ]; then
-  echo -e "${RED}❌ Error: MVP_COMPLETION_TRACKER.md not found${NC}"
+if [ ! -f "docs/internal/mvp-completion-tracker.md" ]; then
+  echo -e "${RED}❌ Error: docs/internal/mvp-completion-tracker.md not found${NC}"
   echo "   Create the tracker first before running this script"
   exit 1
 fi
@@ -102,10 +102,10 @@ echo -e "${BLUE}🐛 Counting known issues...${NC}"
 if [ -f "docs/known-issues.md" ]; then
   CRITICAL_ISSUES=$(grep -ic "critical" docs/known-issues.md 2>/dev/null || echo "0")
   IMPORTANT_ISSUES=$(grep -ic "important" docs/known-issues.md 2>/dev/null || echo "0")
-elif [ -f "MVP_COMPLETION_TRACKER.md" ]; then
+elif [ -f "docs/internal/mvp-completion-tracker.md" ]; then
   # Fallback: count from tracker
-  CRITICAL_ISSUES=$(grep -c "Critical Issues.*|.*|" MVP_COMPLETION_TRACKER.md 2>/dev/null || echo "0")
-  IMPORTANT_ISSUES=$(grep -c "Important Issues.*|.*|" MVP_COMPLETION_TRACKER.md 2>/dev/null || echo "0")
+  CRITICAL_ISSUES=$(grep -c "Critical Issues.*|.*|" docs/internal/mvp-completion-tracker.md 2>/dev/null || echo "0")
+  IMPORTANT_ISSUES=$(grep -c "Important Issues.*|.*|" docs/internal/mvp-completion-tracker.md 2>/dev/null || echo "0")
 else
   CRITICAL_ISSUES="0"
   IMPORTANT_ISSUES="0"
@@ -206,7 +206,7 @@ Infrastructure: ${INFRA_STATUS}
 "
 
 # Append to tracker
-echo "$PROGRESS_ENTRY" >> MVP_COMPLETION_TRACKER.md
+echo "$PROGRESS_ENTRY" >> docs/internal/mvp-completion-tracker.md
 
 # ============================================================================
 # Summary Output
@@ -226,7 +226,7 @@ echo "  L0 Performance:     ${L0_P99}"
 echo "  FP Store Performance: ${FP_P99}"
 echo ""
 echo -e "${YELLOW}💡 Next steps:${NC}"
-echo "  1. Edit MVP_COMPLETION_TRACKER.md to fill in today's details"
+echo "  1. Edit docs/internal/mvp-completion-tracker.md to fill in today's details"
 echo "  2. Mark completed tasks with [x]"
 echo "  3. Add in-progress tasks"
 echo "  4. Document blockers (or write 'None')"
@@ -234,6 +234,6 @@ echo "  5. Add tomorrow's focus areas"
 echo "  6. Add any notes or learnings"
 echo ""
 echo "  Then commit:"
-echo "  git add MVP_COMPLETION_TRACKER.md"
+echo "  git add docs/internal/mvp-completion-tracker.md"
 echo "  git commit -m 'chore: daily progress update Week ${WEEK} - ${DATE}'"
 echo ""
