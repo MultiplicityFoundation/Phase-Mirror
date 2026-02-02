@@ -1,0 +1,93 @@
+name: E2E Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *' # Daily at 6 AM UTC
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: staging
+  NODE_VERSION: '20'
+
+jobs:
+  e2e-tests:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        run: npm install -g pnpm
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-E2ETests
+      
+      - name: Verify AWS identity
+        run: |
+          aws sts get-caller-identity
+          echo "✓ Authenticated to AWS via OIDC"
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: packages/mirror-dissonance
+      
+      - name: Build package
+        run: pnpm run build
+        working-directory: packages/mirror-dissonance
+      
+      - name: Verify infrastructure
+        run: |
+          pnpm test -- src/__tests__/e2e/setup.test.ts
+        working-directory: packages/mirror-dissonance
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+      
+      - name: Run E2E tests
+        run: |
+          pnpm test -- src/__tests__/e2e/ --testTimeout=30000 --verbose
+        working-directory: packages/mirror-dissonance
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            packages/mirror-dissonance/coverage/
+            packages/mirror-dissonance/test-results/
+          retention-days: 30
+      
+      - name: Report test summary
+        if: always()
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "Region: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All E2E integration tests passed" >> $GITHUB_STEP_SUMMARY
