@@ -15,6 +15,7 @@ coverage/
 .idea/
 baseline.json
 reports/
+security-audit-reports/
 
 # Terraform files
 **/.terraform/
