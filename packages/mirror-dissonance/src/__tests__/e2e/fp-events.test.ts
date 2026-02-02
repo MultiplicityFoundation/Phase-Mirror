@@ -18,14 +18,11 @@ describe('E2E: False Positive Event Tracking', () => {
   });
   
   afterAll(async () => {
-    // Cleanup test data
-    for (const testId of testIds) {
-      try {
-        const { DeleteItemCommand } = await import('@aws-sdk/client-dynamodb');
-        // Delete test records (implementation details)
-      } catch (error) {
-        console.warn('Cleanup warning:', error);
-      }
+    // TODO: Implement cleanup logic to delete test records from DynamoDB
+    // This will require implementing DeleteItemCommand for each testId
+    // For now, relying on DynamoDB TTL to clean up test data after 90 days
+    if (testIds.length > 0) {
+      console.log(`Test created ${testIds.length} records that will be cleaned up by TTL`);
     }
   });
   

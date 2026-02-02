@@ -66,26 +66,23 @@ export async function cleanupTestData(testIds: string[]): Promise<void> {
 export async function verifyInfrastructure(): Promise<boolean> {
   try {
     // Check DynamoDB tables exist
-    const { DynamoDBClient, DescribeTableCommand } = await import('@aws-sdk/client-dynamodb');
-    const dynamodb = new DynamoDBClient({ region: REGION });
+    const { DescribeTableCommand } = await import('@aws-sdk/client-dynamodb');
     
-    await dynamodb.send(new DescribeTableCommand({
+    await clients.dynamodb.send(new DescribeTableCommand({
       TableName: config.tables.fpEvents
     }));
     
     // Check SSM parameter exists
-    const { SSMClient, GetParameterCommand } = await import('@aws-sdk/client-ssm');
-    const ssm = new SSMClient({ region: REGION });
+    const { GetParameterCommand } = await import('@aws-sdk/client-ssm');
     
-    await ssm.send(new GetParameterCommand({
+    await clients.ssm.send(new GetParameterCommand({
       Name: config.parameters.nonceV1
     }));
     
     // Check S3 bucket exists
-    const { S3Client, HeadBucketCommand } = await import('@aws-sdk/client-s3');
-    const s3 = new S3Client({ region: REGION });
+    const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
     
-    await s3.send(new HeadBucketCommand({
+    await clients.s3.send(new HeadBucketCommand({
       Bucket: config.buckets.baselines
     }));
     
