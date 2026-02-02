@@ -140,6 +140,86 @@ Each report includes:
 - `0`: All checks passed
 - `1`: One or more checks failed (requires remediation)
 
+## 2.6. Additional Security Scripts
+
+The security suite includes three additional specialized scripts:
+
+#### Pre-Production Checklist (`pre-production-checklist.sh`)
+
+Comprehensive validation before production deployment:
+
+```bash
+./scripts/security/pre-production-checklist.sh [staging|production]
+```
+
+Validates 7 categories:
+- Infrastructure Readiness (Terraform state, DynamoDB, S3, KMS)
+- Security Controls (OIDC, IAM, encryption, secrets)
+- Monitoring & Alerting (CloudTrail, dashboards, alarms, SNS)
+- Backup & Recovery (PITR, versioning, backup vault)
+- Testing & Quality (unit tests, E2E tests, vulnerabilities)
+- Documentation (runbooks, ops guides, README)
+- CI/CD Readiness (workflows, branch protection)
+
+Generates reports in: `./pre-prod-reports/preprod-checklist-{timestamp}.md`
+
+#### Dependency Scanner (`scan-dependencies.sh`)
+
+Automated dependency vulnerability scanning:
+
+```bash
+./scripts/security/scan-dependencies.sh
+```
+
+Features:
+- Uses `pnpm audit` for vulnerability detection
+- Categorizes by severity (Critical, High, Moderate, Low)
+- Checks for known vulnerable packages
+- Provides remediation recommendations
+- Generates JSON reports in `./security-audit-reports/`
+
+Exit codes:
+- `0`: No critical or high vulnerabilities
+- `1`: Critical or high vulnerabilities found
+
+#### Terraform Security Scanner (`scan-terraform.sh`)
+
+Infrastructure-as-code security validation:
+
+```bash
+./scripts/security/scan-terraform.sh
+```
+
+Checks:
+- Hardcoded secrets detection
+- Encryption configurations (DynamoDB, S3)
+- Public access configurations
+- Logging configurations (CloudTrail)
+- IAM policy reviews (overly permissive policies)
+
+Returns advisory warnings, not failures.
+
+### 2.7. Recommended Security Workflow
+
+For comprehensive pre-production validation:
+
+```bash
+# 1. Full security audit
+./scripts/security/full-security-audit.sh staging
+
+# 2. Dependency scanning
+./scripts/security/scan-dependencies.sh
+
+# 3. Terraform infrastructure scanning
+./scripts/security/scan-terraform.sh
+
+# 4. Pre-production checklist
+./scripts/security/pre-production-checklist.sh staging
+
+# 5. Review all reports
+ls -lh security-audit-reports/ pre-prod-reports/
+```
+
 ## 3. Pre-Production Checklist
 
 Before production deployment, ensure:
