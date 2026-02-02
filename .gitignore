@@ -46,3 +46,6 @@ packages/mcp-server/test-results/*-filled.md
 localstack-data/
 *.old
 *.backup
+
+# Release artifacts
+release-artifacts/
