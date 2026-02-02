@@ -93,7 +93,7 @@ mkdir -p "$BUILD_DIR/docs"
 # Copy docs
 cp README.md "$BUILD_DIR/"
 cp CHANGELOG.md "$BUILD_DIR/" 2>/dev/null || echo "  ⚠ CHANGELOG.md not found"
-cp MVP_COMPLETION_TRACKER.md "$BUILD_DIR/" 2>/dev/null || true
+cp docs/internal/mvp-completion-tracker.md "$BUILD_DIR/" 2>/dev/null || true
 
 if [ -d "docs" ]; then
   cp -r docs/* "$BUILD_DIR/docs/"

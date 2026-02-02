@@ -189,7 +189,7 @@ section "5. Documentation Validation"
 # Check required docs exist
 REQUIRED_DOCS=(
   "README.md"
-  "MVP_COMPLETION_TRACKER.md"
+  "docs/internal/mvp-completion-tracker.md"
   "docs/PRE_PRODUCTION_CHECKLIST.md"
   "packages/mirror-dissonance/README.md"
 )
@@ -267,9 +267,9 @@ fi
 
 section "8. MVP Completion Tracker"
 
-if [ -f "MVP_COMPLETION_TRACKER.md" ]; then
+if [ -f "docs/internal/mvp-completion-tracker.md" ]; then
   # Count completed days
-  COMPLETED_DAYS=$(grep -c "✅ Complete" MVP_COMPLETION_TRACKER.md || echo "0")
+  COMPLETED_DAYS=$(grep -c "✅ Complete" docs/internal/mvp-completion-tracker.md || echo "0")
   echo "  → Completed days: $COMPLETED_DAYS"
   
   if [ "$COMPLETED_DAYS" -ge 20 ]; then
@@ -278,7 +278,7 @@ if [ -f "MVP_COMPLETION_TRACKER.md" ]; then
     check_fail "MVP tracker shows only $COMPLETED_DAYS days complete"
   fi
 else
-  check_fail "MVP_COMPLETION_TRACKER.md not found"
+  check_fail "docs/internal/mvp-completion-tracker.md not found"
 fi
 
 #############################################

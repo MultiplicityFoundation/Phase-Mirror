@@ -110,7 +110,7 @@ The pre-release validation script has been created at `scripts/release/pre-relea
 5. **Documentation Validation**
    - Checks required documentation files exist:
      - README.md
-     - MVP_COMPLETION_TRACKER.md
+     - docs/internal/mvp-completion-tracker.md
      - docs/PRE_PRODUCTION_CHECKLIST.md
      - packages/mirror-dissonance/README.md
 
@@ -415,7 +415,7 @@ aws logs tail /aws/lambda/phase-mirror-production --follow
 
 ### 6.3. Update Project Board
 
-- [ ] Mark all Day 23 tasks as complete in MVP_COMPLETION_TRACKER.md
+- [ ] Mark all Day 23 tasks as complete in docs/internal/mvp-completion-tracker.md
 - [ ] Update GitHub project board
 - [ ] Close completed issues
 - [ ] Archive release milestone
