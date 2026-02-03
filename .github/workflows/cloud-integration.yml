@@ -1,0 +1,235 @@
+name: Cloud Integration Tests
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Cloud provider to test'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - aws
+          - gcp
+
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  aws-integration:
+    name: AWS Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event.inputs.provider == 'aws' || github.event.inputs.provider == 'all' || github.event_name == 'schedule'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Run AWS adapter tests
+        run: pnpm --filter @mirror-dissonance/core test src/adapters/aws
+        env:
+          CLOUD_PROVIDER: aws
+          CLOUD_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aws-test-results-${{ github.run_number }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  gcp-integration:
+    name: GCP Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event.inputs.provider == 'gcp' || github.event.inputs.provider == 'all' || github.event_name == 'schedule'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Run GCP adapter tests
+        run: pnpm --filter @mirror-dissonance/core test src/adapters/gcp
+        env:
+          CLOUD_PROVIDER: gcp
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcp-test-results-${{ github.run_number }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  localstack:
+    name: LocalStack AWS Emulator Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: dynamodb,s3,ssm,secretsmanager
+          DEBUG: 1
+          DATA_DIR: /tmp/localstack/data
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Wait for LocalStack
+        run: |
+          timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "\"dynamodb\": \"available\""; do sleep 2; done'
+
+      - name: Run AWS adapter tests (LocalStack)
+        run: pnpm --filter @mirror-dissonance/core test src/adapters/aws
+        env:
+          CLOUD_PROVIDER: aws
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: localstack-test-results-${{ github.run_number }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [aws-integration, gcp-integration, localstack]
+    if: always() && github.event_name == 'schedule'
+    
+    steps:
+      - name: Check test results
+        id: check
+        run: |
+          if [ "${{ needs.aws-integration.result }}" == "failure" ] || \
+             [ "${{ needs.gcp-integration.result }}" == "failure" ] || \
+             [ "${{ needs.localstack.result }}" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create issue on failure
+        if: steps.check.outputs.status == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Cloud Integration Tests Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `## Cloud Integration Test Failure
+
+            **Date:** ${new Date().toISOString()}
+            **Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ### Results
+            - AWS Integration: ${{ needs.aws-integration.result }}
+            - GCP Integration: ${{ needs.gcp-integration.result }}
+            - LocalStack: ${{ needs.localstack.result }}
+
+            Please investigate and fix the failing tests.
+            `;
+
+            // Check if issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['cloud-integration-failure'],
+              state: 'open'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['cloud-integration-failure', 'automated']
+              });
+            }
