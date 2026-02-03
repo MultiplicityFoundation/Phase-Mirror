@@ -19,7 +19,12 @@ export { GitHubVerifier } from './identity/github-verifier.js';
 export { StripeVerifier } from './identity/stripe-verifier.js';
 
 // Nonce binding
-export { BoundNonce, NonceBindingService } from './identity/nonce-binding.js';
+export {
+  NonceBinding,
+  NonceBindingResult,
+  NonceVerificationResult,
+  NonceBindingService,
+} from './identity/nonce-binding.js';
 
 // Reputation types
 export {
