@@ -5,8 +5,13 @@
 
 import { withTestHarness, MCPTestHarness } from "./test-harness.js";
 import { writeFile, mkdir, rm } from "fs/promises";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
 import { tmpdir } from "os";
+import { fileURLToPath } from "url";
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 describe("Multi-tool workflow integration tests", () => {
   let testDir: string;
@@ -112,7 +117,7 @@ jobs:
         {
           files: [join(testDir, ".github", "workflows", "ci.yml")],
           context: "test-owner/test-repo",
-          adrPath: "/home/runner/work/Phase-Mirror/Phase-Mirror/docs/adr",
+          adrPath: resolve(__dirname, "../../../../docs/adr"),
         },
         30000
       );
