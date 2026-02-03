@@ -314,9 +314,23 @@ export class StripeVerifier implements IStripeVerifier {
     return Math.floor(ageInSeconds / (24 * 60 * 60));
   }
 
+  private hasTaxIds(customer: Stripe.Customer): boolean {
+    const taxIds = customer.tax_ids;
+    // Stripe's tax_ids can be either a list or an object with a data property
+    // We need to check both possible structures safely
+    if (!taxIds) return false;
+    
+    if (typeof taxIds === 'object' && 'data' in taxIds) {
+      const data = (taxIds as any).data;
+      return Array.isArray(data) && data.length > 0;
+    }
+    
+    return false;
+  }
+
   private extractCustomerType(customer: Stripe.Customer): string | undefined {
     // Check if customer has tax IDs (indicates business)
-    if ((customer.tax_ids as any)?.data && (customer.tax_ids as any).data.length > 0) {
+    if (this.hasTaxIds(customer)) {
       return 'company';
     }
 
@@ -331,11 +345,9 @@ export class StripeVerifier implements IStripeVerifier {
 
   private async checkBusinessVerification(customer: Stripe.Customer): Promise<boolean> {
     // Check if customer has tax IDs (basic business verification)
-    const hasTaxId = (customer.tax_ids as any)?.data && (customer.tax_ids as any).data.length > 0;
-    
     // For more advanced verification, you would check Stripe Identity
     // For now, we'll use tax ID as a proxy for business verification
-    return hasTaxId;
+    return this.hasTaxIds(customer);
   }
 
   private createFailureResult(
