@@ -83,6 +83,11 @@ module.exports = {
     }]
   },
   
+  // Allow transformation of @octokit packages (ESM)
+  transformIgnorePatterns: [
+    'node_modules/(?!(@octokit)/)'
+  ],
+  
   // Coverage directory
   coverageDirectory: '<rootDir>/coverage'
 };
