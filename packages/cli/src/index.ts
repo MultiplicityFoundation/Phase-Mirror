@@ -246,13 +246,15 @@ nonce.command('generate')
 nonce.command('rotate')
   .description('Rotate nonce for an organization')
   .requiredOption('--org-id <orgId>', 'Organization ID')
-  .requiredOption('--public-key <key>', 'New public key (or same as current)')
+  .option('--public-key <key>', 'Public key (uses existing if not provided)')
+  .option('--new-public-key <key>', 'New public key for rotation')
   .requiredOption('-r, --reason <reason>', 'Reason for rotation')
   .action(async (options) => {
     try {
       await nonceCommand.rotate({
         orgId: options.orgId,
         publicKey: options.publicKey,
+        newPublicKey: options.newPublicKey,
         reason: options.reason
       });
     } catch (error) {
@@ -296,6 +298,19 @@ nonce.command('history')
   .action(async (options) => {
     try {
       await nonceCommand.history({
+        orgId: options.orgId
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('show')
+  .description('Show current nonce binding details for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .action(async (options) => {
+    try {
+      await nonceCommand.show({
         orgId: options.orgId
       });
     } catch (error) {

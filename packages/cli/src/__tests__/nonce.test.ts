@@ -155,4 +155,54 @@ describe('Nonce CLI Commands', () => {
       consoleSpy.mockRestore();
     });
   });
+
+  describe('show', () => {
+    it('should show nonce binding details', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      await nonceCommand.generate({
+        orgId: 'test-org',
+        publicKey: 'test-pubkey',
+      });
+      
+      consoleSpy.mockClear();
+      
+      await nonceCommand.show({
+        orgId: 'test-org',
+      });
+      
+      const output = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
+      expect(output).toContain('Org ID: test-org');
+      expect(output).toContain('Public Key: test-pubkey');
+      expect(output).toContain('Usage Count');
+      
+      consoleSpy.mockRestore();
+    });
+
+    it('should show revoked status', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      
+      await nonceCommand.generate({
+        orgId: 'test-org',
+        publicKey: 'test-pubkey',
+      });
+      
+      await nonceCommand.revoke({
+        orgId: 'test-org',
+        reason: 'Test revocation',
+      });
+      
+      consoleSpy.mockClear();
+      
+      await nonceCommand.show({
+        orgId: 'test-org',
+      });
+      
+      const output = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
+      expect(output).toContain('REVOKED');
+      expect(output).toContain('Test revocation');
+      
+      consoleSpy.mockRestore();
+    });
+  });
 });

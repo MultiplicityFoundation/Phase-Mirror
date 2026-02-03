@@ -125,17 +125,31 @@ async function generate(options: {
  */
 async function rotate(options: {
   orgId: string;
-  publicKey: string;
+  publicKey?: string;
+  newPublicKey?: string;
   reason: string;
 }): Promise<void> {
   try {
     const service = initializeService();
     
+    // Use newPublicKey if provided, otherwise use publicKey, or get from existing binding
+    let keyToUse = options.newPublicKey || options.publicKey;
+    
+    if (!keyToUse) {
+      // Get current binding to use existing public key
+      const currentBinding = await service.getRotationHistory(options.orgId);
+      if (currentBinding.length > 0) {
+        keyToUse = currentBinding[currentBinding.length - 1].publicKey;
+      } else {
+        throw new Error('No existing binding found and no public key provided');
+      }
+    }
+    
     logger.info(chalk.cyan('\n🔄 Rotating nonce...\n'));
     
     const result = await service.rotateNonce(
       options.orgId,
-      options.publicKey,
+      keyToUse,
       options.reason
     );
     
@@ -342,11 +356,61 @@ async function history(options: {
   }
 }
 
+/**
+ * Show binding details for an organization
+ */
+async function show(options: {
+  orgId: string;
+}): Promise<void> {
+  try {
+    const service = initializeService();
+    
+    logger.info(chalk.cyan('\n📋 Nonce Binding Details\n'));
+    
+    const binding = await service.getRotationHistory(options.orgId);
+    
+    if (binding.length === 0) {
+      logger.info(chalk.yellow('No nonce binding found for this organization.\n'));
+      return;
+    }
+    
+    // Get the current (most recent) binding
+    const current = binding[binding.length - 1];
+    
+    console.log(`  Org ID: ${current.orgId}`);
+    console.log(`  Nonce: ${current.nonce}`);
+    console.log(`  Public Key: ${current.publicKey}`);
+    console.log(`  Bound At: ${current.issuedAt.toISOString()}`);
+    console.log(`  Signature: ${current.signature.substring(0, 16)}...`);
+    console.log(`  Usage Count: ${current.usageCount}`);
+    
+    if (current.revoked) {
+      logger.info(chalk.red('\n⚠️  REVOKED'));
+      console.log(`  Revoked At: ${current.revokedAt?.toISOString() || 'N/A'}`);
+      console.log(`  Reason: ${current.revocationReason || 'No reason provided'}`);
+    } else {
+      logger.info(chalk.green('\n✓ Active'));
+    }
+    
+    if (current.previousNonce) {
+      logger.info(chalk.dim(`\nPrevious Nonce: ${current.previousNonce.substring(0, 16)}...`));
+    }
+    
+    console.log('');
+  } catch (error) {
+    throw new CLIError(
+      `Failed to show nonce binding: ${error instanceof Error ? error.message : String(error)}`,
+      'NONCE_SHOW_ERROR'
+    );
+  }
+}
+
 export const nonceCommand = {
   validate,
   generate,
   rotate,
   revoke,
   list,
-  history
+  history,
+  show
 };
