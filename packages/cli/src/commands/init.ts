@@ -3,7 +3,7 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 import fs from 'fs/promises';
 import path from 'path';
-import yaml from 'yaml';
+import yaml from 'js-yaml';
 import { logger } from '../utils/logger.js';
 import { CLIError } from '../lib/errors.js';
 import type { InitOptions } from '../types/cli.js';
@@ -134,7 +134,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     await fs.mkdir('.phase-mirror', { recursive: true });
 
     // Write config file
-    const configContent = yaml.stringify(selectedTemplate.config);
+    const configContent = yaml.dump(selectedTemplate.config);
     await fs.writeFile(configPath, configContent, 'utf-8');
 
     spinner.text = 'Configuration created';

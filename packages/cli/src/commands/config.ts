@@ -3,14 +3,14 @@ import { loadConfig } from '../lib/config.js';
 import { logger } from '../utils/logger.js';
 import { CLIError } from '../lib/errors.js';
 import fs from 'fs/promises';
-import yaml from 'yaml';
+import yaml from 'js-yaml';
 
 async function show(): Promise<void> {
   try {
     const config = await loadConfig();
     
     logger.info(chalk.cyan.bold('\n🔮 Phase Mirror Configuration\n'));
-    console.log(yaml.stringify(config));
+    console.log(yaml.dump(config));
     
   } catch (error) {
     throw new CLIError(
@@ -63,7 +63,7 @@ async function set(key: string, value: string): Promise<void> {
     current[finalKey] = parsedValue;
     
     // Write back to file
-    const configContent = yaml.stringify(config);
+    const configContent = yaml.dump(config);
     await fs.writeFile('.phase-mirror.yml', configContent, 'utf-8');
     
     logger.success(chalk.green(`✓ Set ${key} = ${parsedValue}`));
