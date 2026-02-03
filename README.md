@@ -110,6 +110,92 @@ Coverage is enforced in CI. PRs below threshold will fail.
 
 See [Testing Guide](docs/TESTING.md) for detailed testing documentation.
 
+## Cloud Adapters
+
+Phase Mirror uses **cloud adapters** to abstract AWS SDK dependencies and enable:
+
+- ✅ **Local testing** without AWS resources
+- ✅ **Multi-cloud support** (AWS, GCP, Azure)
+- ✅ **Easier mocking** in unit tests
+- ✅ **Better separation of concerns**
+
+### Quick Start
+
+```typescript
+import { createAdapters, loadCloudConfig } from '@mirror-dissonance/core/adapters';
+
+// Auto-load from environment
+const adapters = await createAdapters(loadCloudConfig());
+
+// Record false positive
+await adapters.fpStore.record({
+  findingId: 'finding-123',
+  ruleId: 'MD-001',
+  resolvedBy: 'developer',
+  orgIdHash: 'org-hash',
+  consent: 'explicit',
+  context: { repoId: 'repo-456' },
+});
+
+// Query by organization
+const events = await adapters.fpStore.query({
+  orgId: 'org-hash',
+  startTime: new Date('2024-01-01'),
+  limit: 50,
+});
+```
+
+### Environment Configuration
+
+```bash
+# Provider (default: 'aws')
+export CLOUD_PROVIDER=aws
+
+# AWS Configuration
+export AWS_REGION=us-east-1
+export FP_TABLE_NAME=phase-mirror-fp-events
+export CONSENT_TABLE_NAME=phase-mirror-consents
+export BLOCK_COUNTER_TABLE_NAME=phase-mirror-block-counter
+
+# SSM Parameter Names
+export NONCE_PARAMETER_NAME=/phase-mirror/redaction-nonce
+export SALT_PARAMETER_PREFIX=/phase-mirror/salts/
+
+# S3 Buckets
+export BASELINE_BUCKET=phase-mirror-baselines
+export REPORT_BUCKET=phase-mirror-reports
+```
+
+### Local Testing (No AWS Required)
+
+```bash
+# Use in-memory adapters
+export CLOUD_PROVIDER=local
+pnpm test
+```
+
+### Available Adapters
+
+| Adapter | Purpose | AWS Implementation |
+|---------|---------|-------------------|
+| **FPStoreAdapter** | False positive event tracking | DynamoDB with GSIs |
+| **ConsentStoreAdapter** | Organization consent management | DynamoDB |
+| **BlockCounterAdapter** | Circuit breaker counters | DynamoDB with TTL |
+| **SecretStoreAdapter** | Nonces and salts (fail-closed) | SSM Parameter Store |
+| **ObjectStoreAdapter** | Baseline/report storage | S3 with versioning |
+
+### Infrastructure
+
+Deploy DynamoDB tables with required GSIs:
+
+```bash
+cd infra/aws
+terraform init
+terraform apply -var="environment=dev"
+```
+
+See the **[Migration Guide](docs/MIGRATION.md)** for detailed adapter usage and the **[Refactor Plan](docs/REFACTOR_PLAN.md)** for migration strategy.
+
 ## GitHub Actions Integration
 
 Add to `.github/workflows/mirror-dissonance.yml`:
