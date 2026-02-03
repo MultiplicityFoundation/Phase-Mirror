@@ -39,7 +39,7 @@ async function set(key: string, value: string): Promise<void> {
     let parsedValue: any = value;
     if (value === 'true') parsedValue = true;
     else if (value === 'false') parsedValue = false;
-    else if (!isNaN(Number(value))) parsedValue = Number(value);
+    else if (value.trim() !== '' && !isNaN(Number(value))) parsedValue = Number(value);
     else if (value.startsWith('[') && value.endsWith(']')) {
       parsedValue = JSON.parse(value);
     }

@@ -20,8 +20,12 @@ export async function loadConfig(configPath?: string): Promise<Config> {
       const content = await fs.readFile(configPath, 'utf-8');
       return yaml.parse(content) as Config;
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const isNotFound = error instanceof Error && 'code' in error && (error as any).code === 'ENOENT';
       throw new CLIError(
-        `Failed to load config from ${configPath}: ${error instanceof Error ? error.message : String(error)}`,
+        isNotFound 
+          ? `Configuration file not found: ${configPath}`
+          : `Failed to load config from ${configPath}: ${errMsg}`,
         'CONFIG_LOAD_ERROR'
       );
     }

@@ -10,7 +10,7 @@ import { initCommand } from './commands/init.js';
 import { configCommand } from './commands/config.js';
 import { baselineCommand } from './commands/baseline.js';
 import { logger } from './utils/logger.js';
-import { handleError } from './lib/errors.js';
+import { handleFatalError } from './lib/errors.js';
 
 const program = new Command();
 
@@ -45,7 +45,7 @@ program
     try {
       await initCommand(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -64,7 +64,7 @@ program
     try {
       await analyzeCommand(files, options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -80,7 +80,7 @@ program
     try {
       await validateCommand(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -96,7 +96,7 @@ program
     try {
       await driftCommand(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -109,7 +109,7 @@ program
     try {
       await baselineCommand(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -126,7 +126,7 @@ fp.command('mark <finding-id>')
     try {
       await fpCommand.mark(findingId, options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -138,7 +138,7 @@ fp.command('list')
     try {
       await fpCommand.list(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -149,7 +149,7 @@ fp.command('export')
     try {
       await fpCommand.export(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -159,7 +159,7 @@ fp.command('import <file>')
     try {
       await fpCommand.import(filePath);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -174,7 +174,7 @@ config.command('show')
     try {
       await configCommand.show();
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -184,7 +184,7 @@ config.command('get <key>')
     try {
       await configCommand.get(key);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -194,7 +194,7 @@ config.command('set <key> <value>')
     try {
       await configCommand.set(key, value);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
@@ -205,17 +205,17 @@ config.command('validate')
     try {
       await configCommand.validate(options);
     } catch (error) {
-      handleError(error);
+      handleFatalError(error);
     }
   });
 
 // Error handler for unhandled errors
 process.on('unhandledRejection', (error) => {
-  handleError(error);
+  handleFatalError(error);
 });
 
 process.on('uncaughtException', (error) => {
-  handleError(error);
+  handleFatalError(error);
 });
 
 program.parse();

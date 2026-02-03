@@ -4,6 +4,8 @@
 
 type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'verbose' | 'debug';
 
+const LOG_LEVELS: LogLevel[] = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'];
+
 class Logger {
   private level: LogLevel = 'info';
 
@@ -12,9 +14,8 @@ class Logger {
   }
 
   private shouldLog(messageLevel: LogLevel): boolean {
-    const levels: LogLevel[] = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'];
-    const currentIndex = levels.indexOf(this.level);
-    const messageIndex = levels.indexOf(messageLevel);
+    const currentIndex = LOG_LEVELS.indexOf(this.level);
+    const messageIndex = LOG_LEVELS.indexOf(messageLevel);
     return messageIndex <= currentIndex;
   }
 

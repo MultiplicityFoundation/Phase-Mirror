@@ -13,7 +13,7 @@ export class CLIError extends Error {
   }
 }
 
-export function handleError(error: unknown): never {
+export function handleFatalError(error: unknown): never {
   if (error instanceof CLIError) {
     console.error(`Error [${error.code}]: ${error.message}`);
     process.exit(error.exitCode);

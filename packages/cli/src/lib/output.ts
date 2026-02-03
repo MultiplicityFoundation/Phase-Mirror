@@ -259,7 +259,12 @@ export class OutputFormatter {
     for (const finding of report.findings || []) {
       for (const evidence of finding.evidence || []) {
         const level = finding.severity === 'critical' || finding.severity === 'high' ? 'error' : 'warning';
-        output += `::${level} file=${evidence.path},line=${evidence.line || 1}::${finding.message}\n`;
+        // Escape special characters for GitHub Actions annotations
+        const escapedMessage = finding.message
+          .replace(/%/g, '%25')
+          .replace(/\r/g, '%0D')
+          .replace(/\n/g, '%0A');
+        output += `::${level} file=${evidence.path},line=${evidence.line || 1}::${escapedMessage}\n`;
       }
     }
 

@@ -181,6 +181,11 @@ async function addToGitignore(): Promise<void> {
     }
 
     if (!content.includes('# Phase Mirror')) {
+      // Ensure file ends with newline before appending
+      if (content.length > 0 && !content.endsWith('\n')) {
+        content += '\n';
+        await fs.writeFile(gitignorePath, content, 'utf-8');
+      }
       await fs.appendFile(gitignorePath, entry);
     }
   } catch (error) {
