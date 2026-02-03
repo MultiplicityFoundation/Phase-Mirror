@@ -49,3 +49,6 @@ localstack-data/
 
 # Release artifacts
 release-artifacts/
+
+# Local adapter test data
+.test-data/

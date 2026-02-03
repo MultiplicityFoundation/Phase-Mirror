@@ -22,6 +22,22 @@
     "@aws-sdk/util-dynamodb": "^3.600.0",
     "yaml": "^2.8.2"
   },
+  "optionalDependencies": {
+    "@google-cloud/firestore": "^7.0.0",
+    "@google-cloud/secret-manager": "^5.0.0",
+    "@google-cloud/storage": "^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@google-cloud/firestore": {
+      "optional": true
+    },
+    "@google-cloud/secret-manager": {
+      "optional": true
+    },
+    "@google-cloud/storage": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.0",
