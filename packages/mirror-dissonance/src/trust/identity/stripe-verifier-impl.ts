@@ -54,7 +54,7 @@ export class StripeVerifier implements IStripeVerifier {
     }
 
     this.stripe = new Stripe(apiKey, {
-      apiVersion: '2024-12-18.acacia', // Latest stable API version
+      apiVersion: '2025-02-24.acacia', // Latest stable API version
       typescript: true,
     });
     
