@@ -4,7 +4,7 @@
  */
 
 import { CloudAdapters } from './types.js';
-import { CloudConfig, loadCloudConfig } from './config.js';
+import { CloudConfig, loadCloudConfig, AWSConfig } from './config.js';
 import { createAWSAdapters } from './aws/index.js';
 import { createLocalAdapters } from './local/index.js';
 
@@ -17,7 +17,8 @@ export async function createAdapters(config?: CloudConfig): Promise<CloudAdapter
 
   switch (finalConfig.provider) {
     case 'aws':
-      return createAWSAdapters(finalConfig as any);
+      // Cast to AWSConfig since we know provider is 'aws'
+      return createAWSAdapters(finalConfig as AWSConfig);
     
     case 'local':
       return createLocalAdapters();

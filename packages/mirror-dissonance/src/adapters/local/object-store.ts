@@ -56,7 +56,7 @@ export class LocalObjectStoreAdapter implements ObjectStoreAdapter {
       .map((v) => ({
         versionId: v.versionId,
         lastModified: v.timestamp,
-        commitSha: v.metadata.commitSha || 'unknown',
+        commitSha: v.metadata.commitSha, // Optional: undefined if not provided
         size: JSON.stringify(v.content).length,
       }));
   }

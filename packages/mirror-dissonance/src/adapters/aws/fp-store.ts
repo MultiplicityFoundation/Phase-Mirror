@@ -45,7 +45,10 @@ export class AWSFPStoreAdapter implements FPStoreAdapter {
             id,
             findingId: event.findingId,
             ruleId: event.ruleId,
-            orgId: event.orgIdHash, // Store as orgId for GSI
+            // Store orgIdHash as 'orgId' for GSI partition key querying.
+            // The original orgIdHash is preserved in the orgIdHash field.
+            // This mapping allows efficient queries via OrgIdCreatedAtIndex GSI.
+            orgId: event.orgIdHash,
             repoId: event.context?.repoId,
             timestamp,
             resolvedBy: event.resolvedBy,

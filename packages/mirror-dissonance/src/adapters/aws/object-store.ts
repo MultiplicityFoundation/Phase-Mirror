@@ -107,7 +107,7 @@ export class AWSObjectStoreAdapter implements ObjectStoreAdapter {
       return result.Versions.map((v) => ({
         versionId: v.VersionId || 'unknown',
         lastModified: v.LastModified || new Date(),
-        commitSha: 'unknown', // Would need HeadObject call to get metadata
+        commitSha: undefined, // Would need HeadObject call to get metadata
         size: v.Size || 0,
       }));
     } catch (error) {
