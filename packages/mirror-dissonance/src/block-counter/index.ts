@@ -1,1 +1,1 @@
-export { BlockCounter, MemoryBlockCounter, BlockCounterConfig } from './counter.js';
+export { IBlockCounter, MemoryBlockCounter, BlockCounterConfig, DynamoDBBlockCounter, InMemoryBlockCounter } from './counter.js';

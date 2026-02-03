@@ -88,11 +88,11 @@ export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
   // Initialize Block Counter if table name provided
   if (config.blockCounterTableName) {
     try {
-      components.blockCounter = new DynamoDBBlockCounter(
-        config.blockCounterTableName,
+      components.blockCounter = new DynamoDBBlockCounter({
+        tableName: config.blockCounterTableName,
         region,
-        config.endpoint
-      );
+        endpoint: config.endpoint
+      });
     } catch (error) {
       console.warn('Failed to initialize Block Counter:', error);
       components.blockCounter = new MemoryBlockCounter(24);

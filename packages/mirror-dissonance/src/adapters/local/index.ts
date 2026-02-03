@@ -2,7 +2,7 @@
  * Local/NoOp adapter implementations for testing
  */
 
-import { FalsePositiveEvent, ConsentRecord, ConsentType } from '../../schemas/types.js';
+import type { FalsePositiveEvent, ConsentRecord, ConsentType } from '../../../schemas/types.js';
 import { IFPStore, IConsentStore, IBlockCounter, ISecretStore } from '../types.js';
 
 /**

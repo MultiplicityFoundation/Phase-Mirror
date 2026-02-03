@@ -38,7 +38,7 @@ export function createAdapters(config?: AdapterConfig): Adapters {
           })
         : new InMemoryBlockCounter(),
       
-      secretStore: new SSMSecretStore({ region: config.region }),
+      secretStore: new SSMSecretStore({ region: config?.region }),
     };
   }
 
