@@ -246,7 +246,11 @@ export class GitHubVerifier implements IGitHubVerifier {
       }
 
       const latestEvent = events[0];
-      const lastActivityDate = new Date(latestEvent.created_at!);
+      if (!latestEvent.created_at) {
+        return { hasActivity: false };
+      }
+      
+      const lastActivityDate = new Date(latestEvent.created_at);
 
       return {
         hasActivity: lastActivityDate >= cutoffDate,
@@ -277,7 +281,7 @@ export class GitHubVerifier implements IGitHubVerifier {
       reason,
       verifiedAt: undefined,
       metadata: {
-        githubOrgId: 0,
+        githubOrgId: -1, // Sentinel value for failure cases (not a valid GitHub org ID)
         githubOrgName,
         createdAt: new Date(0),
         memberCount: 0,
