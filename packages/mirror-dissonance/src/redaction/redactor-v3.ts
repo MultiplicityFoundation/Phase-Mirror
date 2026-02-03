@@ -49,15 +49,8 @@ export async function loadNonce(
   client: SSMClient,
   parameterName: string
 ): Promise<void> {
-  // Create a temporary secret store with the provided client for backward compatibility
-  const tempStore = new SSMSecretStore();
-  // Override the client property directly
-  Object.defineProperty(tempStore, 'client', {
-    value: client,
-    writable: true,
-    enumerable: false,
-    configurable: true
-  });
+  // Use the secret store with the provided client for backward compatibility
+  const tempStore = new SSMSecretStore({ client });
   return loadNonceWithStore(tempStore, parameterName);
 }
 

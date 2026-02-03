@@ -47,11 +47,8 @@ export class NonceLoader {
    * @deprecated Use constructor with secretStore instead
    */
   async loadNonceWithClient(client: SSMClient, parameterName: string): Promise<NonceConfig> {
-    // Create a temporary secret store with the provided client
-    // This is for backward compatibility only
-    const tempStore = new SSMSecretStore();
-    (tempStore as any).client = client;
-    this.secretStore = tempStore;
+    // Create a new secret store with the provided client
+    this.secretStore = new SSMSecretStore({ client });
     return this.loadNonce(parameterName);
   }
 }

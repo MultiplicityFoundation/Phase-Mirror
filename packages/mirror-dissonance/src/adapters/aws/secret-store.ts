@@ -7,6 +7,7 @@ import { ISecretStore } from '../types.js';
 
 export interface SecretStoreConfig {
   region?: string;
+  client?: SSMClient;  // Allow injecting a custom client for backward compatibility
 }
 
 export class SSMSecretStore implements ISecretStore {
@@ -15,7 +16,8 @@ export class SSMSecretStore implements ISecretStore {
   private readonly CACHE_TTL_MS = 3600000; // 1 hour
 
   constructor(config?: SecretStoreConfig) {
-    this.client = new SSMClient({ region: config?.region || 'us-east-1' });
+    // Allow injecting a custom client or create a new one
+    this.client = config?.client || new SSMClient({ region: config?.region || 'us-east-1' });
   }
 
   async getSecret(parameterName: string, withDecryption: boolean = true): Promise<string> {
@@ -47,7 +49,12 @@ export class SSMSecretStore implements ISecretStore {
       }
 
       // Enrich error with context
-      const region = this.client?.config?.region || 'unknown';
+      let region = 'unknown';
+      try {
+        region = this.client.config.region ? String(this.client.config.region) : 'unknown';
+      } catch {
+        // Ignore error getting region
+      }
       
       // Type guard for AWS SDK errors
       if (error && typeof error === 'object' && 'name' in error) {
