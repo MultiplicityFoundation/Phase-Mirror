@@ -10,6 +10,11 @@ export interface SecretStoreConfig {
   client?: SSMClient;  // Allow injecting a custom client for backward compatibility
 }
 
+// Error message constants for consistent error handling
+export const ERROR_MESSAGES = {
+  PARAMETER_NO_VALUE: 'exists but has no value',
+} as const;
+
 export class SSMSecretStore implements ISecretStore {
   private client: SSMClient;
   private cache: Map<string, { value: string; loadedAt: number }> = new Map();
@@ -30,7 +35,7 @@ export class SSMSecretStore implements ISecretStore {
       const response = await this.client.send(command);
       
       if (!response.Parameter?.Value) {
-        throw new Error(`Parameter '${parameterName}' exists but has no value`);
+        throw new Error(`Parameter '${parameterName}' ${ERROR_MESSAGES.PARAMETER_NO_VALUE}`);
       }
 
       // Cache the secret

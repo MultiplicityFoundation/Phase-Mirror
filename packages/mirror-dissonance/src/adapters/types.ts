@@ -72,6 +72,7 @@ export interface BlockCounterConfig {
   tableName: string;
   region?: string;
   endpoint?: string;
+  ttlHours?: number;
 }
 
 /**

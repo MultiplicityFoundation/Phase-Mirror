@@ -5,7 +5,7 @@
  */
 import crypto from 'crypto';
 import { SSMClient } from '@aws-sdk/client-ssm';
-import { SSMSecretStore } from '../adapters/aws/secret-store.js';
+import { SSMSecretStore, ERROR_MESSAGES } from '../adapters/aws/secret-store.js';
 import { ISecretStore } from '../adapters/types.js';
 
 export interface RedactedText {
@@ -31,7 +31,9 @@ interface NonceCache {
 const nonceCache = new Map<string, NonceCache>();
 const CACHE_TTL_MS = 3600000; // 1 hour
 
-// Global secret store instance for backward compatibility
+// Global secret store instance for future use
+// Reserved for advanced initialization patterns - not currently used
+// TODO: Consider using this for module-level initialization in future versions
 let globalSecretStore: ISecretStore | null = null;
 
 /**
@@ -85,7 +87,7 @@ export async function loadNonceWithStore(
     
     // Simplify error message for backward compatibility
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes("exists but has no value")) {
+    if (errorMessage.includes(ERROR_MESSAGES.PARAMETER_NO_VALUE)) {
       throw new Error('Nonce parameter not found or empty');
     }
     throw new Error(`Failed to load nonce: ${errorMessage}`);
