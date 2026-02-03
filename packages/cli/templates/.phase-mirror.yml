@@ -1,0 +1,44 @@
+# Phase Mirror Configuration
+# Version 1.0
+
+version: "1"
+
+# Rules configuration
+rules:
+  enabled:
+    - MD-001  # L0 Invariant: Workflow Integrity
+    - MD-002  # L0 Invariant: Permissions Boundary
+    - MD-003  # L0 Invariant: Baseline Drift
+    - MD-004  # Circuit Breaker Detection
+    - MD-005  # Consent Boundary
+
+  # Severity levels: critical, high, medium, low
+  severity:
+    MD-001: critical
+    MD-002: high
+    MD-003: high
+    MD-004: medium
+    MD-005: medium
+
+# L0 Invariants - Non-negotiable security boundaries
+l0_invariants:
+  enabled: true
+  strict: false  # Set to true for zero-tolerance mode
+
+# Drift Detection
+drift:
+  enabled: true
+  threshold: 0.15  # Maximum acceptable drift (0.0 - 1.0)
+
+# False Positive Management
+false_positives:
+  enabled: true
+  storage: local  # local | remote
+
+# Fail behavior
+fail_on: high  # Block on: critical | high | medium | low
+
+# Circuit Breaker (automatic escalation prevention)
+circuit_breaker:
+  enabled: false
+  max_execution_time_ms: 100
