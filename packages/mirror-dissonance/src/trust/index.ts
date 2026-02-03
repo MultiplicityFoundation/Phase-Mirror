@@ -1,0 +1,59 @@
+/**
+ * Trust Module - Public API
+ * 
+ * Cryptographic Trust Architecture for Phase Mirror's network effect.
+ * Provides identity verification, reputation tracking, and Byzantine fault tolerance.
+ */
+
+// Identity types and interfaces
+export {
+  VerificationMethod,
+  OrganizationIdentity,
+  IdentityVerificationResult,
+  IGitHubVerifier,
+  IStripeVerifier,
+} from './identity/types.js';
+
+// Identity verifiers
+export { GitHubVerifier } from './identity/github-verifier.js';
+export { StripeVerifier } from './identity/stripe-verifier.js';
+
+// Nonce binding
+export { BoundNonce, NonceBindingService } from './identity/nonce-binding.js';
+
+// Reputation types
+export {
+  OrganizationReputation,
+  StakePledge,
+  ContributionWeight,
+} from './reputation/types.js';
+
+// Reputation engine
+export {
+  ReputationEngine,
+  ReputationEngineConfig,
+} from './reputation/reputation-engine.js';
+
+// Weight calculator utilities
+export {
+  calculateWeight,
+  filterByzantineActors,
+} from './reputation/weight-calculator.js';
+
+// Adapter interfaces
+export {
+  IIdentityStoreAdapter,
+  IReputationStoreAdapter,
+} from './adapters/types.js';
+
+// Local adapters
+export {
+  createLocalTrustAdapters,
+  TrustAdapters as LocalTrustAdapters,
+} from './adapters/local/index.js';
+
+// AWS adapters
+export {
+  createAWSTrustAdapters,
+  TrustAdapters as AWSTrustAdapters,
+} from './adapters/aws/index.js';
