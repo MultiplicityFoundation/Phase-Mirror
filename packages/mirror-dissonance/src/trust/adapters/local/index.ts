@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { OrganizationIdentity } from '../../identity/types.js';
 import { OrganizationReputation, StakePledge } from '../../reputation/types.js';
 import { IIdentityStoreAdapter, IReputationStoreAdapter } from '../types.js';
+import { NonceBinding } from '../../identity/nonce-binding.js';
 
 /**
  * Utility class for atomic JSON file operations
@@ -67,6 +68,23 @@ class JsonFileStore<T> {
     await this.write(items);
   }
 
+  async writeOneByKey<K extends keyof T>(
+    item: T,
+    key: K
+  ): Promise<void> {
+    const items = await this.read();
+    const value = item[key];
+    const index = items.findIndex((i) => i[key] === value);
+
+    if (index >= 0) {
+      items[index] = item;
+    } else {
+      items.push(item);
+    }
+
+    await this.write(items);
+  }
+
   async deleteOne(predicate: (item: T) => boolean): Promise<void> {
     const items = await this.read();
     const filtered = items.filter((item) => !predicate(item));
@@ -79,9 +97,11 @@ class JsonFileStore<T> {
  */
 class LocalIdentityStore implements IIdentityStoreAdapter {
   private store: JsonFileStore<OrganizationIdentity>;
+  private nonceBindingStore: JsonFileStore<NonceBinding>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'identities.json');
+    this.nonceBindingStore = new JsonFileStore(dataDir, 'nonce-bindings.json');
   }
 
   async getIdentity(orgId: string): Promise<OrganizationIdentity | null> {
@@ -140,6 +160,54 @@ class LocalIdentityStore implements IIdentityStoreAdapter {
         ...i,
         verifiedAt: new Date(i.verifiedAt),
       }));
+  }
+
+  async getNonceBinding(orgId: string): Promise<NonceBinding | null> {
+    // Find all bindings for this org and return the most recent one
+    const allBindings = await this.nonceBindingStore.read();
+    const orgBindings = allBindings.filter((b: any) => b.orgId === orgId);
+    
+    if (orgBindings.length === 0) {
+      return null;
+    }
+
+    // Sort by issuedAt descending (most recent first)
+    orgBindings.sort((a: any, b: any) => {
+      const aTime = new Date(a.issuedAt).getTime();
+      const bTime = new Date(b.issuedAt).getTime();
+      return bTime - aTime;
+    });
+
+    const binding = orgBindings[0];
+
+    // Convert date strings back to Date objects
+    return {
+      ...binding,
+      issuedAt: new Date(binding.issuedAt),
+      expiresAt: binding.expiresAt ? new Date(binding.expiresAt) : null,
+      revokedAt: binding.revokedAt ? new Date(binding.revokedAt) : undefined,
+    };
+  }
+
+  async storeNonceBinding(binding: NonceBinding): Promise<void> {
+    // Store by nonce, not orgId, so we can keep old bindings for rotation history
+    await this.nonceBindingStore.writeOneByKey(binding, 'nonce');
+  }
+
+  async getNonceBindingByNonce(nonce: string): Promise<NonceBinding | null> {
+    const binding = await this.nonceBindingStore.readOne((b) => b.nonce === nonce);
+    
+    if (!binding) {
+      return null;
+    }
+
+    // Convert date strings back to Date objects
+    return {
+      ...binding,
+      issuedAt: new Date(binding.issuedAt),
+      expiresAt: binding.expiresAt ? new Date(binding.expiresAt) : null,
+      revokedAt: binding.revokedAt ? new Date(binding.revokedAt) : undefined,
+    };
   }
 }
 
