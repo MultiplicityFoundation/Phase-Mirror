@@ -1,0 +1,85 @@
+/**
+ * AWS DynamoDB implementation of False Positive Store
+ */
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { IFPStore } from '../types.js';
+
+export interface FPStoreConfig {
+  tableName: string;
+  region?: string;
+}
+
+export class DynamoDBFPStore implements IFPStore {
+  private client: DynamoDBDocumentClient;
+  private tableName: string;
+
+  constructor(config: FPStoreConfig) {
+    const dynamoClient = new DynamoDBClient({ region: config.region || 'us-east-1' });
+    this.client = DynamoDBDocumentClient.from(dynamoClient);
+    this.tableName = config.tableName;
+  }
+
+  async recordFalsePositive(event: FalsePositiveEvent): Promise<void> {
+    try {
+      const command = new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          id: event.id,
+          findingId: event.findingId,
+          ruleId: event.ruleId,
+          timestamp: event.timestamp,
+          resolvedBy: event.resolvedBy,
+          context: event.context,
+          orgIdHash: event.orgIdHash,
+          consent: event.consent,
+        },
+      });
+
+      await this.client.send(command);
+    } catch (error) {
+      console.error('Failed to record false positive:', error);
+      throw error;
+    }
+  }
+
+  async isFalsePositive(findingId: string): Promise<boolean> {
+    try {
+      const command = new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'finding-index',
+        KeyConditionExpression: 'findingId = :findingId',
+        ExpressionAttributeValues: {
+          ':findingId': findingId,
+        },
+        Limit: 1,
+      });
+
+      const response = await this.client.send(command);
+      return (response.Items?.length || 0) > 0;
+    } catch (error) {
+      console.error('Failed to check false positive:', error);
+      return false;
+    }
+  }
+
+  async getFalsePositivesByRule(ruleId: string): Promise<FalsePositiveEvent[]> {
+    try {
+      const command = new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'rule-index',
+        KeyConditionExpression: 'ruleId = :ruleId',
+        ExpressionAttributeValues: {
+          ':ruleId': ruleId,
+        },
+      });
+
+      const response = await this.client.send(command);
+      return (response.Items || []) as FalsePositiveEvent[];
+    } catch (error) {
+      console.error('Failed to get false positives by rule:', error);
+      return [];
+    }
+  }
+}
