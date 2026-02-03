@@ -9,6 +9,12 @@ import { createHash, randomBytes } from 'node:crypto';
 import { IIdentityStoreAdapter } from '../adapters/types.js';
 
 /**
+ * Maximum depth to traverse when walking the rotation chain.
+ * Prevents infinite loops in case of circular references or corrupted data.
+ */
+const MAX_ROTATION_CHAIN_DEPTH = 100;
+
+/**
  * Extended nonce with identity binding and cryptographic proof
  */
 export interface NonceBinding {
@@ -360,7 +366,7 @@ export class NonceBindingService {
     let previousNonce = currentBinding.previousNonce;
 
     // Walk back through the chain (with safety limit to prevent infinite loops)
-    let maxIterations = 100;
+    let maxIterations = MAX_ROTATION_CHAIN_DEPTH;
     while (previousNonce && maxIterations > 0) {
       const previousBinding = await this.identityStore.getNonceBindingByNonce(previousNonce);
       if (!previousBinding) {

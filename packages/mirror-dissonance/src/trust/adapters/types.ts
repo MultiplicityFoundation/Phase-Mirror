@@ -29,7 +29,8 @@ export interface IIdentityStoreAdapter {
   
   /**
    * Get nonce binding for an organization.
-   * Returns the current binding (revoked or active).
+   * Returns the most recent binding for the organization (active or revoked).
+   * When multiple bindings exist due to rotation, returns the newest one.
    */
   getNonceBinding(orgId: string): Promise<NonceBinding | null>;
   
@@ -39,7 +40,9 @@ export interface IIdentityStoreAdapter {
   storeNonceBinding(binding: NonceBinding): Promise<void>;
   
   /**
-   * Get nonce binding by nonce value (for rotation history lookup).
+   * Get nonce binding by nonce value.
+   * Used for rotation history traversal and audit trails.
+   * Returns bindings regardless of revocation status.
    */
   getNonceBindingByNonce(nonce: string): Promise<NonceBinding | null>;
 }
