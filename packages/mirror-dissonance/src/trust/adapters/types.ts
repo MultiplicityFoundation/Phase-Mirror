@@ -7,6 +7,7 @@
 
 import { OrganizationIdentity } from '../identity/types.js';
 import { OrganizationReputation, StakePledge } from '../reputation/types.js';
+import { NonceBinding } from '../identity/nonce-binding.js';
 
 export interface IIdentityStoreAdapter {
   getIdentity(orgId: string): Promise<OrganizationIdentity | null>;
@@ -25,6 +26,25 @@ export interface IIdentityStoreAdapter {
    * Used for revenue analysis and anti-fraud auditing.
    */
   listStripeVerifiedIdentities(): Promise<OrganizationIdentity[]>;
+  
+  /**
+   * Get nonce binding for an organization.
+   * Returns the most recent binding for the organization (active or revoked).
+   * When multiple bindings exist due to rotation, returns the newest one.
+   */
+  getNonceBinding(orgId: string): Promise<NonceBinding | null>;
+  
+  /**
+   * Store or update a nonce binding.
+   */
+  storeNonceBinding(binding: NonceBinding): Promise<void>;
+  
+  /**
+   * Get nonce binding by nonce value.
+   * Used for rotation history traversal and audit trails.
+   * Returns bindings regardless of revocation status.
+   */
+  getNonceBindingByNonce(nonce: string): Promise<NonceBinding | null>;
 }
 
 export interface IReputationStoreAdapter {

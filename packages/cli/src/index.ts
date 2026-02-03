@@ -9,6 +9,7 @@ import { fpCommand } from './commands/fp.js';
 import { initCommand } from './commands/init.js';
 import { configCommand } from './commands/config.js';
 import { baselineCommand } from './commands/baseline.js';
+import { nonceCommand } from './commands/nonce.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
 
@@ -204,6 +205,114 @@ config.command('validate')
   .action(async (options) => {
     try {
       await configCommand.validate(options);
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+// Nonce management commands
+const nonce = program
+  .command('nonce')
+  .description('Manage nonce bindings for verified organizations');
+
+nonce.command('validate')
+  .description('Validate that a nonce is properly bound to an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('--nonce <nonce>', 'Nonce to validate')
+  .option('-v, --verbose', 'Show detailed binding information')
+  .action(async (options) => {
+    try {
+      await nonceCommand.validate(options);
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('generate')
+  .description('Generate and bind a new nonce for a verified organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('--public-key <key>', 'Organization public key')
+  .action(async (options) => {
+    try {
+      await nonceCommand.generate({
+        orgId: options.orgId,
+        publicKey: options.publicKey
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('rotate')
+  .description('Rotate nonce for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .option('--public-key <key>', 'Public key (uses existing if not provided)')
+  .option('--new-public-key <key>', 'New public key for rotation')
+  .requiredOption('-r, --reason <reason>', 'Reason for rotation')
+  .action(async (options) => {
+    try {
+      await nonceCommand.rotate({
+        orgId: options.orgId,
+        publicKey: options.publicKey,
+        newPublicKey: options.newPublicKey,
+        reason: options.reason
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('revoke')
+  .description('Revoke a nonce binding (e.g., due to security violation)')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('-r, --reason <reason>', 'Reason for revocation')
+  .action(async (options) => {
+    try {
+      await nonceCommand.revoke({
+        orgId: options.orgId,
+        reason: options.reason
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('list')
+  .description('List nonce bindings')
+  .option('--org-id <orgId>', 'Filter by organization ID')
+  .option('--show-revoked', 'Include revoked bindings', false)
+  .action(async (options) => {
+    try {
+      await nonceCommand.list({
+        orgId: options.orgId,
+        showRevoked: options.showRevoked
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('history')
+  .description('Show rotation history for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .action(async (options) => {
+    try {
+      await nonceCommand.history({
+        orgId: options.orgId
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+nonce.command('show')
+  .description('Show current nonce binding details for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .action(async (options) => {
+    try {
+      await nonceCommand.show({
+        orgId: options.orgId
+      });
     } catch (error) {
       handleFatalError(error);
     }

@@ -13,3 +13,11 @@ export {
   FPPattern,
   FPTrendPoint,
 } from './query.js';
+
+// Nonce Validation exports
+export {
+  FPStoreWithNonceValidation,
+  createFPStoreWithNonceValidation,
+  FPSubmissionWithNonce,
+  NonceValidationError,
+} from './nonce-validation.js';
