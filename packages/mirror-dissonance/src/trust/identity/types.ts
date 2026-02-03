@@ -109,6 +109,103 @@ export interface IGitHubVerifier {
   getRateLimitStatus(): Promise<RateLimitStatus>;
 }
 
+/**
+ * Configuration for Stripe verification heuristics.
+ */
+export interface StripeVerificationConfig {
+  /** Minimum account age in days (default: 30) */
+  minAgeDays: number;
+  
+  /** Minimum successful payment count (default: 1) */
+  minSuccessfulPayments: number;
+  
+  /** Require active subscription (default: false) */
+  requireActiveSubscription: boolean;
+  
+  /** Reject customers with delinquent invoices (default: true) */
+  rejectDelinquent: boolean;
+  
+  /** Allowed customer types (default: ['individual', 'company']) */
+  allowedCustomerTypes: string[];
+  
+  /** Require verified business (Stripe Identity check) (default: false) */
+  requireVerifiedBusiness: boolean;
+}
+
+/**
+ * Extended verification result with Stripe-specific metadata.
+ */
+export interface StripeVerificationResult extends IdentityVerificationResult {
+  method: 'stripe_customer';
+  metadata: {
+    stripeCustomerId: string;
+    customerEmail?: string;
+    customerName?: string;
+    accountCreatedAt: Date;
+    successfulPaymentCount: number;
+    hasActiveSubscription: boolean;
+    subscriptionProductIds?: string[];
+    isDelinquent: boolean;
+    customerType?: string;
+    isBusinessVerified: boolean;
+  };
+}
+
+/**
+ * Custom error for Stripe verification failures.
+ */
+export class StripeVerificationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 
+      | 'NOT_FOUND' 
+      | 'API_ERROR' 
+      | 'RATE_LIMIT' 
+      | 'INVALID_KEY' 
+      | 'INVALID_CUSTOMER_ID'
+      | 'DELINQUENT',
+    public readonly details?: unknown
+  ) {
+    super(message);
+    this.name = 'StripeVerificationError';
+  }
+}
+
 export interface IStripeVerifier {
-  verifyCustomer(orgId: string, stripeCustomerId: string): Promise<IdentityVerificationResult>;
+  /**
+   * Verify an organization's identity via Stripe customer account.
+   * 
+   * @param orgId - Phase Mirror organization ID (internal)
+   * @param stripeCustomerId - Stripe customer ID (e.g., 'cus_ABC123')
+   * @returns StripeVerificationResult with verification status and metadata
+   * 
+   * @throws {StripeVerificationError} if API request fails
+   * @throws {StripeVerificationError} if customer ID format invalid
+   */
+  verifyCustomer(
+    orgId: string, 
+    stripeCustomerId: string
+  ): Promise<StripeVerificationResult>;
+
+  /**
+   * Verify a customer and require active subscription.
+   * 
+   * @param orgId - Phase Mirror organization ID
+   * @param stripeCustomerId - Stripe customer ID
+   * @param requiredProductIds - Optional list of product IDs to check for
+   * @returns StripeVerificationResult with subscription details
+   */
+  verifyCustomerWithSubscription(
+    orgId: string,
+    stripeCustomerId: string,
+    requiredProductIds?: string[]
+  ): Promise<StripeVerificationResult>;
+
+  /**
+   * Check if a customer has any delinquent invoices.
+   * 
+   * @param stripeCustomerId - Stripe customer ID
+   * @returns True if customer has unpaid invoices
+   */
+  hasDelinquentInvoices(stripeCustomerId: string): Promise<boolean>;
 }

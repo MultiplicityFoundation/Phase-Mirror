@@ -21,6 +21,7 @@
     "@aws-sdk/lib-dynamodb": "^3.600.0",
     "@aws-sdk/util-dynamodb": "^3.600.0",
     "@octokit/rest": "^22.0.1",
+    "stripe": "^17.7.0",
     "yaml": "^2.8.2"
   },
   "optionalDependencies": {

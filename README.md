@@ -168,12 +168,17 @@ jobs:
 │   │       ├── anonymizer/      # HMAC-SHA256 anonymization
 │   │       ├── calibration-store/ # k-Anonymity queries
 │   │       ├── ingest-handler/  # FP ingestion pipeline
-│   │       └── fp-store/        # False positive storage
+│   │       ├── fp-store/        # False positive storage
+│   │       └── trust/           # Identity verification & Sybil resistance
+│   │           ├── identity/    # GitHub & Stripe verification
+│   │           ├── reputation/  # Organization reputation tracking
+│   │           └── adapters/    # Local & cloud storage adapters
 │   └── cli/                     # CLI wrapper around library
 ├── docs/
 │   ├── governance/              # Articles, Bylaws, Succession Planning
 │   ├── adr/                     # Architecture Decision Records (ADRs)
 │   ├── benchmarks/              # L0 performance benchmarks
+│   ├── guides/                  # User guides (Stripe verification, etc.)
 │   └── ops/                     # Nonce rotation, circuit-breaker runbooks
 └── infra/
     └── terraform/               # DynamoDB, SSM, alarms
@@ -185,6 +190,7 @@ jobs:
 ### Getting Started
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 5 minutes
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Environment variables, Terraform, rule tuning
+- **[Stripe Verification Guide](docs/guides/stripe-verification.md)** - Identity verification via Stripe customers
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and debugging
 
