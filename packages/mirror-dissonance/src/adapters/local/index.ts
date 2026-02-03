@@ -635,9 +635,10 @@ class LocalCalibrationStore implements ICalibrationStoreAdapter {
   }
 
   async getAllRuleFPRates(): Promise<CalibrationResult[] | KAnonymityError> {
-    const allEvents = await this.fpStore.read();
+    // Access the store's read method via the calibration store
+    const allEvents = await (this.fpStore as any)['store'].read() as FalsePositiveEvent[];
     
-    const uniqueOrgs = new Set(allEvents.map((e) => e.orgIdHash || 'unknown'));
+    const uniqueOrgs = new Set(allEvents.map((e: FalsePositiveEvent) => e.orgIdHash || 'unknown'));
     const orgCount = uniqueOrgs.size;
 
     if (orgCount < this.kThreshold) {
@@ -678,10 +679,6 @@ class LocalCalibrationStore implements ICalibrationStoreAdapter {
     }
 
     return results;
-  }
-
-  private async read(): Promise<FalsePositiveEvent[]> {
-    return this.fpStore['store'].read();
   }
 }
 

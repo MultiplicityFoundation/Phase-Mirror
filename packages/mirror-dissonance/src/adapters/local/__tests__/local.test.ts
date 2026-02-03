@@ -46,6 +46,7 @@ describe('Local Adapters', () => {
         resolvedBy: 'user-789',
         orgIdHash: 'org-hash-abc',
         consent: 'explicit',
+        context: {},
       };
 
       await adapters.fpStore.recordFalsePositive(event);
@@ -68,6 +69,7 @@ describe('Local Adapters', () => {
         resolvedBy: 'user-1',
         orgIdHash: 'org-1',
         consent: 'explicit',
+        context: {},
       };
 
       const event2: FalsePositiveEvent = {
@@ -78,6 +80,7 @@ describe('Local Adapters', () => {
         resolvedBy: 'user-2',
         orgIdHash: 'org-2',
         consent: 'explicit',
+        context: {},
       };
 
       await adapters.fpStore.recordFalsePositive(event1);
@@ -91,65 +94,65 @@ describe('Local Adapters', () => {
 
   describe('Consent Store Adapter', () => {
     it('should grant and check consent', async () => {
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
-      const result = await adapters.consentStore.checkResourceConsent('test-org', 'repo:phase-mirror');
+      const result = await adapters.consentStore.checkResourceConsent('test-org', 'fp_patterns');
       expect(result.granted).toBe(true);
       expect(result.state).toBe('granted');
     });
 
     it('should return not_requested for non-existent consent', async () => {
-      const result = await adapters.consentStore.checkResourceConsent('test-org', 'repo:phase-mirror');
+      const result = await adapters.consentStore.checkResourceConsent('test-org', 'fp_patterns');
       expect(result.granted).toBe(false);
       expect(result.state).toBe('not_requested');
     });
 
     it('should revoke consent', async () => {
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
-      await adapters.consentStore.revokeConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
+      await adapters.consentStore.revokeConsent('test-org', 'fp_patterns', 'admin-user');
 
-      const result = await adapters.consentStore.checkResourceConsent('test-org', 'repo:phase-mirror');
+      const result = await adapters.consentStore.checkResourceConsent('test-org', 'fp_patterns');
       expect(result.granted).toBe(false);
       expect(result.state).toBe('revoked');
     });
 
     it('should handle consent expiration', async () => {
       const pastDate = new Date(Date.now() - 1000); // 1 second ago
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user', pastDate);
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user', pastDate);
 
-      const result = await adapters.consentStore.checkResourceConsent('test-org', 'repo:phase-mirror');
+      const result = await adapters.consentStore.checkResourceConsent('test-org', 'fp_patterns');
       expect(result.granted).toBe(false);
       expect(result.state).toBe('expired');
     });
 
     it('should check multiple resources', async () => {
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
       const result = await adapters.consentStore.checkMultipleResources('test-org', [
-        'repo:phase-mirror',
-        'org:github/test',
+        'fp_patterns',
+        'fp_metrics',
       ]);
 
       expect(result.allGranted).toBe(false);
-      expect(result.missingConsent).toContain('org:github/test');
-      expect(result.results['repo:phase-mirror'].granted).toBe(true);
-      expect(result.results['org:github/test'].granted).toBe(false);
+      expect(result.missingConsent).toContain('fp_metrics');
+      expect(result.results['fp_patterns'].granted).toBe(true);
+      expect(result.results['fp_metrics'].granted).toBe(false);
     });
 
     it('should get consent summary', async () => {
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
       const summary = await adapters.consentStore.getConsentSummary('test-org');
       expect(summary).not.toBeNull();
       expect(summary!.orgId).toBe('test-org');
-      expect(summary!.resources['repo:phase-mirror'].state).toBe('granted');
+      expect(summary!.resources['fp_patterns'].state).toBe('granted');
     });
 
     it('should support legacy checkConsent method', async () => {
       let consentType = await adapters.consentStore.checkConsent('test-org');
       expect(consentType).toBe('none');
 
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
       consentType = await adapters.consentStore.checkConsent('test-org');
       expect(consentType).toBe('explicit');
@@ -159,7 +162,7 @@ describe('Local Adapters', () => {
       let hasConsent = await adapters.consentStore.hasValidConsent('test-org');
       expect(hasConsent).toBe(false);
 
-      await adapters.consentStore.grantConsent('test-org', 'repo:phase-mirror', 'admin-user');
+      await adapters.consentStore.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
       hasConsent = await adapters.consentStore.hasValidConsent('test-org');
       expect(hasConsent).toBe(true);

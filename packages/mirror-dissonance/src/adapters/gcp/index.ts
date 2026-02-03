@@ -457,7 +457,11 @@ class GcpSecretStore implements ISecretStoreAdapter {
         return null;
       }
 
-      const value = version.payload.data.toString('utf-8');
+      // Handle both Buffer and Uint8Array
+      const payloadData = version.payload.data;
+      const value = Buffer.isBuffer(payloadData) 
+        ? payloadData.toString('utf-8')
+        : Buffer.from(payloadData as Uint8Array).toString('utf-8');
 
       return {
         value,
@@ -532,7 +536,9 @@ class GcpBaselineStorage implements IBaselineStorageAdapter {
       .map((file) => ({
         version: file.name,
         uploadedAt: file.metadata.timeCreated ? new Date(file.metadata.timeCreated) : new Date(),
-        size: parseInt(file.metadata.size || '0', 10),
+        size: typeof file.metadata.size === 'string' 
+          ? parseInt(file.metadata.size, 10) 
+          : (file.metadata.size || 0),
         contentType: file.metadata.contentType,
       }))
       .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
