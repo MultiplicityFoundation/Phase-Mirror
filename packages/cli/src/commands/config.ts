@@ -26,13 +26,27 @@ async function set(key: string, value: string): Promise<void> {
     
     // Parse key path (e.g., "rules.enabled")
     const keys = key.split('.');
-    let current: any = config;
     
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) {
-        current[keys[i]] = {};
+    // Guard against prototype pollution - check all keys including the final one
+    const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+    for (const k of keys) {
+      if (dangerousKeys.includes(k)) {
+        throw new CLIError(
+          `Cannot set configuration key "${k}" - potential security risk`,
+          'CONFIG_INVALID_KEY'
+        );
       }
-      current = current[keys[i]];
+    }
+    
+    // Navigate to the parent object using a safe accessor
+    let current: any = config;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const k = keys[i];
+      // Use hasOwnProperty for safer access
+      if (!Object.prototype.hasOwnProperty.call(current, k)) {
+        current[k] = {};
+      }
+      current = current[k];
     }
     
     // Parse value
@@ -44,7 +58,9 @@ async function set(key: string, value: string): Promise<void> {
       parsedValue = JSON.parse(value);
     }
     
-    current[keys[keys.length - 1]] = parsedValue;
+    // Set value directly (safe because we've validated the key name)
+    const finalKey = keys[keys.length - 1];
+    current[finalKey] = parsedValue;
     
     // Write back to file
     const configContent = yaml.stringify(config);
@@ -66,6 +82,18 @@ async function get(key: string): Promise<void> {
     
     // Parse key path
     const keys = key.split('.');
+    
+    // Guard against prototype pollution
+    const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+    for (const k of keys) {
+      if (dangerousKeys.includes(k)) {
+        throw new CLIError(
+          `Cannot access configuration key "${k}" - potential security risk`,
+          'CONFIG_INVALID_KEY'
+        );
+      }
+    }
+    
     let current: any = config;
     
     for (const k of keys) {
