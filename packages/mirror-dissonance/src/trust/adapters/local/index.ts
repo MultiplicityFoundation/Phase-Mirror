@@ -112,6 +112,35 @@ class LocalIdentityStore implements IIdentityStoreAdapter {
     const identities = await this.store.read();
     return identities.filter((i) => i.uniqueNonce === nonce).length;
   }
+
+  async getIdentityByStripeCustomerId(
+    stripeCustomerId: string
+  ): Promise<OrganizationIdentity | null> {
+    const identity = await this.store.readOne(
+      (i) => i.stripeCustomerId === stripeCustomerId
+    );
+    
+    if (!identity) {
+      return null;
+    }
+
+    // Convert date strings back to Date objects
+    return {
+      ...identity,
+      verifiedAt: new Date(identity.verifiedAt),
+    };
+  }
+
+  async listStripeVerifiedIdentities(): Promise<OrganizationIdentity[]> {
+    const identities = await this.store.read();
+    
+    return identities
+      .filter((i) => i.verificationMethod === 'stripe_customer')
+      .map((i) => ({
+        ...i,
+        verifiedAt: new Date(i.verifiedAt),
+      }));
+  }
 }
 
 /**

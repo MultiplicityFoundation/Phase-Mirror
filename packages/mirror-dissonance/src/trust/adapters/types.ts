@@ -13,6 +13,18 @@ export interface IIdentityStoreAdapter {
   storeIdentity(identity: OrganizationIdentity): Promise<void>;
   revokeIdentity(orgId: string, reason: string): Promise<void>;
   getNonceUsageCount(nonce: string): Promise<number>;
+  
+  /**
+   * Find identity by Stripe customer ID.
+   * Prevents duplicate verifications for same Stripe customer.
+   */
+  getIdentityByStripeCustomerId(stripeCustomerId: string): Promise<OrganizationIdentity | null>;
+  
+  /**
+   * Retrieve all identities verified via Stripe.
+   * Used for revenue analysis and anti-fraud auditing.
+   */
+  listStripeVerifiedIdentities(): Promise<OrganizationIdentity[]>;
 }
 
 export interface IReputationStoreAdapter {
