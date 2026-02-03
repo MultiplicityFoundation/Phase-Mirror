@@ -4,13 +4,7 @@
 import { DynamoDBClient, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ConsentRecord, ConsentType } from '../../../schemas/types.js';
-import { IConsentStore } from '../types.js';
-
-export interface ConsentStoreConfig {
-  tableName: string;
-  region?: string;
-  endpoint?: string;  // For LocalStack testing
-}
+import { IConsentStore, ConsentStoreConfig } from '../types.js';
 
 export class DynamoDBConsentStore implements IConsentStore {
   private client: DynamoDBDocumentClient;

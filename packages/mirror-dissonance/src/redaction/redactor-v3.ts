@@ -1,9 +1,12 @@
 /**
  * Redactor v3 - Nonce-based redaction with rotation support
  * Supports multi-version nonce loading and grace periods
+ * Now uses secret store adapter for AWS abstraction
  */
 import crypto from 'crypto';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { SSMClient } from '@aws-sdk/client-ssm';
+import { SSMSecretStore } from '../adapters/aws/secret-store.js';
+import { ISecretStore } from '../adapters/types.js';
 
 export interface RedactedText {
   __brand: 'RedactedText';
@@ -28,31 +31,46 @@ interface NonceCache {
 const nonceCache = new Map<string, NonceCache>();
 const CACHE_TTL_MS = 3600000; // 1 hour
 
+// Global secret store instance for backward compatibility
+let globalSecretStore: ISecretStore | null = null;
+
+/**
+ * Initialize the secret store (for new code)
+ */
+export function initializeSecretStore(secretStore: ISecretStore): void {
+  globalSecretStore = secretStore;
+}
+
 /**
  * Load nonce from SSM Parameter Store
+ * @deprecated For new code, use initializeSecretStore() and loadNonceWithStore()
  */
 export async function loadNonce(
   client: SSMClient,
   parameterName: string
 ): Promise<void> {
+  // Create a temporary secret store with the provided client for backward compatibility
+  const tempStore = new SSMSecretStore();
+  (tempStore as any).client = client;
+  return loadNonceWithStore(tempStore, parameterName);
+}
+
+/**
+ * Load nonce using the secret store adapter
+ */
+export async function loadNonceWithStore(
+  secretStore: ISecretStore,
+  parameterName: string
+): Promise<void> {
   try {
-    const command = new GetParameterCommand({
-      Name: parameterName,
-      WithDecryption: true,
-    });
-
-    const response = await client.send(command);
+    const value = await secretStore.getSecret(parameterName, true);
     
-    if (!response.Parameter?.Value) {
-      throw new Error('Nonce parameter not found or empty');
-    }
-
     // Extract version from parameter name (e.g., /test/nonce_v1 -> v1)
     const versionMatch = parameterName.match(/v(\d+)$/);
     const version = versionMatch ? `v${versionMatch[1]}` : 'v1';
 
     nonceCache.set(version, {
-      value: response.Parameter.Value,
+      value,
       loadedAt: Date.now(),
       version,
     });

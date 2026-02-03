@@ -1,141 +1,15 @@
 /**
- * Block counter with TTL-based hourly buckets
+ * Block counter - Re-exports from adapters
+ * @deprecated Import from '../adapters' instead
  */
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { BlockCounterEntry } from '../../schemas/types.js';
 
-export interface BlockCounterConfig {
-  tableName: string;
-  region?: string;
-  ttlHours?: number;
-}
+// Re-export from adapters for backward compatibility
+export { IBlockCounter, BlockCounterConfig } from '../adapters/types.js';
+export { DynamoDBBlockCounter } from '../adapters/aws/block-counter.js';
+export { InMemoryBlockCounter, MemoryBlockCounter } from '../adapters/local/index.js';
 
-export class BlockCounter {
-  private client: DynamoDBDocumentClient;
-  private tableName: string;
-  private ttlHours: number;
+// Legacy exports for backward compatibility
+export { BlockCounterEntry } from '../../schemas/types.js';
 
-  constructor(config: BlockCounterConfig) {
-    const dynamoClient = new DynamoDBClient({ region: config.region || 'us-east-1' });
-    this.client = DynamoDBDocumentClient.from(dynamoClient);
-    this.tableName = config.tableName;
-    this.ttlHours = config.ttlHours || 24;
-  }
-
-  private getBucketKey(): string {
-    // Create hourly bucket key
-    const now = new Date();
-    const bucketHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0
-    );
-    return bucketHour.toISOString();
-  }
-
-  async increment(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-    const ttl = Math.floor(Date.now() / 1000) + this.ttlHours * 3600;
-
-    try {
-      const command = new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          bucketKey,
-          ruleId,
-        },
-        UpdateExpression: 'ADD #count :inc SET #ttl = :ttl, #timestamp = :timestamp',
-        ExpressionAttributeNames: {
-          '#count': 'count',
-          '#ttl': 'ttl',
-          '#timestamp': 'timestamp',
-        },
-        ExpressionAttributeValues: {
-          ':inc': 1,
-          ':ttl': ttl,
-          ':timestamp': Date.now(),
-        },
-        ReturnValues: 'UPDATED_NEW',
-      });
-
-      const response = await this.client.send(command);
-      return response.Attributes?.count || 1;
-    } catch (error) {
-      console.error('Failed to increment block counter:', error);
-      throw error;
-    }
-  }
-
-  async getCount(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-
-    try {
-      const command = new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          bucketKey,
-          ruleId,
-        },
-      });
-
-      const response = await this.client.send(command);
-      return response.Item?.count || 0;
-    } catch (error) {
-      console.error('Failed to get block count:', error);
-      return 0;
-    }
-  }
-}
-
-export class MemoryBlockCounter {
-  private counts: Map<string, { count: number; timestamp: number }> = new Map();
-  private ttlMs: number;
-
-  constructor(ttlHours: number = 24) {
-    this.ttlMs = ttlHours * 3600 * 1000;
-  }
-
-  private getBucketKey(): string {
-    const now = new Date();
-    const bucketHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0
-    );
-    return bucketHour.toISOString();
-  }
-
-  private cleanExpired(): void {
-    const now = Date.now();
-    for (const [key, value] of this.counts.entries()) {
-      if (now - value.timestamp > this.ttlMs) {
-        this.counts.delete(key);
-      }
-    }
-  }
-
-  async increment(ruleId: string): Promise<number> {
-    this.cleanExpired();
-    const key = `${this.getBucketKey()}-${ruleId}`;
-    const current = this.counts.get(key) || { count: 0, timestamp: Date.now() };
-    current.count += 1;
-    current.timestamp = Date.now();
-    this.counts.set(key, current);
-    return current.count;
-  }
-
-  async getCount(ruleId: string): Promise<number> {
-    this.cleanExpired();
-    const key = `${this.getBucketKey()}-${ruleId}`;
-    return this.counts.get(key)?.count || 0;
-  }
-}
+// Note: The original BlockCounter class has been replaced by DynamoDBBlockCounter
+// The original MemoryBlockCounter class is still exported from local adapters

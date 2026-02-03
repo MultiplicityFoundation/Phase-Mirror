@@ -57,6 +57,24 @@ export interface AdapterConfig {
 }
 
 /**
+ * Configuration for consent store (backward compatibility)
+ */
+export interface ConsentStoreConfig {
+  tableName: string;
+  region?: string;
+  endpoint?: string;
+}
+
+/**
+ * Configuration for block counter (backward compatibility)
+ */
+export interface BlockCounterConfig {
+  tableName: string;
+  region?: string;
+  endpoint?: string;
+}
+
+/**
  * Bundle of all adapters
  */
 export interface Adapters {

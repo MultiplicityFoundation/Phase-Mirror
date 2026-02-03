@@ -4,13 +4,7 @@
  */
 import { DynamoDBClient, DynamoDBClientConfig, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import { IBlockCounter } from '../types.js';
-
-export interface BlockCounterConfig {
-  tableName: string;
-  region?: string;
-  endpoint?: string;
-}
+import { IBlockCounter, BlockCounterConfig } from '../types.js';
 
 /**
  * Convert current time to Unix timestamp (seconds since epoch)

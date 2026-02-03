@@ -1,77 +1,34 @@
 /**
  * Nonce loader and validator for redaction
+ * Now uses secret store adapter for AWS abstraction
  */
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { SSMClient } from '@aws-sdk/client-ssm';
 import { NonceConfig } from '../../schemas/types.js';
+import { SSMSecretStore } from '../adapters/aws/secret-store.js';
+import { ISecretStore } from '../adapters/types.js';
 
 export class NonceLoader {
-  private client: SSMClient;
+  private secretStore: ISecretStore;
   private cachedNonce: NonceConfig | null = null;
 
-  constructor(region: string = 'us-east-1') {
-    this.client = new SSMClient({ region });
+  constructor(region: string = 'us-east-1', secretStore?: ISecretStore) {
+    this.secretStore = secretStore || new SSMSecretStore({ region });
   }
 
   async loadNonce(parameterName: string = 'guardian/redaction_nonce'): Promise<NonceConfig> {
     try {
-      const command = new GetParameterCommand({
-        Name: parameterName,
-        WithDecryption: true,
-      });
-
-      const response = await this.client.send(command);
+      const value = await this.secretStore.getSecret(parameterName, true);
       
-      if (!response.Parameter?.Value) {
-        throw new Error(`Nonce parameter '${parameterName}' exists but has no value`);
-      }
-
       this.cachedNonce = {
-        value: response.Parameter.Value,
+        value,
         loadedAt: new Date().toISOString(),
         source: parameterName,
       };
 
       return this.cachedNonce;
     } catch (error: unknown) {
-      // Enrich error with context
-      const region = this.client.config.region || 'unknown';
-      
-      // Type guard for AWS SDK errors
-      if (error && typeof error === 'object' && 'name' in error) {
-        const awsError = error as { name: string; code?: string; message?: string };
-        
-        if (awsError.name === 'ParameterNotFound') {
-          throw new Error(
-            `Nonce parameter not found: ${parameterName}. Ensure SSM parameter exists in region ${region}.`
-          );
-        }
-        
-        if (awsError.name === 'AccessDeniedException') {
-          throw new Error(
-            `Access denied to nonce parameter: ${parameterName}. Check IAM permissions for ssm:GetParameter in region ${region}.`
-          );
-        }
-        
-        if (awsError.name === 'InvalidKeyId') {
-          throw new Error(
-            `Failed to decrypt nonce parameter: ${parameterName}. Check KMS key permissions in region ${region}.`
-          );
-        }
-        
-        // Check for network/timeout errors
-        if (awsError.code === 'ECONNREFUSED' || awsError.code === 'ETIMEDOUT' || awsError.code === 'ENOTFOUND') {
-          const message = awsError.message || 'Network error';
-          throw new Error(
-            `Network error loading nonce from ${parameterName} in region ${region}: ${message}`
-          );
-        }
-      }
-      
-      // Generic fallback with context
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Failed to load nonce from ${parameterName} in region ${region}: ${errorMessage}`
-      );
+      // Error is already enriched by the secret store
+      throw error;
     }
   }
 
@@ -86,10 +43,15 @@ export class NonceLoader {
   }
 
   /**
-   * Load nonce with a custom SSM client
+   * Load nonce with a custom SSM client (backward compatibility)
+   * @deprecated Use constructor with secretStore instead
    */
   async loadNonceWithClient(client: SSMClient, parameterName: string): Promise<NonceConfig> {
-    this.client = client;
+    // Create a temporary secret store with the provided client
+    // This is for backward compatibility only
+    const tempStore = new SSMSecretStore();
+    (tempStore as any).client = client;
+    this.secretStore = tempStore;
     return this.loadNonce(parameterName);
   }
 }
@@ -101,6 +63,7 @@ export const nonceLoader = new NonceLoader();
  * @param client SSM client instance
  * @param parameterName Parameter name in SSM
  * @returns NonceConfig object
+ * @deprecated Use NonceLoader with secret store instead
  */
 export async function loadNonce(client: SSMClient, parameterName: string): Promise<NonceConfig> {
   const loader = new NonceLoader();
