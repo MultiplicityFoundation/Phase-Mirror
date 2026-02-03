@@ -47,7 +47,7 @@ export class SSMSecretStore implements ISecretStore {
       }
 
       // Enrich error with context
-      const region = this.client.config.region || 'unknown';
+      const region = this.client?.config?.region || 'unknown';
       
       // Type guard for AWS SDK errors
       if (error && typeof error === 'object' && 'name' in error) {

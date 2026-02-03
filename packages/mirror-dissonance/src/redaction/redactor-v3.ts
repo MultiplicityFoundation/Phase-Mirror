@@ -51,7 +51,13 @@ export async function loadNonce(
 ): Promise<void> {
   // Create a temporary secret store with the provided client for backward compatibility
   const tempStore = new SSMSecretStore();
-  (tempStore as any).client = client;
+  // Override the client property directly
+  Object.defineProperty(tempStore, 'client', {
+    value: client,
+    writable: true,
+    enumerable: false,
+    configurable: true
+  });
   return loadNonceWithStore(tempStore, parameterName);
 }
 
@@ -84,7 +90,12 @@ export async function loadNonceWithStore(
       return;
     }
     
-    throw new Error(`Failed to load nonce: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Simplify error message for backward compatibility
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("exists but has no value")) {
+      throw new Error('Nonce parameter not found or empty');
+    }
+    throw new Error(`Failed to load nonce: ${errorMessage}`);
   }
 }
 
