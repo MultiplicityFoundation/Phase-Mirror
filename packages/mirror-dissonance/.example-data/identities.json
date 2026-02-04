@@ -1,0 +1,10 @@
+[
+  {
+    "orgId": "acme-corp",
+    "publicKey": "pubkey-acme-2024",
+    "verificationMethod": "github_org",
+    "verifiedAt": "2026-02-04T01:21:14.837Z",
+    "uniqueNonce": "17c339eefd2da01d9616fecc3a2341a583f7101a64f2cead85e80fafdc18f72f",
+    "githubOrgId": 123456
+  }
+]

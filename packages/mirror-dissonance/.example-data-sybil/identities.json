@@ -1,0 +1,10 @@
+[
+  {
+    "orgId": "legit-org",
+    "publicKey": "pubkey-legit",
+    "verificationMethod": "github_org",
+    "verifiedAt": "2026-02-04T01:21:14.852Z",
+    "uniqueNonce": "248f4de6e82cb34ed1483b195e51702630f2faf70cb5ff7502dd41daf2a97815",
+    "githubOrgId": 789012
+  }
+]
