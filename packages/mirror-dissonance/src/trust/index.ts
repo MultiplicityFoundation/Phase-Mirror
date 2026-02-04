@@ -38,6 +38,16 @@ export {
   OrganizationReputation,
   StakePledge,
   ContributionWeight,
+  RawContribution,
+  ByzantineFilterConfig,
+  ByzantineFilterResult,
+  FilteredContributor,
+  WeightedContribution,
+  ContributionWeightFactors,
+  FilterStatistics,
+  CalibrationResultExtended,
+  CalibrationConfidence,
+  ByzantineFilterSummary,
 } from './reputation/types.js';
 
 // Reputation engine
@@ -51,6 +61,9 @@ export {
   calculateWeight,
   filterByzantineActors,
 } from './reputation/weight-calculator.js';
+
+// Byzantine filter
+export { ByzantineFilter } from './reputation/byzantine-filter.js';
 
 // Adapter interfaces
 export {
