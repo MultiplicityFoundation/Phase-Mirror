@@ -25,7 +25,7 @@
   "author": "Phase Mirror LLC",
   "license": "Apache-2.0",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.23.8",
     "@mirror-dissonance/core": "workspace:*"
   },
