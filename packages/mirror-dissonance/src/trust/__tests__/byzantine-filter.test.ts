@@ -54,7 +54,7 @@ describe('ByzantineFilter', () => {
       // org6 should be filtered as outlier despite high weight
       expect(result.outlierFiltered.length).toBe(1);
       expect(result.outlierFiltered[0].orgIdHash).toBe('org6');
-      expect(result.outlierFiltered[0].reason).toBe('outlier');
+      expect(result.outlierFiltered[0].reason).toBe('statistical_outlier');
     });
 
     it('should filter out bottom percentile by reputation weight', async () => {
@@ -109,7 +109,7 @@ describe('ByzantineFilter', () => {
       // org2 should be filtered for being below minimum
       expect(result.otherFiltered.length).toBe(1);
       expect(result.otherFiltered[0].orgIdHash).toBe('org2');
-      expect(result.otherFiltered[0].reason).toBe('below_minimum_rep');
+      expect(result.otherFiltered[0].reason).toBe('below_minimum_reputation');
     });
 
     it('should filter out contributors with no stake when required', async () => {
@@ -263,7 +263,8 @@ describe('ByzantineFilter', () => {
       expect(result.trustedContributors[0].weightFactors.baseReputation).toBe(0.8);
       expect(result.trustedContributors[0].weightFactors.stakeMultiplier).toBe(0.1);
       expect(result.trustedContributors[0].weightFactors.consistencyBonus).toBe(0.05);
-      expect(result.trustedContributors[0].weightFactors.totalMultiplier).toBeCloseTo(0.15);
+      // Total multiplier should be sum of all factors: 0.8 + 0.1 + 0.05 = 0.95
+      expect(result.trustedContributors[0].weightFactors.totalMultiplier).toBeCloseTo(0.95);
     });
   });
 

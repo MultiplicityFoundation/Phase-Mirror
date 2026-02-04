@@ -88,7 +88,7 @@ export class ByzantineFilter {
           orgIdHash: contrib.orgIdHash,
           fpRate: contrib.fpRate,
           weight: weight.weight,
-          reason: 'below_minimum_rep',
+          reason: 'below_minimum_reputation',
           details: `Weight ${weight.weight.toFixed(3)} below minimum ${this.config.minimumReputationScore}`,
         });
         return false;
@@ -148,7 +148,7 @@ export class ByzantineFilter {
           orgIdHash: contrib.orgIdHash,
           fpRate: contrib.fpRate,
           weight: weight.weight,
-          reason: 'outlier',
+          reason: 'statistical_outlier',
           details: `Z-score: ${zScore.toFixed(3)} (threshold: ${this.config.zScoreThreshold})`,
         });
         return false;
@@ -244,7 +244,10 @@ export class ByzantineFilter {
     weight: ContributionWeight,
     zScore: number
   ): WeightedContribution {
-    const totalMultiplier = weight.factors.stakeMultiplier + weight.factors.consistencyBonus;
+    // Total multiplier is the sum of all weight factors
+    const totalMultiplier = weight.factors.baseReputation + 
+                           weight.factors.stakeMultiplier + 
+                           weight.factors.consistencyBonus;
     
     const weightFactors: ContributionWeightFactors = {
       baseReputation: weight.factors.baseReputation,

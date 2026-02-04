@@ -119,7 +119,7 @@ export interface FilteredContributor {
   weight: number;
   
   /** Reason for filtering */
-  reason: 'outlier' | 'low_reputation' | 'no_stake' | 'below_minimum_rep' | 'insufficient_data';
+  reason: 'statistical_outlier' | 'low_reputation' | 'no_stake' | 'below_minimum_reputation' | 'insufficient_data';
   
   /** Additional details (e.g., Z-score value) */
   details?: string;
