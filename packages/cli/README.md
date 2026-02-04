@@ -98,6 +98,62 @@ oracle fp export --output fp-export.json
 oracle fp import fp-patterns.json
 ```
 
+### Identity Verification
+
+Verify organizational identities for trust network participation:
+
+```bash
+# Verify via GitHub organization
+export GITHUB_TOKEN=ghp_your_token
+oracle verify github \
+  --org-id your-org-123 \
+  --github-org your-github-org \
+  --public-key your-public-key
+
+# Verify via Stripe customer (basic)
+export STRIPE_SECRET_KEY=sk_test_your_key
+oracle verify stripe \
+  --org-id your-org-123 \
+  --stripe-customer cus_ABC123XYZ \
+  --public-key your-public-key
+
+# Verify via Stripe with subscription requirement
+oracle verify stripe \
+  --org-id your-org-123 \
+  --stripe-customer cus_ABC123XYZ \
+  --public-key your-public-key \
+  --require-subscription \
+  --product-ids prod_PhaseMirrorEnterprise
+
+# List verified identities
+oracle verify list
+oracle verify list --method stripe_customer
+```
+
+### Nonce Management
+
+Manage cryptographic nonce bindings for verified organizations:
+
+```bash
+# Generate and bind nonce for verified org
+oracle nonce generate --org-id your-org-123 --public-key your-key
+
+# Validate nonce binding
+oracle nonce validate --org-id your-org-123 --nonce abc123...
+
+# Rotate nonce (e.g., after key rotation)
+oracle nonce rotate --org-id your-org-123 --new-public-key new-key --reason "Key rotation"
+
+# Show nonce binding details
+oracle nonce show --org-id your-org-123
+
+# List all nonce bindings
+oracle nonce list
+
+# Show rotation history
+oracle nonce history --org-id your-org-123
+```
+
 ## Configuration File
 
 The CLI uses `.phase-mirror.yml` for configuration:
