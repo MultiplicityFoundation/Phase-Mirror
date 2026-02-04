@@ -34,6 +34,7 @@ import {
   ContributionWeight,
   RawContribution,
   ContributionWeightFactors,
+  CalibrationConfidence,
 } from './types.js';
 
 export class ByzantineFilter {
@@ -234,6 +235,79 @@ export class ByzantineFilter {
     );
 
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
+  }
+
+  /**
+   * Calculate confidence metrics for calibration result.
+   * 
+   * @param trustedContributors - Trusted contributors after filtering
+   * @param statistics - Statistical summary of filtering
+   * @returns Confidence metrics
+   */
+  calculateConfidence(
+    trustedContributors: WeightedContribution[],
+    statistics: FilterStatistics
+  ): CalibrationConfidence {
+    // Contributor count factor (more contributors = higher confidence)
+    const contributorCountFactor = Math.min(trustedContributors.length / 20, 1.0);
+    
+    // Agreement factor (lower variance = higher confidence)
+    // Use coefficient of variation: stdDev / mean
+    const coefficientOfVariation = statistics.trustedMeanFpRate > 0
+      ? statistics.stdDevFpRate / statistics.trustedMeanFpRate
+      : 0;
+    const agreementFactor = Math.max(0, 1.0 - Math.min(coefficientOfVariation, 1.0));
+    
+    // Event count factor (more events = higher confidence)
+    const totalEvents = trustedContributors.reduce((sum, c) => sum + c.eventCount, 0);
+    const eventCountFactor = Math.min(totalEvents / 1000, 1.0);
+    
+    // Reputation factor (higher average reputation = higher confidence)
+    const reputationFactor = statistics.meanWeight;
+    
+    // Calculate overall confidence level (weighted average)
+    const level = (
+      contributorCountFactor * 0.35 +
+      agreementFactor * 0.3 +
+      eventCountFactor * 0.2 +
+      reputationFactor * 0.15
+    );
+    
+    // Determine category
+    let category: 'high' | 'medium' | 'low' | 'insufficient';
+    let lowConfidenceReason: string | undefined;
+    
+    if (trustedContributors.length < 3) {
+      category = 'insufficient';
+      lowConfidenceReason = `Only ${trustedContributors.length} trusted contributors`;
+    } else if (level >= 0.7) {
+      category = 'high';
+    } else if (level >= 0.5) {
+      category = 'medium';
+    } else {
+      category = 'low';
+      if (contributorCountFactor < 0.3) {
+        lowConfidenceReason = 'Insufficient contributors';
+      } else if (agreementFactor < 0.3) {
+        lowConfidenceReason = 'High variance in FP rates';
+      } else if (eventCountFactor < 0.3) {
+        lowConfidenceReason = 'Insufficient event data';
+      } else {
+        lowConfidenceReason = 'Low reputation scores';
+      }
+    }
+    
+    return {
+      level,
+      category,
+      factors: {
+        contributorCountFactor,
+        agreementFactor,
+        eventCountFactor,
+        reputationFactor,
+      },
+      lowConfidenceReason,
+    };
   }
 
   /**

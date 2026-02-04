@@ -1,13 +1,12 @@
 /**
- * Calibration Store with k-Anonymity Enforcement
- * Implements k-anonymity (k=10) per ADR-004
+ * Calibration Store with k-Anonymity Enforcement and Byzantine Filtering
  * 
- * DynamoDB Table Requirements:
- * - Primary Key: id (String)
- * - Attributes: orgIdHash, ruleId, timestamp, context, isFalsePositive
- * - Global Secondary Index: 'rule-index' with ruleId as partition key
- * - TTL: Optional, configured separately for data retention
+ * This module provides two implementations:
+ * 1. Legacy DynamoDBCalibrationStore (k-anonymity only)
+ * 2. New CalibrationStore (full Byzantine filtering with reputation)
  */
+
+// Legacy k-anonymity implementation
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { CalibrationResult, KAnonymityError } from '../../schemas/types.js';
@@ -227,3 +226,15 @@ export function createCalibrationStore(config?: CalibrationStoreConfig): ICalibr
   }
   return new NoOpCalibrationStore();
 }
+
+// New Byzantine filtering implementation
+export {
+  CalibrationStore as ByzantineCalibrationStore,
+  ICalibrationStore as IByzantineCalibrationStore,
+} from './calibration-store.js';
+
+export {
+  ICalibrationStoreAdapter,
+  NoOpCalibrationStoreAdapter,
+  InMemoryCalibrationStoreAdapter,
+} from './adapter-types.js';
