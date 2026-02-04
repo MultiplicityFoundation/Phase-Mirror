@@ -1,0 +1,13 @@
+# GCP Staging Environment Configuration
+
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+environment = "staging"
+github_repo = "MultiplicityFoundation/Phase-Mirror"
+
+# HMAC Nonce Secret (REQUIRED)
+# Generate with: openssl rand -hex 32
+# This MUST be replaced with a secure random value before applying
+# The placeholder below is 64 hex characters to pass format validation
+# but is obviously invalid and must be replaced with a real nonce
+hmac_nonce_secret = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
