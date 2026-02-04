@@ -69,29 +69,43 @@ See [MCP Server README](packages/mcp-server/README.md) for full documentation.
 
 ### Self-Hosted Deployment
 
+Phase Mirror supports multiple cloud providers (AWS, GCP) and **defaults to local mode** which requires no cloud credentials:
+
 ```bash
-# Deploy infrastructure
-cd infra/terraform
+# Local mode (default) - no cloud setup needed
+export CLOUD_PROVIDER=local
+oracle analyze
+
+# GCP deployment (optional)
+cd infra/gcp
 terraform init
-terraform workspace new staging
 terraform apply -var-file=staging.tfvars
 
-# Generate nonce
-./scripts/rotate-nonce.sh staging 0
+# AWS deployment (optional)
+cd infra/terraform
+terraform init
+terraform apply -var-file=staging.tfvars
 ```
 
-See the [Quick Start Guide](docs/QUICKSTART.md) for detailed instructions.
+See the [Cloud Provider Setup Guide](docs/CLOUD_PROVIDER_SETUP.md) for detailed instructions on:
+- Running the CLI without cloud credentials (local mode)
+- Deploying to GCP with Terraform guardrails
+- Deploying to AWS with existing infrastructure
+- Switching providers without code changes
 
 ## Testing
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (uses local mode by default - no credentials needed)
 pnpm test
 
 # Run with coverage
 pnpm test:coverage
+
+# Run adapter parity tests (validates multi-cloud interface conformance)
+pnpm test packages/mirror-dissonance/src/adapters/__tests__/adapter-parity.test.ts
 
 # View coverage report
 pnpm test:coverage:report
@@ -99,6 +113,8 @@ pnpm test:coverage:report
 # Run in watch mode
 pnpm test:watch
 ```
+
+**Note**: All tests run with local file-based adapters by default, requiring no cloud credentials. This ensures contributors can test immediately after cloning.
 
 ### Coverage Requirements
 
