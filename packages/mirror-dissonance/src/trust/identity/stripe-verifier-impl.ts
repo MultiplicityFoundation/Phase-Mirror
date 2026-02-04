@@ -314,6 +314,16 @@ export class StripeVerifier implements IStripeVerifier {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
+  private hasTaxIds(customer: Stripe.Customer): boolean {
+    return !!(
+      customer.tax_ids && 
+      typeof customer.tax_ids === 'object' && 
+      'data' in customer.tax_ids && 
+      Array.isArray(customer.tax_ids.data) && 
+      customer.tax_ids.data.length > 0
+    );
+  }
+
   private extractCustomerType(customer: Stripe.Customer): string | undefined {
     // Stripe doesn't have a built-in "type" field, but you can use metadata
     // or infer from tax_id_data
@@ -322,7 +332,7 @@ export class StripeVerifier implements IStripeVerifier {
     }
 
     // Heuristic: if tax ID exists, assume company
-    if (customer.tax_ids && typeof customer.tax_ids === 'object' && 'data' in customer.tax_ids && Array.isArray(customer.tax_ids.data) && customer.tax_ids.data.length > 0) {
+    if (this.hasTaxIds(customer)) {
       return 'company';
     }
 
@@ -346,7 +356,7 @@ export class StripeVerifier implements IStripeVerifier {
     }
 
     // Option 2: Check for tax ID (basic business verification)
-    if (customer.tax_ids && typeof customer.tax_ids === 'object' && 'data' in customer.tax_ids && Array.isArray(customer.tax_ids.data) && customer.tax_ids.data.length > 0) {
+    if (this.hasTaxIds(customer)) {
       return true;
     }
 
