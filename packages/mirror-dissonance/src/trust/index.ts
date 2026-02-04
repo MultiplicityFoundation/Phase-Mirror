@@ -38,6 +38,11 @@ export {
   OrganizationReputation,
   StakePledge,
   ContributionWeight,
+  ContributionRecord,
+  ConsistencyMetrics,
+  ConsistencyScoreConfig,
+  ConsistencyScoreResult,
+  ConsensusFpRate,
 } from './reputation/types.js';
 
 // Reputation engine
@@ -45,6 +50,9 @@ export {
   ReputationEngine,
   ReputationEngineConfig,
 } from './reputation/reputation-engine.js';
+
+// Consistency score calculator
+export { ConsistencyScoreCalculator } from './reputation/consistency-calculator.js';
 
 // Weight calculator utilities
 export {

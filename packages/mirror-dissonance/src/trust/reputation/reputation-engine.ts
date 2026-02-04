@@ -97,6 +97,7 @@ export class ReputationEngine {
         ageScore: 0.1,
         volumeScore: 0.0,
         lastUpdated: new Date(),
+        stakeStatus: 'active',
         ...update,
       };
       await this.store.updateReputation(newReputation);
