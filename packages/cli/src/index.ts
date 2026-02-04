@@ -10,6 +10,7 @@ import { initCommand } from './commands/init.js';
 import { configCommand } from './commands/config.js';
 import { baselineCommand } from './commands/baseline.js';
 import { nonceCommand } from './commands/nonce.js';
+import { verifyCommand } from './commands/verify.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
 
@@ -312,6 +313,72 @@ nonce.command('show')
     try {
       await nonceCommand.show({
         orgId: options.orgId
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+// Identity verification commands
+const verify = program
+  .command('verify')
+  .description('Verify organizational identity via GitHub or Stripe');
+
+verify.command('github')
+  .description('Verify organization via GitHub')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('--github-org <orgLogin>', 'GitHub organization login')
+  .requiredOption('--public-key <key>', 'Organization public key')
+  .option('-v, --verbose', 'Show detailed verification information')
+  .action(async (options) => {
+    try {
+      await verifyCommand.github({
+        orgId: options.orgId,
+        githubOrg: options.githubOrg,
+        publicKey: options.publicKey,
+        verbose: options.verbose
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+verify.command('stripe')
+  .description('Verify organization via Stripe customer')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('--stripe-customer <customerId>', 'Stripe customer ID (e.g., cus_ABC123)')
+  .requiredOption('--public-key <key>', 'Organization public key')
+  .option('--require-subscription', 'Require active subscription', false)
+  .option('--product-ids <ids>', 'Required product IDs (comma-separated)')
+  .option('-v, --verbose', 'Show detailed verification information')
+  .action(async (options) => {
+    try {
+      const productIds = options.productIds 
+        ? options.productIds.split(',').map((id: string) => id.trim())
+        : undefined;
+
+      await verifyCommand.stripe({
+        orgId: options.orgId,
+        stripeCustomer: options.stripeCustomer,
+        publicKey: options.publicKey,
+        requireSubscription: options.requireSubscription,
+        productIds,
+        verbose: options.verbose
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+verify.command('list')
+  .description('List verified identities')
+  .option('--method <method>', 'Filter by verification method (github_org, stripe_customer)')
+  .option('-v, --verbose', 'Show detailed information')
+  .action(async (options) => {
+    try {
+      await verifyCommand.list({
+        method: options.method,
+        verbose: options.verbose
       });
     } catch (error) {
       handleFatalError(error);
