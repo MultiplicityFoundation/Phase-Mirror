@@ -284,7 +284,7 @@ describe('NonceBindingService', () => {
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Revoke
       await service.revokeBinding('org-1', 'Security violation');
