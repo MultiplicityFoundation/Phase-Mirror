@@ -44,6 +44,100 @@ Step 4: If valid → Accept FP submission
         If invalid → Reject with reason
 ```
 
+## Programmatic API
+
+### Generate and Bind Nonce
+
+```typescript
+import { NonceBindingService } from '@mirror-dissonance/core/trust';
+import { createLocalTrustAdapters } from '@mirror-dissonance/core/trust';
+
+const adapters = createLocalTrustAdapters('.trust-data');
+const service = new NonceBindingService(adapters.identityStore);
+
+// After identity verification
+const result = await service.generateAndBindNonce('org-123', publicKey);
+console.log('Bound nonce:', result.binding.nonce);
+```
+
+### Validate Nonce Binding
+
+```typescript
+const validation = await service.validateNonceBinding('org-123', nonce);
+
+if (validation.valid) {
+  console.log('Valid binding:', validation.binding);
+  // Accept FP submission
+} else {
+  console.error('Invalid:', validation.reason);
+  // Reject FP submission
+}
+```
+
+### Rotate Nonce
+
+```typescript
+const result = await service.rotateNonce(
+  'org-123',
+  newPublicKey, // Optional
+  'Scheduled rotation'
+);
+
+console.log('New nonce:', result.binding.nonce);
+// Update FP submission configuration
+```
+
+### Revoke Binding
+
+```typescript
+await service.revokeBinding('org-123', 'Security incident');
+console.log('Nonce revoked');
+```
+
+## Security Properties
+
+### One-to-One Binding
+
+- Each verified organization has exactly one active nonce
+- Nonce cannot be shared between organizations
+- Attempting to bind multiple nonces to same org throws error
+- Attempting to use same nonce for multiple orgs is rejected
+
+### Cryptographic Proof
+
+**Signature generation:**
+
+```
+signature = SHA256(nonce + ":" + publicKey)
+```
+
+**Verification process:**
+
+1. Retrieve binding for org ID
+2. Recompute signature from stored nonce + public key
+3. Compare with stored signature
+4. If match → binding valid
+
+**Properties:**
+
+- Cannot forge signature without knowing public key
+- Cannot transfer binding to different public key (signature mismatch)
+- Binding proof stored in identity record
+
+### Revocation Guarantees
+
+- Revoked nonces immediately invalid for FP submissions
+- Revocation is permanent (cannot un-revoke)
+- Revocation reason stored in audit trail
+- Timestamp recorded for compliance
+
+### Rotation Continuity
+
+- Old nonce revoked atomically when new nonce bound
+- No gap where org has zero valid nonces
+- Identity continuity preserved (same org ID, verification method)
+- Can update public key during rotation
+
 ## Nonce Binding Lifecycle
 
 ### Phase 1: Generation & Binding
@@ -227,21 +321,86 @@ pnpm cli nonce revoke \
 
 ## Security Best Practices
 
-### 1. Regular Rotation
+### Nonce Rotation Schedule
+
+Recommended rotation frequency:
+
+| Scenario | Rotation Frequency |
+|----------|-------------------|
+| Standard security | Every 90 days |
+| High security | Every 30 days |
+| Post-incident | Immediately |
+| Key rotation | Immediately |
+| Compliance requirement | Per policy (e.g., SOC 2) |
+
+**Automated rotation:**
+
+```bash
+# Cron job: Rotate nonce quarterly
+0 0 1 */3 * pnpm cli nonce rotate \
+  --org-id your-org-123 \
+  --reason "Scheduled quarterly rotation"
+```
+
+### Public Key Management
+
+**Key generation:**
+
+```bash
+# Generate ECDSA key pair
+openssl ecparam -genkey -name secp256k1 -out private.pem
+openssl ec -in private.pem -pubout -out public.pem
+
+# Extract hex public key
+openssl ec -in public.pem -pubin -text -noout | \
+  grep -A 5 'pub:' | tail -n +2 | tr -d ' \n:'
+```
+
+**Key storage:**
+
+- ✅ Store private key in secure key management system (e.g., AWS KMS, HashiCorp Vault)
+- ✅ Never commit private keys to git
+- ✅ Use environment variables for production keys
+- ❌ Don't share private keys between organizations
+- ❌ Don't store private keys in plain text files
+
+### Compromise Response
+
+If nonce compromised:
+
+**1. Immediate revocation:**
+
+```bash
+pnpm cli nonce revoke \
+  --org-id your-org-123 \
+  --reason "Nonce compromise detected"
+```
+
+**2. Rotate with new key:**
+
+```bash
+pnpm cli nonce rotate \
+  --org-id your-org-123 \
+  --new-public-key $(cat .keys/your-org-123-new.pub) \
+  --reason "Post-incident key rotation"
+```
+
+**3. Audit FP submissions:**
+
+```bash
+# Check for suspicious FP submissions with old nonce
+pnpm cli audit --org-id your-org-123 --since "2026-02-01"
+```
+
+**4. Update all FP submission configurations** with new nonce
+
+### Regular Rotation
+
 - Rotate nonces quarterly or after security audits
 - Use rotation instead of revocation when possible (maintains continuity)
 
-### 2. Key Management
-- Keep public keys in secure storage
-- Rotate public keys along with nonces during security audits
-- Never share private keys
+### Validation
 
-### 3. Revocation
-- Revoke immediately upon compromise detection
-- Document clear revocation reasons for audit trail
-- Monitor for revoked nonce usage attempts
-
-### 4. Validation
 - Always validate nonces before FP submission
 - Handle validation errors gracefully
 - Log validation failures for security monitoring
@@ -318,44 +477,68 @@ pnpm cli verify --method github_org \
 
 ### "Organization already has an active nonce binding"
 
-**Cause:** Attempting to generate a second nonce
+**Cause:** Attempting to generate second nonce to org that already has one
 
-**Solution:**
-- Use `nonce rotate` instead to replace existing binding
-- Or revoke existing binding first, then generate new one
+**Solution:** Use rotation instead:
+
+```bash
+pnpm cli nonce rotate \
+  --org-id your-org-123 \
+  --reason "Creating new binding"
+```
 
 ### "Nonce mismatch"
 
 **Cause:** Submitted nonce doesn't match bound nonce
 
-**Solution:**
-```bash
-# Check current binding
-pnpm cli nonce show --org-id your-org-123
+**Solutions:**
 
-# Update your application configuration with correct nonce
+**1. Check which nonce is bound:**
+
+```bash
+pnpm cli nonce show --org-id your-org-123
+```
+
+**2. Update FP submission configuration** with correct nonce
+
+**3. If nonce lost, rotate to get new one:**
+
+```bash
+pnpm cli nonce rotate --org-id your-org-123 --reason "Lost nonce"
 ```
 
 ### "Nonce binding has been revoked"
 
-**Cause:** Nonce was revoked due to security or organizational changes
+**Cause:** Attempting to use revoked nonce for FP submission
 
-**Solution:**
+**Solution:** Rotate to create new binding:
+
 ```bash
-# Rotate to create new binding
 pnpm cli nonce rotate \
   --org-id your-org-123 \
-  --reason "Recovery from revocation"
+  --reason "Replacing revoked nonce"
 ```
 
 ### "Public key must be hexadecimal"
 
-**Cause:** Public key contains invalid characters
+**Cause:** Public key not in expected hexadecimal format or wrong length
 
-**Solution:**
-- Ensure public key is hex-encoded (0-9, a-f, A-F)
-- Minimum length: 32 characters
-- Typical length: 64 characters
+**Requirements:**
+
+- Must be hexadecimal string (0-9, a-f, A-F)
+- Length: 64-512 characters (32-256 bytes)
+- Typical ECDSA secp256k1: 130 characters (65 bytes uncompressed)
+
+**Solution:** Re-generate key pair:
+
+```bash
+openssl ecparam -genkey -name secp256k1 -out private.pem
+openssl ec -in private.pem -pubout -out public.pem
+
+# Extract hex (should be ~130 chars)
+openssl ec -in public.pem -pubin -text -noout | \
+  grep -A 5 'pub:' | tail -n +2 | tr -d ' \n:'
+```
 
 ## API Reference
 
