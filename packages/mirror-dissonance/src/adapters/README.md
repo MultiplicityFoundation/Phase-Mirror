@@ -249,7 +249,34 @@ npm test
 
 See `.github/workflows/test.yml` for the full workflow.
 
-### Tier 2: Cloud Integration (Nightly)
+### Tier 2: Adapter Parity Tests
+
+Interface conformance tests ensure all providers implement the same semantics:
+
+```bash
+# Run parity tests (local adapter only, no credentials required)
+npm test packages/mirror-dissonance/src/adapters/__tests__/adapter-parity.test.ts
+
+# With AWS credentials
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+npm test adapter-parity
+
+# With GCP credentials
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/creds.json
+export GCP_PROJECT_ID=my-project
+npm test adapter-parity
+```
+
+The parity tests verify:
+- ✅ **Interface conformance** - All adapters implement the same interfaces
+- ✅ **Semantic equivalence** - Operations produce equivalent results
+- ✅ **Contract compliance** - Adapters respect error handling and edge cases
+- ✅ **No drift** - Multi-cloud abstraction stays consistent
+
+See [`__tests__/README.md`](./__tests__/README.md) for detailed documentation.
+
+### Tier 3: Cloud Integration (Nightly)
 
 Tests **real AWS/GCP** adapters nightly:
 
@@ -270,7 +297,7 @@ npm test src/adapters/gcp
 
 See `.github/workflows/cloud-integration.yml` for the full workflow.
 
-### Tier 3: LocalStack (Optional)
+### Tier 4: LocalStack (Optional)
 
 Tests **AWS adapter** against LocalStack (AWS emulator):
 
