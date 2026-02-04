@@ -1,0 +1,12 @@
+# GCP Production Environment Configuration
+
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+environment = "production"
+github_repo = "MultiplicityFoundation/Phase-Mirror"
+
+# HMAC Nonce Secret (REQUIRED)
+# Generate with: openssl rand -hex 32
+# This MUST be replaced with a secure random value before applying
+# NEVER commit the actual secret value to version control
+hmac_nonce_secret = "REPLACE_WITH_SECURE_NONCE"

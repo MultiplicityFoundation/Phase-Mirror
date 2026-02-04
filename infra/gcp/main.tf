@@ -42,6 +42,22 @@ variable "environment" {
   default     = "staging"
 }
 
+variable "hmac_nonce_secret" {
+  description = "HMAC nonce secret for anonymization (must be a secure 64-character hex string)"
+  type        = string
+  sensitive   = true
+  
+  validation {
+    condition     = length(var.hmac_nonce_secret) == 64 && can(regex("^[0-9a-fA-F]{64}$", var.hmac_nonce_secret))
+    error_message = "The hmac_nonce_secret must be a 64-character hexadecimal string. Generate with: openssl rand -hex 32"
+  }
+  
+  validation {
+    condition     = var.hmac_nonce_secret != "0000000000000000000000000000000000000000000000000000000000000000"
+    error_message = "The hmac_nonce_secret cannot be the placeholder value. Generate a secure nonce with: openssl rand -hex 32"
+  }
+}
+
 variable "github_repo" {
   description = "GitHub repository in format owner/repo"
   type        = string
@@ -139,9 +155,9 @@ resource "google_secret_manager_secret" "hmac_nonce" {
 resource "google_secret_manager_secret_version" "hmac_nonce_v1" {
   secret = google_secret_manager_secret.hmac_nonce.id
 
-  # Generate a random 32-byte hex string for the nonce
-  # In production, generate this securely: openssl rand -hex 32
-  secret_data = "0000000000000000000000000000000000000000000000000000000000000000" # REPLACE THIS
+  # Use the validated nonce from variable
+  # Generate with: openssl rand -hex 32
+  secret_data = var.hmac_nonce_secret
 
   lifecycle {
     ignore_changes = [secret_data] # Prevent overwriting manual rotations
