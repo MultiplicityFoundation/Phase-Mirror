@@ -17,7 +17,9 @@
 import { CloudAdapters, CloudConfig } from '../types.js';
 import { FalsePositiveEvent } from '../../../schemas/types.js';
 import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
+import { join } from 'path';
 
 /**
  * Adapter test factory function
@@ -354,7 +356,7 @@ function runAdapterParityTests(providerConfig: ProviderTestConfig) {
  */
 describe('Adapter Parity Tests', () => {
   describe('Local Provider', () => {
-    const testDataDir = `/tmp/parity-test-local-${Date.now()}`;
+    const testDataDir = join(tmpdir(), `parity-test-local-${Date.now()}`);
     
     runAdapterParityTests({
       name: 'Local',

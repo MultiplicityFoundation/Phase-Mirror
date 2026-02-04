@@ -56,6 +56,11 @@ variable "hmac_nonce_secret" {
     condition     = var.hmac_nonce_secret != "0000000000000000000000000000000000000000000000000000000000000000"
     error_message = "The hmac_nonce_secret cannot be the placeholder value. Generate a secure nonce with: openssl rand -hex 32"
   }
+  
+  validation {
+    condition     = var.hmac_nonce_secret != "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    error_message = "The hmac_nonce_secret cannot be the example placeholder. Generate a secure nonce with: openssl rand -hex 32"
+  }
 }
 
 variable "github_repo" {
