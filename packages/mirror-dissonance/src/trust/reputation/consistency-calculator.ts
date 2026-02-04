@@ -11,10 +11,6 @@ import { ContributionRecord, ConsistencyMetrics, ConsistencyScoreConfig, Consist
 /**
  * Consistency Score Calculator
  * 
- * Calculates how well an organization's FP contributions align with
- * network consensus. Enables Byzantine fault tolerance by downweighting
- * outliers and upweighting consistent contributors.
- * 
  * Algorithm:
  * 1. Fetch all contributions from org (filtered by age)
  * 2. For each contribution, calculate deviation from consensus
@@ -30,7 +26,7 @@ import { ContributionRecord, ConsistencyMetrics, ConsistencyScoreConfig, Consist
  * 
  * @example
  * const calculator = new ConsistencyScoreCalculator(config);
- * const result = await calculator.calculateScore('org-123', contributions);
+ * const result = calculator.calculateScore('org-123', contributions);
  * 
  * if (result.hasMinimumData) {
  *   console.log('Consistency score:', result.score);
@@ -55,6 +51,9 @@ export class ConsistencyScoreCalculator {
 
   /**
    * Calculate consistency score for an organization.
+   * 
+   * Note: Method is async to allow for future extensibility (e.g., database lookups)
+   * while maintaining consistent interface with other Trust Module components.
    * 
    * @param orgId - Organization ID
    * @param contributions - All contribution records for this org
