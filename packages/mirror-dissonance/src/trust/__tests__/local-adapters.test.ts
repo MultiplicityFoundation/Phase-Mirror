@@ -184,6 +184,7 @@ describe('Local Trust Adapters', () => {
         ageScore: 0.5,
         volumeScore: 0.4,
         lastUpdated: new Date('2024-01-01T00:00:00Z'),
+        stakeStatus: 'active',
       };
 
       await adapters.reputationStore.updateReputation(reputation);
@@ -217,6 +218,7 @@ describe('Local Trust Adapters', () => {
         ageScore: 0.3,
         volumeScore: 0.2,
         lastUpdated: new Date('2024-01-01'),
+        stakeStatus: 'active',
       };
 
       await adapters.reputationStore.updateReputation(reputation);
@@ -294,6 +296,7 @@ describe('Local Trust Adapters', () => {
           ageScore: 0.8,
           volumeScore: 0.7,
           lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
         },
         {
           orgId: 'org-2',
@@ -305,6 +308,7 @@ describe('Local Trust Adapters', () => {
           ageScore: 0.3,
           volumeScore: 0.2,
           lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
         },
         {
           orgId: 'org-3',
@@ -316,6 +320,7 @@ describe('Local Trust Adapters', () => {
           ageScore: 0.6,
           volumeScore: 0.5,
           lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
         },
       ];
 
@@ -345,6 +350,7 @@ describe('Local Trust Adapters', () => {
         ageScore: 0.5,
         volumeScore: 0.4,
         lastUpdated: new Date('2024-01-01'),
+        stakeStatus: 'active',
       };
 
       await adapters1.reputationStore.updateReputation(reputation);
