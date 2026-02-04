@@ -11,7 +11,7 @@ import { configCommand } from './commands/config.js';
 import { baselineCommand } from './commands/baseline.js';
 import { nonceCommand } from './commands/nonce.js';
 import { verifyCommand } from './commands/verify.js';
-import { calibrationCommand } from './commands/calibration.js';
+import { reputationCommand } from './commands/reputation.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
 
@@ -386,19 +386,19 @@ verify.command('list')
     }
   });
 
-// Calibration commands
-const calibration = program
-  .command('calibration')
-  .description('Manage FP calibration with Byzantine filtering');
+// Reputation management commands
+const reputation = program
+  .command('reputation')
+  .description('Manage organization reputation and consistency scores');
 
-calibration.command('aggregate')
-  .description('Aggregate FPs for a specific rule with Byzantine filtering')
-  .requiredOption('--rule-id <ruleId>', 'Rule ID to aggregate')
-  .option('-v, --verbose', 'Show detailed information')
+reputation.command('show')
+  .description('Show reputation details for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .option('-v, --verbose', 'Show detailed information including contribution weights')
   .action(async (options) => {
     try {
-      await calibrationCommand.aggregate({
-        ruleId: options.ruleId,
+      await reputationCommand.show({
+        orgId: options.orgId,
         verbose: options.verbose
       });
     } catch (error) {
@@ -406,39 +406,106 @@ calibration.command('aggregate')
     }
   });
 
-calibration.command('list')
-  .description('List all calibration results')
-  .option('-f, --format <format>', 'Output format (text, json)', 'text')
+reputation.command('list')
+  .description('List organizations by reputation score')
+  .option('--min-score <score>', 'Minimum reputation score filter', parseFloat)
+  .option('--sort-by <field>', 'Sort by field (reputation, consistency, stake)', 'reputation')
+  .option('--limit <number>', 'Limit number of results', parseInt)
   .action(async (options) => {
     try {
-      await calibrationCommand.list({
-        format: options.format
+      await reputationCommand.list({
+        minScore: options.minScore,
+        sortBy: options.sortBy,
+        limit: options.limit
       });
     } catch (error) {
       handleFatalError(error);
     }
   });
 
-calibration.command('show')
-  .description('Show detailed calibration result for a rule')
-  .requiredOption('--rule-id <ruleId>', 'Rule ID to show')
-  .option('-f, --format <format>', 'Output format (text, json)', 'text')
+reputation.command('calculate-consistency')
+  .description('Calculate consistency score for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .option('--mock-data', 'Use mock contribution data for demo', false)
   .action(async (options) => {
     try {
-      await calibrationCommand.show({
-        ruleId: options.ruleId,
-        format: options.format
+      await reputationCommand.calculateConsistency({
+        orgId: options.orgId,
+        mockData: options.mockData
       });
     } catch (error) {
       handleFatalError(error);
     }
   });
 
-calibration.command('stats')
-  .description('Show aggregate calibration statistics')
-  .action(async () => {
+reputation.command('update')
+  .description('Update reputation metrics for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .option('--reputation-score <score>', 'Reputation score (0.0-1.0)', parseFloat)
+  .option('--consistency-score <score>', 'Consistency score (0.0-1.0)', parseFloat)
+  .option('--contribution-count <count>', 'Number of contributions', parseInt)
+  .option('--flagged-count <count>', 'Number of times flagged', parseInt)
+  .option('--age-score <score>', 'Age score (0.0-1.0)', parseFloat)
+  .option('--volume-score <score>', 'Volume score (0.0-1.0)', parseFloat)
+  .action(async (options) => {
     try {
-      await calibrationCommand.stats();
+      await reputationCommand.update({
+        orgId: options.orgId,
+        reputationScore: options.reputationScore,
+        consistencyScore: options.consistencyScore,
+        contributionCount: options.contributionCount,
+        flaggedCount: options.flaggedCount,
+        ageScore: options.ageScore,
+        volumeScore: options.volumeScore
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+// Stake management subcommands
+const stake = reputation
+  .command('stake')
+  .description('Manage stake pledges');
+
+stake.command('pledge')
+  .description('Create a stake pledge for an organization')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('--amount <amount>', 'Stake amount in USD', parseFloat)
+  .action(async (options) => {
+    try {
+      await reputationCommand.pledgeStake({
+        orgId: options.orgId,
+        amount: options.amount
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+stake.command('slash')
+  .description('Slash stake for malicious behavior')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .requiredOption('-r, --reason <reason>', 'Reason for slashing')
+  .action(async (options) => {
+    try {
+      await reputationCommand.slashStake({
+        orgId: options.orgId,
+        reason: options.reason
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+stake.command('show')
+  .description('Show stake pledge details')
+  .requiredOption('--org-id <orgId>', 'Organization ID')
+  .action(async (options) => {
+    try {
+      await reputationCommand.showStake({
+        orgId: options.orgId
+      });
     } catch (error) {
       handleFatalError(error);
     }

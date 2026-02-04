@@ -91,6 +91,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const weight = await engine.calculateContributionWeight('org-1');
@@ -111,6 +112,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const weight = await engine.calculateContributionWeight('org-2');
@@ -130,6 +132,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const weight = await engine.calculateContributionWeight('org-3');
@@ -148,6 +151,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.8,
         volumeScore: 0.7,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const weight = await engine.calculateContributionWeight('org-4');
@@ -167,6 +171,7 @@ describe('ReputationEngine', () => {
         ageScore: 1.0,
         volumeScore: 1.0,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const weight = await engine.calculateContributionWeight('org-5');
@@ -201,6 +206,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.3,
         volumeScore: 0.2,
         lastUpdated: new Date('2024-01-01'),
+        stakeStatus: 'active' as const,
       };
       store.setReputation(initial);
 
@@ -229,6 +235,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       store.setPledge({
@@ -286,6 +293,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const canParticipate = await engine.canParticipateInNetwork('org-1');
@@ -303,6 +311,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const canParticipate = await engine.canParticipateInNetwork('org-1');
@@ -320,6 +329,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.6,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       });
 
       const canParticipate = await engine.canParticipateInNetwork('org-1');
@@ -344,6 +354,7 @@ describe('ReputationEngine', () => {
         ageScore: 0.5,
         volumeScore: 0.5,
         lastUpdated: new Date(),
+        stakeStatus: 'active' as const,
       };
       store.setReputation(expected);
 
