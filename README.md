@@ -1,7 +1,5 @@
 # Mirror Dissonance Protocol (Phase Mirror)
 
-![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PhaseMirror/Phase-Mirror/main/coverage-badge.json)
-
 Mirror Dissonance is a callable, auditable inconsistency-finding protocol across requirements ↔ configs ↔ code ↔ runtime assumptions. It outputs a deterministic `dissonance_report.json` that can be used as a first-class control surface in PR checks, merge queue, drift detection, and incident response.
 
 ## What this repo is
