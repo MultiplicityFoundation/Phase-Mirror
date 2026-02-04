@@ -8,6 +8,7 @@
 import { OrganizationIdentity } from '../../identity/types.js';
 import { OrganizationReputation, StakePledge } from '../../reputation/types.js';
 import { IIdentityStoreAdapter, IReputationStoreAdapter } from '../types.js';
+import { NonceBinding } from '../../identity/nonce-binding.js';
 
 /**
  * AWS Identity Store (DynamoDB)
@@ -31,6 +32,28 @@ class AWSIdentityStore implements IIdentityStoreAdapter {
   }
 
   async getNonceUsageCount(nonce: string): Promise<number> {
+    throw new Error('AWS Identity Store not yet implemented');
+  }
+
+  async getIdentityByStripeCustomerId(
+    stripeCustomerId: string
+  ): Promise<OrganizationIdentity | null> {
+    throw new Error('AWS Identity Store not yet implemented');
+  }
+
+  async listStripeVerifiedIdentities(): Promise<OrganizationIdentity[]> {
+    throw new Error('AWS Identity Store not yet implemented');
+  }
+
+  async getNonceBinding(orgId: string): Promise<NonceBinding | null> {
+    throw new Error('AWS Identity Store not yet implemented');
+  }
+
+  async storeNonceBinding(binding: NonceBinding): Promise<void> {
+    throw new Error('AWS Identity Store not yet implemented');
+  }
+
+  async getNonceBindingByNonce(nonce: string): Promise<NonceBinding | null> {
     throw new Error('AWS Identity Store not yet implemented');
   }
 }
