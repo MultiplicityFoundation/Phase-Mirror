@@ -6,6 +6,41 @@ The Stripe customer verification feature prevents Sybil attacks in Phase Mirror'
 
 ## Quick Start
 
+### CLI Usage
+
+The easiest way to verify your organization is via the Phase Mirror CLI:
+
+```bash
+# Set your Stripe secret key (test mode for development)
+export STRIPE_SECRET_KEY=sk_test_your_key
+
+# Verify your organization
+pnpm cli verify stripe \
+  --org-id your-org-123 \
+  --stripe-customer cus_ABC123XYZ \
+  --public-key your-public-key
+
+# With subscription requirement
+pnpm cli verify stripe \
+  --org-id your-org-123 \
+  --stripe-customer cus_ABC123XYZ \
+  --public-key your-public-key \
+  --require-subscription
+
+# With specific product requirement
+pnpm cli verify stripe \
+  --org-id your-org-123 \
+  --stripe-customer cus_ABC123XYZ \
+  --public-key your-public-key \
+  --require-subscription \
+  --product-ids prod_PhaseMirrorEnterprise,prod_PhaseMirrorPro
+
+# List verified identities
+pnpm cli verify list --method stripe_customer
+```
+
+### Programmatic Usage
+
 ```typescript
 import { StripeVerifier } from '@mirror-dissonance/core/trust/identity/stripe-verifier';
 
