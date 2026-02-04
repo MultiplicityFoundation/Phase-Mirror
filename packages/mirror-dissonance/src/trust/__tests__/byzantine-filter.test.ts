@@ -6,7 +6,6 @@ import { ByzantineFilter } from '../reputation/byzantine-filter.js';
 import {
   RawContribution,
   ContributionWeight,
-  ByzantineFilterConfig,
 } from '../reputation/types.js';
 
 describe('ByzantineFilter', () => {
