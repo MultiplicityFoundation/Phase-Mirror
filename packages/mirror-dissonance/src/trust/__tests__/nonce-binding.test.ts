@@ -39,7 +39,7 @@ describe('NonceBindingService', () => {
       // Create a verified identity
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '', // Will be set by binding service
@@ -48,12 +48,12 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity);
 
       // Generate and bind nonce
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       expect(result.isNew).toBe(true);
       expect(result.binding.nonce).toHaveLength(64); // 32 bytes in hex
       expect(result.binding.orgId).toBe('org-1');
-      expect(result.binding.publicKey).toBe('pubkey-123');
+      expect(result.binding.publicKey).toBe('abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
       expect(result.binding.revoked).toBe(false);
       expect(result.binding.usageCount).toBe(0);
       expect(result.binding.signature).toHaveLength(64); // SHA-256 hex
@@ -61,7 +61,7 @@ describe('NonceBindingService', () => {
 
     it('should reject binding for non-existent organization', async () => {
       await expect(
-        service.generateAndBindNonce('non-existent', 'pubkey-123')
+        service.generateAndBindNonce('non-existent', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789')
       ).rejects.toThrow('Organization non-existent not found or not verified');
     });
 
@@ -69,7 +69,7 @@ describe('NonceBindingService', () => {
       // Create verified identity
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -78,18 +78,18 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity);
 
       // First binding should succeed
-      await service.generateAndBindNonce('org-1', 'pubkey-123');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Second binding should fail
       await expect(
-        service.generateAndBindNonce('org-1', 'pubkey-123')
+        service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789')
       ).rejects.toThrow('already has an active nonce binding');
     });
 
     it('should update identity record with generated nonce', async () => {
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -97,7 +97,7 @@ describe('NonceBindingService', () => {
 
       await adapters.identityStore.storeIdentity(identity);
 
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Check that identity was updated
       const updatedIdentity = await adapters.identityStore.getIdentity('org-1');
@@ -108,7 +108,7 @@ describe('NonceBindingService', () => {
       // Create two verified identities
       const identity1: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-1',
+        publicKey: '1111111111111111111111111111111111111111111111111111111111111111',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -116,7 +116,7 @@ describe('NonceBindingService', () => {
 
       const identity2: OrganizationIdentity = {
         orgId: 'org-2',
-        publicKey: 'pubkey-2',
+        publicKey: '2222222222222222222222222222222222222222222222222222222222222222',
         verificationMethod: 'stripe_customer',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -126,11 +126,47 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity2);
 
       // Generate nonces for both
-      const result1 = await service.generateAndBindNonce('org-1', 'pubkey-1');
-      const result2 = await service.generateAndBindNonce('org-2', 'pubkey-2');
+      const result1 = await service.generateAndBindNonce('org-1', '1111111111111111111111111111111111111111111111111111111111111111');
+      const result2 = await service.generateAndBindNonce('org-2', '2222222222222222222222222222222222222222222222222222222222222222');
 
       // Nonces should be different
       expect(result1.binding.nonce).not.toBe(result2.binding.nonce);
+    });
+
+    it('should throw if public key format is invalid (not hexadecimal)', async () => {
+      // Setup: Create verified identity
+      const identity: OrganizationIdentity = {
+        orgId: 'org-invalid-key',
+        publicKey: 'validkey1234'.repeat(4),
+        verificationMethod: 'github_org',
+        verifiedAt: new Date('2024-01-01'),
+        uniqueNonce: '',
+      };
+
+      await adapters.identityStore.storeIdentity(identity);
+
+      // Invalid: contains non-hex characters
+      await expect(
+        service.generateAndBindNonce('org-invalid-key', 'not-hex-!@#$')
+      ).rejects.toThrow('must be hexadecimal');
+    });
+
+    it('should throw if public key length is invalid', async () => {
+      // Setup: Create verified identity
+      const identity: OrganizationIdentity = {
+        orgId: 'org-short-key',
+        publicKey: 'validkey1234'.repeat(4),
+        verificationMethod: 'github_org',
+        verifiedAt: new Date('2024-01-01'),
+        uniqueNonce: '',
+      };
+
+      await adapters.identityStore.storeIdentity(identity);
+
+      // Invalid: too short (less than 32 chars)
+      await expect(
+        service.generateAndBindNonce('org-short-key', 'abc123')
+      ).rejects.toThrow('length invalid');
     });
   });
 
@@ -139,14 +175,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Verify the binding
       const verification = await service.verifyBinding(result.binding.nonce, 'org-1');
@@ -167,14 +203,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      await service.generateAndBindNonce('org-1', 'pubkey-123');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Try to verify with wrong nonce
       const verification = await service.verifyBinding('wrong-nonce', 'org-1');
@@ -187,14 +223,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Revoke the binding
       await service.revokeBinding('org-1', 'Security violation');
@@ -211,14 +247,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Tamper with the signature
       const tamperedBinding = {
@@ -241,14 +277,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Revoke
       await service.revokeBinding('org-1', 'Security violation');
@@ -270,14 +306,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      await service.generateAndBindNonce('org-1', 'pubkey-123');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // First revocation should succeed
       await service.revokeBinding('org-1', 'First reason');
@@ -294,18 +330,18 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const originalResult = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const originalResult = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
       const originalNonce = originalResult.binding.nonce;
 
       // Rotate
-      const rotationResult = await service.rotateNonce('org-1', 'pubkey-123', 'Scheduled rotation');
+      const rotationResult = await service.rotateNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789', 'Scheduled rotation');
 
       // Check new binding
       expect(rotationResult.isNew).toBe(false);
@@ -324,23 +360,23 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'old-pubkey',
+        publicKey: '0000000000000000000000000000000011111111111111111111111111111111',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      await service.generateAndBindNonce('org-1', 'old-pubkey');
+      await service.generateAndBindNonce('org-1', '0000000000000000000000000000000011111111111111111111111111111111');
 
       // Rotate with new public key
-      const rotationResult = await service.rotateNonce('org-1', 'new-pubkey', 'Key rotation');
+      const rotationResult = await service.rotateNonce('org-1', '2222222222222222222222222222222233333333333333333333333333333333', 'Key rotation');
 
-      expect(rotationResult.binding.publicKey).toBe('new-pubkey');
+      expect(rotationResult.binding.publicKey).toBe('2222222222222222222222222222222233333333333333333333333333333333');
 
       // Check identity was updated
       const updatedIdentity = await adapters.identityStore.getIdentity('org-1');
-      expect(updatedIdentity!.publicKey).toBe('new-pubkey');
+      expect(updatedIdentity!.publicKey).toBe('2222222222222222222222222222222233333333333333333333333333333333');
       expect(updatedIdentity!.uniqueNonce).toBe(rotationResult.binding.nonce);
     });
 
@@ -354,21 +390,21 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      await service.generateAndBindNonce('org-1', 'pubkey-123');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Revoke
       await service.revokeBinding('org-1', 'Security violation');
 
       // Try to rotate
       await expect(
-        service.rotateNonce('org-1', 'pubkey-123', 'Attempted rotation')
+        service.rotateNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789', 'Attempted rotation')
       ).rejects.toThrow('Cannot rotate revoked nonce');
     });
   });
@@ -378,14 +414,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Initial count should be 0
       expect(result.binding.usageCount).toBe(0);
@@ -407,14 +443,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      await service.generateAndBindNonce('org-1', 'pubkey-123');
+      await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Try to increment with wrong nonce
       await expect(
@@ -428,7 +464,7 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-1',
+        publicKey: '1111111111111111111111111111111111111111111111111111111111111111',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -437,21 +473,21 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity);
 
       // Generate initial nonce
-      const result1 = await service.generateAndBindNonce('org-1', 'pubkey-1');
+      const result1 = await service.generateAndBindNonce('org-1', '1111111111111111111111111111111111111111111111111111111111111111');
       const nonce1 = result1.binding.nonce;
 
       // Wait a bit to ensure different timestamps
       await new Promise(resolve => setTimeout(resolve, 10));
 
       // Rotate once
-      const result2 = await service.rotateNonce('org-1', 'pubkey-2', 'First rotation');
+      const result2 = await service.rotateNonce('org-1', '2222222222222222222222222222222222222222222222222222222222222222', 'First rotation');
       const nonce2 = result2.binding.nonce;
 
       // Wait a bit
       await new Promise(resolve => setTimeout(resolve, 10));
 
       // Rotate again
-      const result3 = await service.rotateNonce('org-1', 'pubkey-3', 'Second rotation');
+      const result3 = await service.rotateNonce('org-1', '3333333333333333333333333333333333333333333333333333333333333333', 'Second rotation');
       const nonce3 = result3.binding.nonce;
 
       // Get history
@@ -472,14 +508,14 @@ describe('NonceBindingService', () => {
       // Setup: Create identity and binding
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
       };
 
       await adapters.identityStore.storeIdentity(identity);
-      const result = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Get history
       const history = await service.getRotationHistory('org-1');
@@ -494,7 +530,7 @@ describe('NonceBindingService', () => {
       // Setup: Create verified identity
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -503,12 +539,12 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity);
 
       // First binding succeeds
-      const result1 = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result1 = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
       expect(result1.isNew).toBe(true);
 
       // Second binding attempt fails (Sybil attack prevented)
       await expect(
-        service.generateAndBindNonce('org-1', 'pubkey-123')
+        service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789')
       ).rejects.toThrow('already has an active nonce binding');
     });
 
@@ -516,7 +552,7 @@ describe('NonceBindingService', () => {
       // Setup: Create verified identity
       const identity: OrganizationIdentity = {
         orgId: 'org-1',
-        publicKey: 'pubkey-123',
+        publicKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -525,16 +561,50 @@ describe('NonceBindingService', () => {
       await adapters.identityStore.storeIdentity(identity);
 
       // First binding
-      const result1 = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result1 = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
 
       // Revoke
       await service.revokeBinding('org-1', 'Test revocation');
 
       // New binding should now work (not rotation, but fresh binding)
-      const result2 = await service.generateAndBindNonce('org-1', 'pubkey-123');
+      const result2 = await service.generateAndBindNonce('org-1', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789');
       expect(result2.isNew).toBe(false); // Not "new" because there was a previous binding
       expect(result2.binding.nonce).not.toBe(result1.binding.nonce);
       expect(result2.previousBinding).toBeDefined();
+    });
+  });
+
+  describe('getBinding', () => {
+    it('should retrieve existing binding', async () => {
+      // Setup: Create identity and binding
+      const identity: OrganizationIdentity = {
+        orgId: 'org-get-binding',
+        publicKey: 'abcdef1234567890'.repeat(4), // 64 hex chars
+        verificationMethod: 'github_org',
+        verifiedAt: new Date('2024-01-01'),
+        uniqueNonce: '',
+      };
+
+      await adapters.identityStore.storeIdentity(identity);
+      const result = await service.generateAndBindNonce('org-get-binding', identity.publicKey);
+
+      // Act: Get the binding
+      const binding = await adapters.identityStore.getNonceBinding('org-get-binding');
+
+      // Assert: Binding should exist
+      expect(binding).toBeDefined();
+      expect(binding!.nonce).toBe(result.binding.nonce);
+      expect(binding!.orgId).toBe('org-get-binding');
+      expect(binding!.publicKey).toBe(identity.publicKey);
+      expect(binding!.signature).toBeDefined();
+    });
+
+    it('should return null if no binding exists', async () => {
+      // Act: Try to get binding for non-existent org
+      const binding = await adapters.identityStore.getNonceBinding('org-no-binding');
+
+      // Assert: Should return null
+      expect(binding).toBeNull();
     });
   });
 
@@ -542,7 +612,7 @@ describe('NonceBindingService', () => {
     it('should work with GitHub-verified organizations', async () => {
       const identity: OrganizationIdentity = {
         orgId: 'github-org-1',
-        publicKey: 'pubkey-github',
+        publicKey: 'abcdef9876543210abcdef9876543210abcdef9876543210abcdef9876543210',
         verificationMethod: 'github_org',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -551,16 +621,16 @@ describe('NonceBindingService', () => {
 
       await adapters.identityStore.storeIdentity(identity);
 
-      const result = await service.generateAndBindNonce('github-org-1', 'pubkey-github');
+      const result = await service.generateAndBindNonce('github-org-1', 'abcdef9876543210abcdef9876543210abcdef9876543210abcdef9876543210');
 
       expect(result.binding.orgId).toBe('github-org-1');
-      expect(result.binding.publicKey).toBe('pubkey-github');
+      expect(result.binding.publicKey).toBe('abcdef9876543210abcdef9876543210abcdef9876543210abcdef9876543210');
     });
 
     it('should work with Stripe-verified organizations', async () => {
       const identity: OrganizationIdentity = {
         orgId: 'stripe-org-1',
-        publicKey: 'pubkey-stripe',
+        publicKey: 'fedcba0123456789fedcba0123456789fedcba0123456789fedcba0123456789',
         verificationMethod: 'stripe_customer',
         verifiedAt: new Date('2024-01-01'),
         uniqueNonce: '',
@@ -569,10 +639,10 @@ describe('NonceBindingService', () => {
 
       await adapters.identityStore.storeIdentity(identity);
 
-      const result = await service.generateAndBindNonce('stripe-org-1', 'pubkey-stripe');
+      const result = await service.generateAndBindNonce('stripe-org-1', 'fedcba0123456789fedcba0123456789fedcba0123456789fedcba0123456789');
 
       expect(result.binding.orgId).toBe('stripe-org-1');
-      expect(result.binding.publicKey).toBe('pubkey-stripe');
+      expect(result.binding.publicKey).toBe('fedcba0123456789fedcba0123456789fedcba0123456789fedcba0123456789');
     });
   });
 });

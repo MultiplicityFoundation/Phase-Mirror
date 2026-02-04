@@ -107,7 +107,10 @@ export class NonceBindingService {
       throw new Error(`Organization ${orgId} not found or not verified`);
     }
 
-    // 2. Check if organization already has an active (non-revoked) binding
+    // 2. Validate public key format
+    this.validatePublicKey(publicKey);
+
+    // 3. Check if organization already has an active (non-revoked) binding
     const existingBinding = await this.identityStore.getNonceBinding(orgId);
     if (existingBinding && !existingBinding.revoked) {
       throw new Error(
@@ -116,23 +119,23 @@ export class NonceBindingService {
       );
     }
 
-    // 3. Generate a unique nonce (64 hex chars = 32 bytes)
+    // 4. Generate a unique nonce (64 hex chars = 32 bytes)
     const nonce = randomBytes(32).toString('hex');
 
-    // 4. Verify nonce is not already in use (extremely unlikely but check anyway)
+    // 5. Verify nonce is not already in use (extremely unlikely but check anyway)
     const nonceUsageCount = await this.identityStore.getNonceUsageCount(nonce);
     if (nonceUsageCount > 0) {
       // Collision detected (astronomically rare), try again
       return this.generateAndBindNonce(orgId, publicKey);
     }
 
-    // 5. Create signature: HMAC-SHA256(nonce + orgId + publicKey)
+    // 6. Create signature: HMAC-SHA256(nonce + orgId + publicKey)
     const signatureData = `${nonce}:${orgId}:${publicKey}`;
     const signature = createHash('sha256')
       .update(signatureData)
       .digest('hex');
 
-    // 6. Create the binding record
+    // 7. Create the binding record
     const binding: NonceBinding = {
       nonce,
       orgId,
@@ -144,10 +147,10 @@ export class NonceBindingService {
       revoked: false,
     };
 
-    // 7. Store the binding
+    // 8. Store the binding
     await this.identityStore.storeNonceBinding(binding);
 
-    // 8. Update the identity record with the new nonce
+    // 9. Update the identity record with the new nonce
     await this.identityStore.storeIdentity({
       ...identity,
       uniqueNonce: nonce,
@@ -282,19 +285,22 @@ export class NonceBindingService {
       );
     }
 
-    // 2. Revoke the current binding
+    // 2. Validate new public key
+    this.validatePublicKey(newPublicKey);
+
+    // 3. Revoke the current binding
     await this.revokeBinding(orgId, `Rotated: ${reason}`);
 
-    // 3. Generate new nonce
+    // 4. Generate new nonce
     const nonce = randomBytes(32).toString('hex');
 
-    // 4. Create signature for new binding
+    // 5. Create signature for new binding
     const signatureData = `${nonce}:${orgId}:${newPublicKey}`;
     const signature = createHash('sha256')
       .update(signatureData)
       .digest('hex');
 
-    // 5. Create new binding with link to previous nonce
+    // 6. Create new binding with link to previous nonce
     const newBinding: NonceBinding = {
       nonce,
       orgId,
@@ -307,10 +313,10 @@ export class NonceBindingService {
       previousNonce: currentBinding.nonce, // Link to rotation chain
     };
 
-    // 6. Store new binding
+    // 7. Store new binding
     await this.identityStore.storeNonceBinding(newBinding);
 
-    // 7. Update identity record
+    // 8. Update identity record
     const identity = await this.identityStore.getIdentity(orgId);
     if (identity) {
       await this.identityStore.storeIdentity({
@@ -379,5 +385,24 @@ export class NonceBindingService {
     }
 
     return history;
+  }
+
+  /**
+   * Validate public key format
+   * 
+   * @param publicKey - Public key to validate
+   * @throws Error if public key is invalid
+   */
+  private validatePublicKey(publicKey: string): void {
+    // Check if public key is hexadecimal
+    const hexRegex = /^[0-9a-fA-F]+$/;
+    if (!hexRegex.test(publicKey)) {
+      throw new Error('Public key must be hexadecimal');
+    }
+
+    // Check if public key has valid length (should be at least 32 chars, typically 64)
+    if (publicKey.length < 32) {
+      throw new Error('Public key length invalid: must be at least 32 characters');
+    }
   }
 }
