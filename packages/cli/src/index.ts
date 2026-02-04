@@ -11,6 +11,7 @@ import { configCommand } from './commands/config.js';
 import { baselineCommand } from './commands/baseline.js';
 import { nonceCommand } from './commands/nonce.js';
 import { verifyCommand } from './commands/verify.js';
+import { calibrationCommand } from './commands/calibration.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
 
@@ -380,6 +381,64 @@ verify.command('list')
         method: options.method,
         verbose: options.verbose
       });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+// Calibration commands
+const calibration = program
+  .command('calibration')
+  .description('Manage FP calibration with Byzantine filtering');
+
+calibration.command('aggregate')
+  .description('Aggregate FPs for a specific rule with Byzantine filtering')
+  .requiredOption('--rule-id <ruleId>', 'Rule ID to aggregate')
+  .option('-v, --verbose', 'Show detailed information')
+  .action(async (options) => {
+    try {
+      await calibrationCommand.aggregate({
+        ruleId: options.ruleId,
+        verbose: options.verbose
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+calibration.command('list')
+  .description('List all calibration results')
+  .option('-f, --format <format>', 'Output format (text, json)', 'text')
+  .action(async (options) => {
+    try {
+      await calibrationCommand.list({
+        format: options.format
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+calibration.command('show')
+  .description('Show detailed calibration result for a rule')
+  .requiredOption('--rule-id <ruleId>', 'Rule ID to show')
+  .option('-f, --format <format>', 'Output format (text, json)', 'text')
+  .action(async (options) => {
+    try {
+      await calibrationCommand.show({
+        ruleId: options.ruleId,
+        format: options.format
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+calibration.command('stats')
+  .description('Show aggregate calibration statistics')
+  .action(async () => {
+    try {
+      await calibrationCommand.stats();
     } catch (error) {
       handleFatalError(error);
     }

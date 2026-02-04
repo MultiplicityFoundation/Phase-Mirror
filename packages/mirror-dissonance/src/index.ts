@@ -59,3 +59,33 @@ export type {
 
 // Re-export commonly used types
 export type { FalsePositiveEvent } from "../schemas/types.js";
+
+// Calibration Store
+export {
+  createCalibrationStore,
+  DynamoDBCalibrationStore,
+  NoOpCalibrationStore,
+  ByzantineCalibrationStore as CalibrationStore,
+  InMemoryCalibrationStoreAdapter,
+  NoOpCalibrationStoreAdapter,
+} from "./calibration-store/index.js";
+
+export type {
+  ICalibrationStore,
+  ICalibrationStoreAdapter,
+  CalibrationResultExtended,
+} from "./calibration-store/index.js";
+
+// Trust Module
+export {
+  NonceBindingService,
+  ReputationEngine,
+  createLocalTrustAdapters,
+} from "./trust/index.js";
+
+export type {
+  NonceBinding,
+  OrganizationReputation,
+  ContributionWeight,
+} from "./trust/index.js";
+

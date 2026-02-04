@@ -238,3 +238,11 @@ export {
   NoOpCalibrationStoreAdapter,
   InMemoryCalibrationStoreAdapter,
 } from './adapter-types.js';
+
+// Export types
+export type {
+  CalibrationResultExtended,
+  CalibrationConfidence,
+  ByzantineFilterSummary,
+} from '../trust/reputation/types.js';
+
