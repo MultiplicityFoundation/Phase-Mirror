@@ -209,3 +209,90 @@ export interface IStripeVerifier {
    */
   hasDelinquentInvoices(stripeCustomerId: string): Promise<boolean>;
 }
+
+// ═══════════════════════════════════════════════════════════
+// Nonce Binding Types
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Cryptographic binding between a nonce and verified identity.
+ * 
+ * Ensures one-to-one relationship: one verified org → one nonce.
+ * Prevents nonce sharing, reuse, and identity spoofing.
+ */
+export interface NonceBinding {
+  /** The unique nonce bound to this organization */
+  nonce: string;
+  
+  /** Phase Mirror organization ID */
+  orgId: string;
+  
+  /** Organization's public key (hex) */
+  publicKey: string;
+  
+  /** When this binding was created */
+  boundAt: Date;
+  
+  /** How the organization was verified */
+  verificationMethod: VerificationMethod;
+  
+  /** Cryptographic signature proving ownership (SHA256(nonce:publicKey)) */
+  signature: string;
+  
+  /** If revoked, when it was revoked */
+  revokedAt?: Date;
+  
+  /** Reason for revocation (for audit trail) */
+  revocationReason?: string;
+}
+
+/**
+ * Result of nonce binding validation.
+ */
+export interface NonceBindingValidationResult {
+  /** Whether the nonce binding is valid */
+  valid: boolean;
+  
+  /** Reason for invalidity (if applicable) */
+  reason?: string;
+  
+  /** The binding details (if valid) */
+  binding?: NonceBinding;
+}
+
+/**
+ * Nonce rotation request.
+ */
+export interface NonceRotationRequest {
+  /** Organization requesting rotation */
+  orgId: string;
+  
+  /** New public key (optional, uses existing if not provided) */
+  newPublicKey?: string;
+  
+  /** Reason for rotation (required for audit) */
+  reason: string;
+  
+  /** Timestamp of rotation request */
+  requestedAt: Date;
+}
+
+/**
+ * Nonce revocation record (for audit trail).
+ */
+export interface NonceRevocation {
+  /** The revoked nonce */
+  nonce: string;
+  
+  /** Organization that owned the nonce */
+  orgId: string;
+  
+  /** When it was revoked */
+  revokedAt: Date;
+  
+  /** Why it was revoked */
+  reason: string;
+  
+  /** Who revoked it (system or admin user) */
+  revokedBy: string;
+}

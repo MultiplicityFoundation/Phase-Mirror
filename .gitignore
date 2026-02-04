@@ -52,3 +52,5 @@ release-artifacts/
 
 # Local adapter test data
 .test-data/
+.example-data/
+.example-data-*/
