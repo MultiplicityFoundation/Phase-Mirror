@@ -303,70 +303,78 @@ export class StripeVerifier implements IStripeVerifier {
       return subscriptions.data;
 
     } catch (error) {
-      // If we can't fetch subscriptions, return empty array (fail safe)
       return [];
     }
   }
 
   private calculateAgeDays(createdTimestamp: number): number {
-    const now = Date.now() / 1000;
-    const ageInSeconds = now - createdTimestamp;
-    return Math.floor(ageInSeconds / (24 * 60 * 60));
-  }
-
-  private hasTaxIds(customer: Stripe.Customer): boolean {
-    const taxIds = customer.tax_ids;
-    // Stripe's tax_ids can be either a list or an object with a data property
-    // We need to check both possible structures safely
-    if (!taxIds) return false;
-    
-    if (typeof taxIds === 'object' && 'data' in taxIds) {
-      const data = (taxIds as any).data;
-      return Array.isArray(data) && data.length > 0;
-    }
-    
-    return false;
+    const created = new Date(createdTimestamp * 1000);
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
   private extractCustomerType(customer: Stripe.Customer): string | undefined {
-    // Check if customer has tax IDs (indicates business)
-    if (this.hasTaxIds(customer)) {
-      return 'company';
-    }
-
-    // Check metadata for customer type
+    // Stripe doesn't have a built-in "type" field, but you can use metadata
+    // or infer from tax_id_data
     if (customer.metadata?.customer_type) {
       return customer.metadata.customer_type;
     }
 
-    // Default: assume individual if no business indicators
-    return 'individual';
+    // Heuristic: if tax ID exists, assume company
+    if (customer.tax_ids && customer.tax_ids.data.length > 0) {
+      return 'company';
+    }
+
+    // Default to individual if name exists but no tax ID
+    if (customer.name) {
+      return 'individual';
+    }
+
+    return undefined;
   }
 
-  private async checkBusinessVerification(customer: Stripe.Customer): Promise<boolean> {
-    // Check if customer has tax IDs (basic business verification)
-    // For more advanced verification, you would check Stripe Identity
-    // For now, we'll use tax ID as a proxy for business verification
-    return this.hasTaxIds(customer);
+  private async checkBusinessVerification(
+    customer: Stripe.Customer
+  ): Promise<boolean> {
+    // Stripe Identity verification status
+    // This is a placeholder - actual implementation depends on your Stripe Identity setup
+    
+    // Option 1: Check metadata flag
+    if (customer.metadata?.business_verified === 'true') {
+      return true;
+    }
+
+    // Option 2: Check for tax ID (basic business verification)
+    if (customer.tax_ids && customer.tax_ids.data.length > 0) {
+      return true;
+    }
+
+    // Option 3: Check Stripe Identity verification sessions (advanced)
+    // This would require additional API calls to fetch verification sessions
+    // For now, we'll use a simple heuristic
+
+    return false;
   }
 
   private createFailureResult(
     stripeCustomerId: string,
     reason: string,
-    metadata?: Partial<StripeVerificationResult['metadata']>
+    overrides?: Partial<StripeVerificationResult['metadata']>
   ): StripeVerificationResult {
     return {
       verified: false,
       method: 'stripe_customer',
       reason,
+      verifiedAt: undefined,
       metadata: {
         stripeCustomerId,
-        accountCreatedAt: new Date(),
+        accountCreatedAt: new Date(0),
         successfulPaymentCount: 0,
         hasActiveSubscription: false,
-        isDelinquent: metadata?.isDelinquent || false,
+        isDelinquent: false,
         isBusinessVerified: false,
-        ...metadata,
+        ...overrides,
       },
     };
   }
