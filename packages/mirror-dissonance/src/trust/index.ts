@@ -18,6 +18,13 @@ export {
 export { GitHubVerifier } from './identity/github-verifier.js';
 export { StripeVerifier } from './identity/stripe-verifier.js';
 
+// Revenue tracking (optional)
+export {
+  RevenueTrackingService,
+  RevenueStats,
+  RevenueVerifiedOrg,
+} from './identity/revenue-tracking.js';
+
 // Nonce binding
 export {
   NonceBinding,
