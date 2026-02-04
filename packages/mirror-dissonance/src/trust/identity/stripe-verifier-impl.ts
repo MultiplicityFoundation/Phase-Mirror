@@ -322,7 +322,7 @@ export class StripeVerifier implements IStripeVerifier {
     }
 
     // Heuristic: if tax ID exists, assume company
-    if (customer.tax_ids && customer.tax_ids.data.length > 0) {
+    if (customer.tax_ids && typeof customer.tax_ids === 'object' && 'data' in customer.tax_ids && Array.isArray(customer.tax_ids.data) && customer.tax_ids.data.length > 0) {
       return 'company';
     }
 
@@ -346,7 +346,7 @@ export class StripeVerifier implements IStripeVerifier {
     }
 
     // Option 2: Check for tax ID (basic business verification)
-    if (customer.tax_ids && customer.tax_ids.data.length > 0) {
+    if (customer.tax_ids && typeof customer.tax_ids === 'object' && 'data' in customer.tax_ids && Array.isArray(customer.tax_ids.data) && customer.tax_ids.data.length > 0) {
       return true;
     }
 
@@ -372,7 +372,7 @@ export class StripeVerifier implements IStripeVerifier {
         accountCreatedAt: new Date(0),
         successfulPaymentCount: 0,
         hasActiveSubscription: false,
-        isDelinquent: false,
+        isDelinquent: overrides?.isDelinquent || false,
         isBusinessVerified: false,
         ...overrides,
       },
