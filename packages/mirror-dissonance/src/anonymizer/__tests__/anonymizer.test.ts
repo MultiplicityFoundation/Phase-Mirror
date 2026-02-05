@@ -2,14 +2,15 @@
  * Unit tests for Anonymizer
  * Target coverage: 75%
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { Anonymizer, NoOpAnonymizer, createAnonymizer } from '../index.js';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
-jest.mock('@aws-sdk/client-ssm');
+// AWS SDK clients are mocked globally via src/__tests__/setup.ts
 
 describe('Anonymizer', () => {
   let anonymizer: Anonymizer;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();

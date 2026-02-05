@@ -1,14 +1,15 @@
 /**
  * Unit tests for ConsentStore (store.ts)
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { ConsentStore } from '../store.js';
 import { CURRENT_CONSENT_POLICY } from '../schema.js';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
-jest.mock('@aws-sdk/client-dynamodb');
+
 jest.mock('@aws-sdk/lib-dynamodb', () => {
-  const actual = jest.requireActual('@aws-sdk/lib-dynamodb');
+  const actual: any = jest.requireActual('@aws-sdk/lib-dynamodb');
   return {
     ...actual,
     DynamoDBDocumentClient: {
@@ -19,7 +20,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
 
 describe('ConsentStore', () => {
   let store: ConsentStore;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();
@@ -288,7 +289,7 @@ describe('ConsentStore', () => {
       expect(mockSend).toHaveBeenCalledWith(expect.any(PutCommand));
       
       const putCall = mockSend.mock.calls.find(
-        (call) => call[0] instanceof PutCommand
+        (call: any) => call[0] instanceof PutCommand
       );
       expect(putCall).toBeDefined();
       expect(putCall[0].input.Item.resources.fp_patterns.state).toBe('granted');
@@ -312,7 +313,7 @@ describe('ConsentStore', () => {
       await store.grantConsent('test-org', 'fp_patterns', 'admin-user');
 
       const putCall = mockSend.mock.calls.find(
-        (call) => call[0] instanceof PutCommand
+        (call: any) => call[0] instanceof PutCommand
       );
       expect(putCall[0].input.Item.resources.fp_patterns.state).toBe('granted');
       expect(putCall[0].input.Item.history.length).toBeGreaterThan(0);
@@ -327,7 +328,7 @@ describe('ConsentStore', () => {
       await store.grantConsent('test-org', 'fp_patterns', 'admin-user', expiresAt);
 
       const putCall = mockSend.mock.calls.find(
-        (call) => call[0] instanceof PutCommand
+        (call: any) => call[0] instanceof PutCommand
       );
       expect(putCall[0].input.Item.resources.fp_patterns.expiresAt).toEqual(expiresAt);
     });
@@ -357,11 +358,11 @@ describe('ConsentStore', () => {
       mockSend.mockResolvedValueOnce({ Item: mockItem });
       await store.getConsentSummary('test-org');
 
-      // Expect: 1 (initial) + 1 (grant get) + 1 (post-grant get) = 3 reads, 1 write
+      // Expect: 1 (initial) + 0 (grant uses cache) + 1 (post-grant, cache invalidated) = 2 reads
       const getCommands = mockSend.mock.calls.filter(
-        (call) => call[0] instanceof GetCommand
+        (call: any) => call[0] instanceof GetCommand
       );
-      expect(getCommands.length).toBe(3);
+      expect(getCommands.length).toBe(2);
     });
   });
 
@@ -390,7 +391,7 @@ describe('ConsentStore', () => {
       await store.revokeConsent('test-org', 'fp_patterns', 'admin-user');
 
       const putCall = mockSend.mock.calls.find(
-        (call) => call[0] instanceof PutCommand
+        (call: any) => call[0] instanceof PutCommand
       );
       expect(putCall[0].input.Item.resources.fp_patterns.state).toBe('revoked');
       expect(putCall[0].input.Item.resources.fp_patterns.revokedAt).toBeDefined();

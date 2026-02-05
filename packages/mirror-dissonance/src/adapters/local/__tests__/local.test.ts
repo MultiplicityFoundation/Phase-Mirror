@@ -4,6 +4,7 @@
  * Comprehensive test suite for local file-based adapters.
  * Validates interface contracts without requiring cloud credentials.
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { createLocalAdapters } from '../index.js';
 import { CloudAdapters, CloudConfig } from '../../types.js';

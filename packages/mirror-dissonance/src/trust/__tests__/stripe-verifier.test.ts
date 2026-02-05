@@ -1,33 +1,41 @@
 /**
  * Unit tests for StripeVerifier
+ *
+ * Uses constructor dependency injection (stripeOverride) to supply
+ * a mock Stripe instance instead of jest.mock, which does not
+ * reliably intercept ESM imports in this project configuration.
  */
-
-// Mock Stripe BEFORE importing StripeVerifier
-const mockStripe = {
-  customers: {
-    retrieve: jest.fn(),
-  },
-  paymentIntents: {
-    list: jest.fn(),
-  },
-  subscriptions: {
-    list: jest.fn(),
-  },
-  invoices: {
-    list: jest.fn(),
-  },
-};
-
-jest.mock('stripe', () => {
-  return jest.fn(() => mockStripe);
-});
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 import { StripeVerifier, StripeVerificationError } from '../identity/stripe-verifier.js';
 
+// Shared mock Stripe shape — fresh functions are created in beforeEach
+let mockStripe: any;
+
+/** Helper: create a StripeVerifier with the mock Stripe injected */
+function createVerifier(
+  apiKey = 'sk_test_123',
+  config?: any
+) {
+  return new StripeVerifier(apiKey, config, mockStripe);
+}
+
 describe('StripeVerifier', () => {
   beforeEach(() => {
-    // Reset all mock functions before each test
-    jest.clearAllMocks();
+    mockStripe = {
+      customers: {
+        retrieve: jest.fn(),
+      },
+      paymentIntents: {
+        list: jest.fn(),
+      },
+      subscriptions: {
+        list: jest.fn(),
+      },
+      invoices: {
+        list: jest.fn(),
+      },
+    };
   });
 
   describe('constructor', () => {
@@ -44,12 +52,12 @@ describe('StripeVerifier', () => {
     });
 
     it('should accept valid secret key', () => {
-      const verifier = new StripeVerifier('sk_test_valid');
+      const verifier = createVerifier('sk_test_valid');
       expect(verifier).toBeDefined();
     });
 
     it('should accept custom config', () => {
-      const verifier = new StripeVerifier('sk_test_123', { minAgeDays: 7 });
+      const verifier = createVerifier('sk_test_123', { minAgeDays: 7 });
       expect(verifier).toBeDefined();
     });
   });
@@ -92,7 +100,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123', {
+      const verifier = createVerifier('sk_test_123', {
         minAgeDays: 30,
         minSuccessfulPayments: 1,
         requireActiveSubscription: false,
@@ -131,7 +139,7 @@ describe('StripeVerifier', () => {
       // No active subscriptions
       mockStripe.subscriptions.list.mockResolvedValue({ data: [] });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-456', 'cus_XYZ789');
 
       expect(result.verified).toBe(true);
@@ -159,7 +167,7 @@ describe('StripeVerifier', () => {
 
       mockStripe.subscriptions.list.mockResolvedValue({ data: [] });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-biz', 'cus_BIZ123');
 
       expect(result.verified).toBe(true);
@@ -179,7 +187,7 @@ describe('StripeVerifier', () => {
         deleted: false,
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-new', 'cus_NEW123');
 
       expect(result.verified).toBe(false);
@@ -197,7 +205,7 @@ describe('StripeVerifier', () => {
         deleted: false,
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-delinquent', 'cus_DEL123');
 
       expect(result.verified).toBe(false);
@@ -223,7 +231,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-nopay', 'cus_NOPAY123');
 
       expect(result.verified).toBe(false);
@@ -232,7 +240,7 @@ describe('StripeVerifier', () => {
     });
 
     it('should reject customer without subscription when required', async () => {
-      const verifier = new StripeVerifier('sk_test_123', {
+      const verifier = createVerifier('sk_test_123', {
         minAgeDays: 30,
         minSuccessfulPayments: 1,
         requireActiveSubscription: true, // Strict requirement
@@ -268,7 +276,7 @@ describe('StripeVerifier', () => {
 
       mockStripe.customers.retrieve.mockRejectedValue(error);
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-404', 'cus_404');
 
       expect(result.verified).toBe(false);
@@ -276,7 +284,7 @@ describe('StripeVerifier', () => {
     });
 
     it('should throw on invalid customer ID format', async () => {
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyCustomer('org-invalid', 'invalid_id')
@@ -293,7 +301,7 @@ describe('StripeVerifier', () => {
 
       mockStripe.customers.retrieve.mockRejectedValue(error);
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyCustomer('org-rate', 'cus_RATE123')
@@ -310,7 +318,7 @@ describe('StripeVerifier', () => {
 
       mockStripe.customers.retrieve.mockRejectedValue(error);
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyCustomer('org-auth', 'cus_AUTH123')
@@ -349,7 +357,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomerWithSubscription(
         'org-sub',
         'cus_SUB123',
@@ -386,7 +394,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomerWithSubscription(
         'org-wrong',
         'cus_WRONG123',
@@ -412,7 +420,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.hasDelinquentInvoices('cus_DEL123');
 
       expect(result).toBe(true);
@@ -431,7 +439,7 @@ describe('StripeVerifier', () => {
         ],
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.hasDelinquentInvoices('cus_GOOD123');
 
       expect(result).toBe(false);
@@ -440,7 +448,7 @@ describe('StripeVerifier', () => {
     it('should return false on API error (fail open)', async () => {
       mockStripe.invoices.list.mockRejectedValue(new Error('API error'));
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.hasDelinquentInvoices('cus_ERROR123');
 
       expect(result).toBe(false);
@@ -454,7 +462,7 @@ describe('StripeVerifier', () => {
         deleted: true,
       });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyCustomer('org-deleted', 'cus_DELETED')
@@ -478,7 +486,7 @@ describe('StripeVerifier', () => {
 
       mockStripe.subscriptions.list.mockResolvedValue({ data: [] });
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-anon', 'cus_ANON123');
 
       expect(result.verified).toBe(true);
@@ -499,7 +507,7 @@ describe('StripeVerifier', () => {
       // API error when fetching payments (fail safe to 0)
       mockStripe.paymentIntents.list.mockRejectedValue(new Error('API error'));
 
-      const verifier = new StripeVerifier('sk_test_123');
+      const verifier = createVerifier();
       const result = await verifier.verifyCustomer('org-empty', 'cus_EMPTY123');
 
       expect(result.verified).toBe(false);

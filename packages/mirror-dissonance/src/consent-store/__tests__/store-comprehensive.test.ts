@@ -4,6 +4,7 @@
  * Coverage target: 80%+
  * Based on Day 10 testing blueprint
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { ConsentStore } from '../store.js';
 import { EnhancedNoOpConsentStore } from '../enhanced-store.js';
@@ -12,9 +13,9 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dyn
 import type { OrganizationConsent, ConsentResource } from '../schema.js';
 import { CURRENT_CONSENT_POLICY } from '../schema.js';
 
-jest.mock('@aws-sdk/client-dynamodb');
+
 jest.mock('@aws-sdk/lib-dynamodb', () => {
-  const actual = jest.requireActual('@aws-sdk/lib-dynamodb');
+  const actual: any = jest.requireActual('@aws-sdk/lib-dynamodb');
   return {
     ...actual,
     DynamoDBDocumentClient: {
@@ -25,7 +26,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
 
 describe('ConsentStore - Comprehensive', () => {
   let store: ConsentStore;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();
@@ -382,7 +383,7 @@ describe('ConsentStore - Comprehensive', () => {
       const expiresAt = new Date('2027-01-01');
       await store.grantConsent('NewOrg', 'fp_patterns', 'admin@example.com', expiresAt);
 
-      const putCall = mockSend.mock.calls.find((call) => call[0] instanceof PutCommand);
+      const putCall = mockSend.mock.calls.find((call: any) => call[0] instanceof PutCommand);
       expect(putCall[0].input.Item.resources.fp_patterns.expiresAt).toEqual(expiresAt);
     });
 
@@ -448,7 +449,7 @@ describe('ConsentStore - Comprehensive', () => {
 
       await store.revokeConsent('RevokeOrg', 'fp_patterns', 'security@example.com');
 
-      const putCall = mockSend.mock.calls.find((call) => call[0] instanceof PutCommand);
+      const putCall = mockSend.mock.calls.find((call: any) => call[0] instanceof PutCommand);
       expect(putCall).toBeDefined();
       expect(putCall[0].input.Item.resources.fp_patterns.state).toBe('revoked');
       expect(putCall[0].input.Item.resources.fp_patterns.revokedAt).toBeDefined();

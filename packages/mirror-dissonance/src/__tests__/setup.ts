@@ -50,13 +50,21 @@ jest.mock('@aws-sdk/client-dynamodb', () => ({
   })),
   PutItemCommand: jest.fn(),
   GetItemCommand: jest.fn(),
+  CreateTableCommand: jest.fn(),
   QueryCommand: jest.fn(),
   UpdateItemCommand: jest.fn(),
-  DeleteItemCommand: jest.fn()
+  DeleteItemCommand: jest.fn(),
+  ScanCommand: jest.fn()
+}));
+
+// Utility helpers used by DynamoDB tests
+jest.mock('@aws-sdk/util-dynamodb', () => ({
+  marshall: jest.fn(),
+  unmarshall: jest.fn()
 }));
 
 // Global test utilities
-global.testUtils = {
+(global as any).testUtils = {
   createMockSSMClient: () => ({
     send: jest.fn()
   }),

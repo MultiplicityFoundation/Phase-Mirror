@@ -2,6 +2,7 @@
  * E2E Tests: Drift Baseline Storage
  * Tests S3 baseline storage, retrieval, and versioning
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectVersionsCommand } from '@aws-sdk/client-s3';
 import { config, clients, generateTestId, verifyInfrastructure } from './setup';

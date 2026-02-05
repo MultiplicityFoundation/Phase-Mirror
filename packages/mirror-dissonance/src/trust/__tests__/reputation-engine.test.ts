@@ -1,6 +1,7 @@
 /**
  * Unit tests for ReputationEngine
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { ReputationEngine, ReputationEngineConfig } from '../reputation/reputation-engine.js';
 import { OrganizationReputation, StakePledge } from '../reputation/types.js';

@@ -2,6 +2,7 @@
  * E2E Tests: False Positive Event Tracking
  * Tests complete workflow with staging DynamoDB
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';

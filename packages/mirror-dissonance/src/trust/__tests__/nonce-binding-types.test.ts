@@ -4,6 +4,7 @@
  * Validates that the type definitions in types.ts are properly structured
  * and can be used correctly.
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import {
   NonceBinding,

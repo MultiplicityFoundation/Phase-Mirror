@@ -2,6 +2,7 @@
  * Unit tests for Ingest Handler
  * Tests consent validation, anonymization, and event storage
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { IngestHandler, createIngestHandler } from '../index.js';
 import { NoOpConsentStore } from '../../consent-store/index.js';
 import { NoOpAnonymizer } from '../../anonymizer/index.js';
@@ -253,7 +254,7 @@ describe('createIngestHandler', () => {
         recordFalsePositive: jest.fn(),
         isFalsePositive: jest.fn(),
         getFalsePositivesByRule: jest.fn(),
-      },
+      } as any,
     });
 
     expect(handler).toBeInstanceOf(IngestHandler);

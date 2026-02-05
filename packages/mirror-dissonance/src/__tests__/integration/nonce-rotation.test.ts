@@ -4,6 +4,7 @@
  * Tests multi-version nonce support with grace period validation
  * Requires LocalStack for SSM
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { SSMClient, PutParameterCommand, DeleteParameterCommand } from '@aws-sdk/client-ssm';
 import {

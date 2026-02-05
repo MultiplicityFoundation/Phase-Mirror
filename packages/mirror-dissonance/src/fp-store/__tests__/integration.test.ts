@@ -4,6 +4,7 @@
  * Requires LocalStack running on localhost:4566
  * These tests are skipped by default - run manually when LocalStack is available
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { DynamoDBFPStore } from '../dynamodb-store.js';
 import { DynamoDBClient, CreateTableCommand } from '@aws-sdk/client-dynamodb';

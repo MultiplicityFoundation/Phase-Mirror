@@ -2,16 +2,17 @@
  * Unit tests for Calibration Store
  * Tests k-Anonymity enforcement and FP aggregation
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { DynamoDBCalibrationStore, NoOpCalibrationStore, createCalibrationStore } from '../index.js';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-jest.mock('@aws-sdk/client-dynamodb');
+
 jest.mock('@aws-sdk/lib-dynamodb');
 
 describe('DynamoDBCalibrationStore', () => {
   let store: DynamoDBCalibrationStore;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();

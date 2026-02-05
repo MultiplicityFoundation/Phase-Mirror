@@ -1,9 +1,10 @@
 /**
  * Unit tests for RevenueTrackingService
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 // Mock Stripe BEFORE importing RevenueTrackingService
-const mockStripe = {
+const mockStripe: any = {
   customers: {
     retrieve: jest.fn(),
   },

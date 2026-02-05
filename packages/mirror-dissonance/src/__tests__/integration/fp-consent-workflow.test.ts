@@ -4,6 +4,7 @@
  * Tests the complete workflow: consent check → FP query → mark false positive
  * Skip by default - requires LocalStack
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { DynamoDBFPStore } from '../../fp-store/dynamodb-store.js';
 import { ConsentStore } from '../../consent-store/store.js';

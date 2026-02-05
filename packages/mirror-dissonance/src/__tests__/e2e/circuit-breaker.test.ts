@@ -2,6 +2,7 @@
  * E2E Tests: Circuit Breaker with DynamoDB
  * Tests rate limiting and time-based bucket reset
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';

@@ -3,6 +3,7 @@
  * 
  * Validates the rotation script works correctly
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { exec } from 'child_process';
 import { promisify } from 'util';

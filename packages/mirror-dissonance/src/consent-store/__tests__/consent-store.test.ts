@@ -2,13 +2,14 @@
  * Unit tests for Consent Store
  * Target coverage: 85%
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { DynamoDBConsentStore, NoOpConsentStore, createConsentStore } from '../index.js';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 
-jest.mock('@aws-sdk/client-dynamodb');
+
 jest.mock('@aws-sdk/lib-dynamodb', () => {
-  const actual = jest.requireActual('@aws-sdk/lib-dynamodb');
+  const actual: any = jest.requireActual('@aws-sdk/lib-dynamodb');
   return {
     ...actual,
     DynamoDBDocumentClient: {
@@ -19,7 +20,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
 
 describe('DynamoDBConsentStore', () => {
   let store: DynamoDBConsentStore;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();

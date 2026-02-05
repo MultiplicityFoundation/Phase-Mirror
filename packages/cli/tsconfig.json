@@ -3,12 +3,29 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "moduleSuffixes": [".js"],
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@mirror-dissonance/core": ["../mirror-dissonance/dist/index.js"],
       "@mirror-dissonance/core/*": ["../mirror-dissonance/dist/*.js"]
-    }
+    },
+    "types": [
+      "node",
+      "jest",
+      "inquirer",
+      "js-yaml"
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "test"]
 }

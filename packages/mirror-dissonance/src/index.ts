@@ -78,14 +78,19 @@ export type {
 
 // Trust Module
 export {
+  GitHubVerifier,
+  StripeVerifier,
   NonceBindingService,
   ReputationEngine,
+  ConsistencyScoreCalculator,
   createLocalTrustAdapters,
 } from "./trust/index.js";
 
 export type {
+  OrganizationIdentity,
   NonceBinding,
   OrganizationReputation,
   ContributionWeight,
+  ContributionRecord,
 } from "./trust/index.js";
 

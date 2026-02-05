@@ -4,6 +4,7 @@
  * These tests verify that L0 checks correctly validate state transitions
  * and that performance targets are met.
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { 
   checkL0Invariants, 

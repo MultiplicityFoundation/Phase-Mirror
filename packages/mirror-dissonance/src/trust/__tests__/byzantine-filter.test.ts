@@ -1,6 +1,7 @@
 /**
  * Unit tests for ByzantineFilter
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { ByzantineFilter } from '../reputation/byzantine-filter.js';
 import {

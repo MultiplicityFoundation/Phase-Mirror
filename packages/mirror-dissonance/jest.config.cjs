@@ -66,7 +66,7 @@ module.exports = {
   },
   
   // Setup files
-  // setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   
   // Module name mapper for internal imports
   moduleNameMapper: {

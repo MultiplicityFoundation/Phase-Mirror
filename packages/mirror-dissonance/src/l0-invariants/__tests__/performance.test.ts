@@ -4,6 +4,7 @@
  * Target: <2µs p99 latency (realistic for JavaScript/Node.js)
  * Note: <100ns target is not achievable in JavaScript due to runtime overhead
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { checkL0Invariants, createValidState, type State } from '../index';
 

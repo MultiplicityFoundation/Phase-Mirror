@@ -2,6 +2,7 @@
  * Unit tests for Redactor v3 MAC validation
  * Tests cover: MAC verification with timingSafeEqual, structural validation
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { 
   loadNonce, 
@@ -15,11 +16,10 @@ import {
 } from '../redactor-v3.js';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
-// Mock AWS SDK
-jest.mock('@aws-sdk/client-ssm');
+// AWS SDK clients are mocked globally via src/__tests__/setup.ts
 
 describe('Redactor v3 - MAC Validation', () => {
-  let mockSend: jest.Mock;
+  let mockSend: any;
   let ssmClient: SSMClient;
 
   beforeEach(() => {

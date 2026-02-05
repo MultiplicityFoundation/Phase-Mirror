@@ -1,6 +1,7 @@
 /**
  * Unit tests for Nonce Binding Service
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { promises as fs } from 'node:fs';
 import { NonceBindingService } from '../identity/nonce-binding.js';

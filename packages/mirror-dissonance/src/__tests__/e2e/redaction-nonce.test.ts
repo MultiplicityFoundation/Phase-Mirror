@@ -2,6 +2,7 @@
  * E2E Tests: Redaction with SSM Nonce
  * Tests nonce loading, redaction, and validation with real SSM
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { config, clients, verifyInfrastructure } from './setup';

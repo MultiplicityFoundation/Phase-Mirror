@@ -39,13 +39,15 @@ export class GitHubVerifier implements IGitHubVerifier {
 
   constructor(
     apiToken: string,
-    config?: Partial<GitHubVerificationConfig>
+    config?: Partial<GitHubVerificationConfig>,
+    /** @internal Octokit instance override — used for testing */
+    octokitOverride?: any
   ) {
     if (!apiToken || apiToken.trim() === '') {
       throw new Error('GitHub API token is required');
     }
 
-    this.octokit = new Octokit({ auth: apiToken });
+    this.octokit = octokitOverride ?? new Octokit({ auth: apiToken });
     
     // Default anti-Sybil heuristics
     this.config = {
@@ -291,33 +293,48 @@ export class GitHubVerifier implements IGitHubVerifier {
     };
   }
 
+  // Extract numeric status from several possible error shapes
+  private getErrorStatus(error: any): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+
+    if (typeof error.status === 'number') return error.status;
+    if (error.response && typeof error.response.status === 'number') return error.response.status;
+
+    return undefined;
+  }
+
+  // Extract a message string from several possible error shapes
+  private getErrorMessage(error: any): string {
+    if (!error) return '';
+    if (typeof error.message === 'string') return error.message;
+    if (error.response && error.response.data && typeof error.response.data.message === 'string') {
+      return error.response.data.message;
+    }
+    try {
+      return String(error);
+    } catch {
+      return '';
+    }
+  }
+
   private isNotFoundError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      error.status === 404
-    );
+    return this.getErrorStatus(error as any) === 404;
   }
 
   private isRateLimitError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      error.status === 403 &&
-      'message' in error &&
-      typeof error.message === 'string' &&
-      error.message.includes('rate limit')
-    );
+    const msg = this.getErrorMessage(error as any).toLowerCase();
+
+    // If the message explicitly mentions rate limiting, treat as rate limit error.
+    if (msg.includes('rate limit') || msg.includes('rate-limit') || msg.includes('rate_limit')) {
+      return true;
+    }
+
+    // Otherwise fall back to status-based detection
+    const status = this.getErrorStatus(error as any);
+    return status === 403;
   }
 
   private isForbiddenError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      error.status === 403
-    );
+    return this.getErrorStatus(error as any) === 403;
   }
 }

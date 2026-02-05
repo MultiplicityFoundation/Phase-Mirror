@@ -55,3 +55,5 @@ release-artifacts/
 .example-data/
 .example-data-*/
 packages/google-cloud-sdk/
+mcp-test-output.txt
+mcp-test-results.txt

@@ -43,7 +43,9 @@ export class StripeVerifier implements IStripeVerifier {
 
   constructor(
     apiKey: string,
-    config?: Partial<StripeVerificationConfig>
+    config?: Partial<StripeVerificationConfig>,
+    /** @internal Stripe instance override — used for testing */
+    stripeOverride?: any
   ) {
     if (!apiKey || apiKey.trim() === '') {
       throw new Error('Stripe API key is required');
@@ -53,7 +55,7 @@ export class StripeVerifier implements IStripeVerifier {
       throw new Error('Stripe API key must be a secret key (starts with sk_)');
     }
 
-    this.stripe = new Stripe(apiKey, {
+    this.stripe = stripeOverride ?? new Stripe(apiKey, {
       apiVersion: '2025-02-24.acacia', // Latest stable API version
       typescript: true,
     });

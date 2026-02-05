@@ -2,6 +2,7 @@
  * Unit tests for multi-version nonce loader and redactor
  * Tests the new multi-version implementation
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { 
   loadNonce, 
   getValidNonces, 
@@ -21,11 +22,10 @@ import {
   GetParameterCommand
 } from '@aws-sdk/client-ssm';
 
-// Mock AWS SDK
-jest.mock('@aws-sdk/client-ssm');
+// AWS SDK clients are mocked globally via src/__tests__/setup.ts
 
 describe('Multi-Version Nonce Loader', () => {
-  let mockSend: jest.Mock;
+  let mockSend: any;
   let ssmClient: SSMClient;
 
   beforeEach(() => {
@@ -177,7 +177,7 @@ describe('Multi-Version Nonce Loader', () => {
 });
 
 describe('Multi-Version Redactor', () => {
-  let mockSend: jest.Mock;
+  let mockSend: any;
   let ssmClient: SSMClient;
 
   beforeEach(() => {

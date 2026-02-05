@@ -86,7 +86,7 @@ async function verifyViaGitHub(options: {
 
     // Generate and bind nonce
     logger.info(chalk.cyan('🔐 Generating cryptographic nonce...\n'));
-    const nonceResult = await nonceService.generateNonce(options.orgId, options.publicKey);
+    const nonceResult = await nonceService.generateAndBindNonce(options.orgId, options.publicKey);
 
     // Store identity
     const identity: OrganizationIdentity = {
@@ -94,7 +94,7 @@ async function verifyViaGitHub(options: {
       publicKey: options.publicKey,
       verificationMethod: 'github_org',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.nonce,
+      uniqueNonce: nonceResult.binding.nonce,
       githubOrgId: result.metadata.githubOrgId,
     };
 
@@ -217,7 +217,7 @@ async function verifyViaStripe(options: {
 
     // Generate and bind nonce
     logger.info(chalk.cyan('🔐 Generating cryptographic nonce...\n'));
-    const nonceResult = await nonceService.generateNonce(options.orgId, options.publicKey);
+    const nonceResult = await nonceService.generateAndBindNonce(options.orgId, options.publicKey);
 
     // Store identity
     const identity: OrganizationIdentity = {
@@ -225,7 +225,7 @@ async function verifyViaStripe(options: {
       publicKey: options.publicKey,
       verificationMethod: 'stripe_customer',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.nonce,
+      uniqueNonce: nonceResult.binding.nonce,
       stripeCustomerId: result.metadata.stripeCustomerId,
     };
 

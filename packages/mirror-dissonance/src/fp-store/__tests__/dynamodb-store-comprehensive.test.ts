@@ -4,19 +4,19 @@
  * Coverage target: 80%+
  * Performance target: <50ms p99 for queries
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { DynamoDBFPStore } from '../dynamodb-store.js';
 import type { FPEvent, FPWindow } from '../types.js';
 import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
-// Mock AWS SDK
-jest.mock('@aws-sdk/client-dynamodb');
+// Mock AWS SDK utilities (module-level constructors are mocked by global setup)
 jest.mock('@aws-sdk/util-dynamodb');
 
 describe('DynamoDBFPStore - Comprehensive', () => {
   let store: DynamoDBFPStore;
-  let mockSend: jest.Mock;
+  let mockSend: any;
 
   beforeEach(() => {
     mockSend = jest.fn();

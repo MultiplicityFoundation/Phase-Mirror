@@ -2,6 +2,7 @@
  * E2E Tests: Complete Workflow
  * Tests end-to-end false positive flow with all components
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { config, clients, generateTestId, createTestTimestamp, verifyInfrastructure } from './setup';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';

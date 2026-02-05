@@ -1,32 +1,40 @@
 /**
  * Unit tests for GitHubVerifier
+ *
+ * Uses constructor dependency injection (octokitOverride) to supply
+ * a mock Octokit instance instead of jest.mock, which does not
+ * reliably intercept ESM imports in this project configuration.
  */
-
-// Mock Octokit BEFORE importing GitHubVerifier
-const mockOctokit = {
-  orgs: {
-    get: jest.fn(),
-    listMembers: jest.fn(),
-  },
-  activity: {
-    listPublicOrgEvents: jest.fn(),
-  },
-  rateLimit: {
-    get: jest.fn(),
-  },
-};
-
-jest.mock('@octokit/rest', () => ({
-  Octokit: jest.fn(() => mockOctokit)
-}));
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 import { GitHubVerifier } from '../identity/github-verifier.js';
-import { GitHubVerificationError } from '../identity/types.js';
+import { GitHubVerificationError, GitHubVerificationConfig } from '../identity/types.js';
+
+// Shared mock Octokit shape — fresh functions are created in beforeEach
+let mockOctokit: any;
+
+/** Helper: create a GitHubVerifier with the mock Octokit injected */
+function createVerifier(
+  token = 'test-token',
+  config?: Partial<GitHubVerificationConfig>
+) {
+  return new GitHubVerifier(token, config, mockOctokit);
+}
 
 describe('GitHubVerifier', () => {
   beforeEach(() => {
-    // Reset all mock functions before each test
-    jest.clearAllMocks();
+    mockOctokit = {
+      orgs: {
+        get: jest.fn(),
+        listMembers: jest.fn(),
+      },
+      activity: {
+        listPublicOrgEvents: jest.fn(),
+      },
+      rateLimit: {
+        get: jest.fn(),
+      },
+    };
   });
 
   describe('constructor', () => {
@@ -44,12 +52,12 @@ describe('GitHubVerifier', () => {
     });
 
     it('should accept custom config', () => {
-      const verifier = new GitHubVerifier('token', { minAgeDays: 30 });
+      const verifier = createVerifier('token', { minAgeDays: 30 });
       expect(verifier).toBeDefined();
     });
 
     it('should use default config when not provided', () => {
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       expect(verifier).toBeDefined();
     });
   });
@@ -83,7 +91,7 @@ describe('GitHubVerifier', () => {
         data: [{ created_at: recentDate.toISOString() }],
       });
 
-      const verifier = new GitHubVerifier('test-token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-123', 'acme-corp');
 
       expect(result.verified).toBe(true);
@@ -119,7 +127,7 @@ describe('GitHubVerifier', () => {
         data: [],
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -156,7 +164,7 @@ describe('GitHubVerifier', () => {
         data: [{ created_at: new Date().toISOString() }],
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-min', 'min-org');
 
       expect(result.verified).toBe(true);
@@ -180,7 +188,7 @@ describe('GitHubVerifier', () => {
         headers: {},
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -209,7 +217,7 @@ describe('GitHubVerifier', () => {
         },
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-new', 'new-corp');
 
       expect(result.verified).toBe(false);
@@ -237,7 +245,7 @@ describe('GitHubVerifier', () => {
         headers: {},
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-small', 'small-corp');
 
       expect(result.verified).toBe(false);
@@ -264,7 +272,7 @@ describe('GitHubVerifier', () => {
         headers: {},
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -301,7 +309,7 @@ describe('GitHubVerifier', () => {
         data: [],
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -318,7 +326,7 @@ describe('GitHubVerifier', () => {
     it('should handle org not found', async () => {
       mockOctokit.orgs.get.mockRejectedValue({ status: 404 });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-404', 'nonexistent');
 
       expect(result.verified).toBe(false);
@@ -332,7 +340,7 @@ describe('GitHubVerifier', () => {
         message: 'API rate limit exceeded',
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyOrganization('org-rate', 'test-org')
@@ -346,7 +354,7 @@ describe('GitHubVerifier', () => {
     it('should throw on generic API error', async () => {
       mockOctokit.orgs.get.mockRejectedValue(new Error('Network error'));
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
 
       await expect(
         verifier.verifyOrganization('org-error', 'test-org')
@@ -374,7 +382,7 @@ describe('GitHubVerifier', () => {
         },
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const status = await verifier.getRateLimitStatus();
 
       expect(status.limit).toBe(5000);
@@ -385,7 +393,7 @@ describe('GitHubVerifier', () => {
     it('should throw on API error', async () => {
       mockOctokit.rateLimit.get.mockRejectedValue(new Error('API error'));
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
 
       await expect(verifier.getRateLimitStatus()).rejects.toThrow(GitHubVerificationError);
       await expect(verifier.getRateLimitStatus()).rejects.toThrow('Failed to fetch rate limit status');
@@ -416,7 +424,7 @@ describe('GitHubVerifier', () => {
         data: [{ created_at: new Date().toISOString() }],
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-test', 'test-org');
 
       expect(result.verified).toBe(true);
@@ -448,7 +456,7 @@ describe('GitHubVerifier', () => {
         data: [{ created_at: new Date().toISOString() }],
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-big', 'big-org');
 
       expect(result.verified).toBe(true);
@@ -475,7 +483,7 @@ describe('GitHubVerifier', () => {
         data: [{ created_at: new Date().toISOString() }],
       });
 
-      const verifier = new GitHubVerifier('token');
+      const verifier = createVerifier();
       const result = await verifier.verifyOrganization('org-private-members', 'private-members');
 
       // Fails due to memberCount = 0 < minMemberCount
@@ -505,7 +513,7 @@ describe('GitHubVerifier', () => {
         data: [],
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -540,7 +548,7 @@ describe('GitHubVerifier', () => {
       // Events API throws error
       mockOctokit.activity.listPublicOrgEvents.mockRejectedValue(new Error('Events unavailable'));
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -572,7 +580,7 @@ describe('GitHubVerifier', () => {
         headers: {},
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,
@@ -604,7 +612,7 @@ describe('GitHubVerifier', () => {
         headers: {},
       });
 
-      const verifier = new GitHubVerifier('token', {
+      const verifier = createVerifier('token', {
         minAgeDays: 90,
         minMemberCount: 3,
         minPublicRepos: 1,

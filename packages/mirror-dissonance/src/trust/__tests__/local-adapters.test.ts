@@ -1,6 +1,7 @@
 /**
  * Unit tests for local trust adapters
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';

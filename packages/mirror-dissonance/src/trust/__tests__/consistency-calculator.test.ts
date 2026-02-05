@@ -1,6 +1,7 @@
 /**
  * Unit tests for ConsistencyScoreCalculator
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { ConsistencyScoreCalculator } from '../reputation/consistency-calculator.js';
 import { ContributionRecord, ConsistencyScoreConfig } from '../reputation/types.js';

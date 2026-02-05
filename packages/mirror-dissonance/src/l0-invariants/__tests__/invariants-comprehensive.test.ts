@@ -6,6 +6,7 @@
  * - Performance benchmarks in performance.test.ts (<2µs p99 for JavaScript/Node.js)
  * - All invariant checks validated
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import {
   checkL0Invariants,

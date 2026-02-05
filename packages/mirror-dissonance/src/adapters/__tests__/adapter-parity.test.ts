@@ -13,6 +13,7 @@
  * These tests ensure multi-cloud abstraction doesn't drift and all adapters
  * maintain interface parity.
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { CloudAdapters, CloudConfig } from '../types.js';
 import { FalsePositiveEvent } from '../../../schemas/types.js';

@@ -3,11 +3,15 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import {
   FPStoreWithNonceValidation,
   NonceValidationError,
   createFPStoreWithNonceValidation,
 } from '../nonce-validation.js';
+
+const TEST_PUBKEY = 'a'.repeat(64);
+const NEW_PUBKEY = 'b'.repeat(64);
 import { NoOpFPStore, IFPStore } from '../store.js';
 import { NonceBindingService } from '../../trust/identity/nonce-binding.js';
 import { createLocalTrustAdapters } from '../../trust/adapters/local/index.js';
@@ -35,7 +39,7 @@ describe('FPStoreWithNonceValidation', () => {
     // Create a verified identity
     const identity: OrganizationIdentity = {
       orgId: 'test-org',
-      publicKey: 'test-pubkey',
+      publicKey: TEST_PUBKEY,
       verificationMethod: 'github_org',
       verifiedAt: new Date(),
       uniqueNonce: '',
@@ -44,7 +48,7 @@ describe('FPStoreWithNonceValidation', () => {
     await adapters.identityStore.storeIdentity(identity);
 
     // Generate and bind a nonce
-    await nonceBindingService.generateAndBindNonce('test-org', 'test-pubkey');
+    await nonceBindingService.generateAndBindNonce('test-org', TEST_PUBKEY);
 
     // Create FP Store with nonce validation
     fpStore = new NoOpFPStore();
@@ -183,7 +187,7 @@ describe('FPStoreWithNonceValidation', () => {
       const oldNonce = history1[0].nonce;
 
       // Rotate the nonce
-      await nonceBindingService.rotateNonce('test-org', 'new-pubkey', 'Test rotation');
+      await nonceBindingService.rotateNonce('test-org', NEW_PUBKEY, 'Test rotation');
 
       // Get the new nonce
       const history2 = await nonceBindingService.getRotationHistory('test-org');

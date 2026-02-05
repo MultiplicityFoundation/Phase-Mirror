@@ -5,12 +5,15 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { nonceCommand } from '../commands/nonce';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
 import { OrganizationIdentity } from '@mirror-dissonance/core';
 
 describe('Nonce CLI Commands', () => {
   const testDataDir = '.test-data-cli-nonce';
+  const testPublicKey = 'a'.repeat(64);
+  const rotatedPublicKey = 'b'.repeat(64);
   
   beforeEach(async () => {
     // Set test data directory
@@ -27,7 +30,7 @@ describe('Nonce CLI Commands', () => {
     const adapters = createLocalTrustAdapters(testDataDir);
     const identity: OrganizationIdentity = {
       orgId: 'test-org',
-      publicKey: 'test-pubkey',
+      publicKey: testPublicKey,
       verificationMethod: 'github_org',
       verifiedAt: new Date(),
       uniqueNonce: '',
@@ -49,17 +52,17 @@ describe('Nonce CLI Commands', () => {
   describe('generate', () => {
     it('should generate and bind a new nonce', async () => {
       // Capture console output
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
       
       await nonceCommand.generate({
         orgId: 'test-org',
-        publicKey: 'test-pubkey',
+        publicKey: testPublicKey,
       });
       
       // Verify output contains nonce
       const output = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
       expect(output).toContain('Organization ID: test-org');
-      expect(output).toContain('Public Key: test-pubkey');
+      expect(output).toContain(`Public Key: ${testPublicKey}`);
       
       consoleSpy.mockRestore();
     });
@@ -68,7 +71,7 @@ describe('Nonce CLI Commands', () => {
       await expect(
         nonceCommand.generate({
           orgId: 'non-existent',
-          publicKey: 'test-pubkey',
+          publicKey: testPublicKey,
         })
       ).rejects.toThrow('not found or not verified');
     });
@@ -77,18 +80,19 @@ describe('Nonce CLI Commands', () => {
   describe('validate', () => {
     it('should validate a valid nonce', async () => {
       // First generate a nonce
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
       
       await nonceCommand.generate({
         orgId: 'test-org',
-        publicKey: 'test-pubkey',
+        publicKey: testPublicKey,
       });
       
-      // Extract nonce from output
-      const output = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
-      const nonceMatch = output.match(/Nonce: ([a-f0-9]{64})/);
-      expect(nonceMatch).not.toBeNull();
-      const nonce = nonceMatch![1];
+      // Read the generated nonce from the identity store (more reliable than parsing console output)
+      const adapters = createLocalTrustAdapters(testDataDir);
+      const storedIdentity = await adapters.identityStore.getIdentity('test-org');
+      expect(storedIdentity).not.toBeNull();
+      const nonce = storedIdentity!.uniqueNonce;
+      expect(nonce).toMatch(/^[a-f0-9]{64}$/);
       
       consoleSpy.mockClear();
       
@@ -117,17 +121,19 @@ describe('Nonce CLI Commands', () => {
 
   describe('workflow', () => {
     it('should support complete workflow: generate -> validate -> rotate', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
       
       // 1. Generate
       await nonceCommand.generate({
         orgId: 'test-org',
-        publicKey: 'test-pubkey',
+        publicKey: testPublicKey,
       });
       
-      const generateOutput = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
-      const nonceMatch = generateOutput.match(/Nonce: ([a-f0-9]{64})/);
-      const nonce = nonceMatch![1];
+      // Read generated nonce from identity store
+      const adapters = createLocalTrustAdapters(testDataDir);
+      const storedIdentity = await adapters.identityStore.getIdentity('test-org');
+      expect(storedIdentity).not.toBeNull();
+      const nonce = storedIdentity!.uniqueNonce;
       
       consoleSpy.mockClear();
       
@@ -145,7 +151,7 @@ describe('Nonce CLI Commands', () => {
       // 3. Rotate
       await nonceCommand.rotate({
         orgId: 'test-org',
-        publicKey: 'new-pubkey',
+        publicKey: rotatedPublicKey,
         reason: 'Scheduled rotation',
       });
       
@@ -158,11 +164,11 @@ describe('Nonce CLI Commands', () => {
 
   describe('show', () => {
     it('should show nonce binding details', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
       
       await nonceCommand.generate({
         orgId: 'test-org',
-        publicKey: 'test-pubkey',
+        publicKey: testPublicKey,
       });
       
       consoleSpy.mockClear();
@@ -173,18 +179,18 @@ describe('Nonce CLI Commands', () => {
       
       const output = consoleSpy.mock.calls.map(call => call.join(' ')).join('\n');
       expect(output).toContain('Org ID: test-org');
-      expect(output).toContain('Public Key: test-pubkey');
+      expect(output).toContain(`Public Key: ${testPublicKey}`);
       expect(output).toContain('Usage Count');
       
       consoleSpy.mockRestore();
     });
 
     it('should show revoked status', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
       
       await nonceCommand.generate({
         orgId: 'test-org',
-        publicKey: 'test-pubkey',
+        publicKey: testPublicKey,
       });
       
       await nonceCommand.revoke({
