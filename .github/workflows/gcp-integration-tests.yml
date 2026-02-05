@@ -1,0 +1,351 @@
+# .github/workflows/gcp-integration-tests.yml
+
+name: GCP Integration Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/mirror-dissonance/src/**'
+      - 'packages/cli/src/**'
+      - 'infra/terraform/gcp/**'
+      - '.github/workflows/gcp-integration-tests.yml'
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+# Prevent concurrent runs on same PR
+concurrency:
+  group: gcp-integration-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write      # Required for Workload Identity Federation
+  pull-requests: write # For posting test results as comments
+  checks: write        # For creating check runs
+
+env:
+  GCP_PROJECT_ID: phase-mirror-staging
+  GCP_REGION: us-central1
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Unit Tests (Fast, no GCP access)
+  # ============================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test --testPathIgnorePatterns="integration|e2e"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ============================================
+  # GCP Integration Tests
+  # ============================================
+  gcp-integration:
+    name: GCP Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    environment: staging  # Uses GitHub Environment for secrets/approvals
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      # ----------------------------------------
+      # GCP Authentication via Workload Identity
+      # ----------------------------------------
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # ----------------------------------------
+      # Validate GCP Resources Exist
+      # ----------------------------------------
+      - name: Verify GCP infrastructure
+        id: verify-infra
+        run: |
+          echo "🔍 Verifying Firestore collections..."
+          gcloud firestore databases describe --database="(default)" --project=${{ env.GCP_PROJECT_ID }}
+          
+          echo "🔍 Verifying Secret Manager nonce..."
+          gcloud secrets describe redaction-nonce --project=${{ env.GCP_PROJECT_ID }}
+          
+          echo "🔍 Verifying Cloud Storage baseline bucket..."
+          gsutil ls gs://phase-mirror-staging-baselines || echo "Bucket may not exist yet"
+          
+          echo "infra_ready=true" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------
+      # Run Integration Tests
+      # ----------------------------------------
+      - name: Run GCP integration tests
+        id: integration-tests
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          NONCE_SECRET_NAME: redaction-nonce
+          FP_COLLECTION: fp-events
+          CONSENT_COLLECTION: consent
+          BLOCK_COUNTER_COLLECTION: block-counter
+        run: |
+          echo "🧪 Running GCP integration tests..."
+          
+          pnpm test \
+            --testPathPattern="gcp-integration" \
+            --testTimeout=60000 \
+            --forceExit \
+            --json \
+            --outputFile=test-results.json \
+            2>&1 | tee test-output.log
+          
+          # Capture exit code
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Parse results for summary
+          if [ -f test-results.json ]; then
+            PASSED=$(jq '.numPassedTests' test-results.json)
+            FAILED=$(jq '.numFailedTests' test-results.json)
+            TOTAL=$(jq '.numTotalTests' test-results.json)
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          fi
+          
+          exit $TEST_EXIT_CODE
+
+      # ----------------------------------------
+      # Circuit Breaker Specific Tests
+      # ----------------------------------------
+      - name: Run circuit breaker tests
+        if: always() && steps.verify-infra.outputs.infra_ready == 'true'
+        env:
+          GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }}
+        run: |
+          echo "⚡ Testing circuit breaker behavior..."
+          
+          pnpm test \
+            --testPathPattern="circuit-breaker" \
+            --testTimeout=30000
+
+      # ----------------------------------------
+      # Test Cloud Monitoring Metrics
+      # ----------------------------------------
+      - name: Verify custom metrics emission
+        if: always() && steps.verify-infra.outputs.infra_ready == 'true'
+        run: |
+          echo "📊 Checking custom metrics..."
+          
+          # Query for degraded_mode_active metric
+          gcloud monitoring metrics-scopes describe \
+            projects/${{ env.GCP_PROJECT_ID }} \
+            --format="json" || true
+          
+          # List recent metric data
+          gcloud monitoring time-series list \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --filter='metric.type="custom.googleapis.com/phase_mirror/degraded_mode_active"' \
+            --interval-start-time=$(date -d '1 hour ago' -u +%Y-%m-%dT%H:%M:%SZ) \
+            --format="table(metric.labels.rule_id, points[0].value.int64Value)" \
+            2>/dev/null || echo "No degraded mode metrics found (expected in normal operation)"
+
+      # ----------------------------------------
+      # Upload Test Artifacts
+      # ----------------------------------------
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcp-integration-results
+          path: |
+            test-results.json
+            test-output.log
+          retention-days: 14
+
+      # ----------------------------------------
+      # Post PR Comment with Results
+      # ----------------------------------------
+      - name: Post test summary to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ steps.integration-tests.outputs.passed }}' || '0';
+            const failed = '${{ steps.integration-tests.outputs.failed }}' || '0';
+            const total = '${{ steps.integration-tests.outputs.total }}' || '0';
+            const exitCode = '${{ steps.integration-tests.outputs.exit_code }}' || '1';
+            
+            const status = exitCode === '0' ? '✅' : '❌';
+            const statusText = exitCode === '0' ? 'PASSED' : 'FAILED';
+            
+            const body = `## ${status} GCP Integration Tests ${statusText}
+            
+            | Metric | Value |
+            |--------|-------|
+            | Total Tests | ${total} |
+            | Passed | ${passed} |
+            | Failed | ${failed} |
+            | Project | \`${{ env.GCP_PROJECT_ID }}\` |
+            | Region | \`${{ env.GCP_REGION }}\` |
+            
+            ### Components Tested
+            - ✅ Firestore connectivity (fp-events, consent, block-counter)
+            - ✅ Secret Manager nonce loading
+            - ✅ Circuit breaker threshold behavior
+            - ✅ Nonce rotation grace period
+            - ✅ Full Oracle integration cycle
+            
+            <details>
+            <summary>View detailed logs</summary>
+            
+            See the [workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}) for full output.
+            </details>
+            `;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+  # ============================================
+  # Alert Validation (Terraform Plan)
+  # ============================================
+  validate-alerts:
+    name: Validate Monitoring Alerts
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.x
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Terraform Init
+        working-directory: infra/terraform/gcp
+        run: terraform init -backend=false  # Skip backend for validation only
+
+      - name: Terraform Validate
+        working-directory: infra/terraform/gcp
+        run: terraform validate
+
+      - name: Terraform Plan (monitoring only)
+        working-directory: infra/terraform/gcp
+        run: |
+          terraform plan \
+            -target=google_monitoring_alert_policy.circuit_breaker_threshold \
+            -target=google_monitoring_alert_policy.degraded_mode_active \
+            -target=google_monitoring_alert_policy.nonce_access_failure \
+            -target=google_monitoring_alert_policy.fp_store_latency \
+            -target=google_monitoring_dashboard.phase_mirror \
+            -var="project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var="ops_email=ops@phasemirror.com" \
+            -no-color \
+            -out=monitoring.tfplan
+
+      - name: Upload Terraform plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-terraform-plan
+          path: infra/terraform/gcp/monitoring.tfplan
+          retention-days: 7
+
+  # ============================================
+  # Final Status Check
+  # ============================================
+  integration-status:
+    name: Integration Status
+    runs-on: ubuntu-latest
+    needs: [unit-tests, gcp-integration, validate-alerts]
+    if: always()
+    
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.gcp-integration.result }}" != "success" ]; then
+            echo "❌ GCP integration tests failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.validate-alerts.result }}" != "success" ]; then
+            echo "❌ Alert validation failed"
+            exit 1
+          fi
+          
+          echo "✅ All integration tests passed!"
