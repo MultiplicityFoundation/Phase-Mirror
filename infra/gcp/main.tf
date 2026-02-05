@@ -1,26 +1,20 @@
 /**
  * Phase Mirror GCP Infrastructure
- * 
+ *
  * Provisions:
  * - Firestore collections (fp_events, consent, block_counter)
  * - Secret Manager (HMAC nonce with quarterly rotation)
  * - Cloud Storage bucket (drift baselines with versioning)
- * - Cloud KMS (customer-managed encryption key)
- * - Workload Identity Federation (GitHub Actions OIDC)
- */
-
-terraform {
+ */raform {e  = "hashicorp/google"
   required_version = ">= 1.5"
-  
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-  }
-  
+} ba}kend "gcs" {
+  required_providers {rror-tfstate"  # Set via -backend-config during init
+variable "project_id" {
+  description = "GCP project ID"
+  type        = string
+}
   backend "gcs" {
-    # bucket = "phase-mirror-tfstate"  # Set via -backend-config during init
+variable "region" {-mirror-tfstate"  # Set via -backend-config during init
     prefix = "terraform/state"
   }
 }
@@ -34,8 +28,6 @@ variable "region" {
   description = "GCP region for resources"
   type        = string
   default     = "us-central1"
-}
-
 variable "environment" {
   description = "Environment name (staging, production)"
   type        = string
@@ -233,17 +225,33 @@ resource "google_iam_workload_identity_pool" "github" {
   depends_on = [google_project_service.iam]
 }
 
-# Workload Identity Provider (GitHub OIDC)
+# Workload Identity Pool for GitHub Actions
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "${local.app_name}-github-pool"
+  display_name              = "GitHub Actions Pool"
+  description               = "Workload Identity Pool for GitHub Actions OIDC"
+  # depends_on = [google_project_service.iam] # Uncomment if you need explicit dependency
+}
+
 resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-provider"
   display_name                       = "GitHub OIDC Provider"
   description                        = "OIDC provider for GitHub Actions"
 
+  # This is the crucial part that was missing/incorrect.
+  # You MUST customize this `attribute_condition` to match your GitHub repository.
+  # Replace 'PhaseMirror/Phase-Mirror' with your actual 'owner/repo' value.
+  attribute_condition = "attribute.repository == \"${var.github_repo}\""
+
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
-    "attribute.repository" = "assertion.repository"
+    "google.subject" = "assertion.sub"
+    "google.actor"   = "assertion.actor"
+    "google.aud"     = "assertion.aud"
+    "google.repository" = "assertion.repository"
+    "google.ref"     = "assertion.ref"
+    "google.head_ref" = "assertion.head_ref"
+    "google.base_ref" = "assertion.base_ref"
   }
 
   oidc {
@@ -251,45 +259,35 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   }
 }
 
+
+
 # IAM binding: Allow GitHub Actions to impersonate service account
 resource "google_service_account_iam_member" "github_sa_user" {
   service_account_id = google_service_account.phase_mirror.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
-}
-
-# Outputs
+# roleuts            = "roles/iam.workloadIdentityUser"
+oumemberfirestore_dat= "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.reposi>
+} description = "Firestore database name"
+  service_account_id = google_service_account.phase_mirror.name
+# roleets     = googl= "roles/iam.workloadIdentityUser"
+# Outputsirestore_dat= "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.reposi>
 output "firestore_database" {
   description = "Firestore database name"
-  value       = google_firestore_database.default.name
-}
-
-output "secret_id" {
-  description = "Secret Manager secret ID for HMAC nonce"
+output "secret_id" {le_firestore_database.default.name
+} description = "Secret Manager secret ID for HMAC nonce"
   value       = google_secret_manager_secret.hmac_nonce.secret_id
 }
 
 output "baselines_bucket" {
   description = "Cloud Storage bucket for baselines"
   value       = google_storage_bucket.baselines.name
-}
-
 output "service_account_email" {
   description = "Service account email for application runtime"
   value       = google_service_account.phase_mirror.email
-}
-
 output "workload_identity_provider" {
   description = "Workload Identity Provider for GitHub Actions"
-  value       = google_iam_workload_identity_pool_provider.github.name
-}
-
-output "project_id" {
+  value       = var.project_idkload_identity_pool_provider.github.name
+}utput "project_id" {
   description = "GCP project ID"
-  value       = var.project_id
-}
-
 output "region" {
-  description = "GCP region"
+} description = "GCP region"
   value       = var.region
-}
