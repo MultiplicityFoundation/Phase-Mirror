@@ -326,4 +326,46 @@ export class ConsistencyScoreCalculator {
       unreliableReason: reason,
     };
   }
+
+  /**
+   * Calculate consistency score delta for a single contribution.
+   * 
+   * This method compares a contributed FP rate against the consensus FP rate
+   * and returns a delta value that can be used to update the organization's
+   * consistency score.
+   * 
+   * Formula:
+   * - deviation = |contributedRate - consensusRate|
+   * - consistencyForContribution = 1 - deviation (clamped to [0, 1])
+   * - delta = (consistencyForContribution - 0.5) * learningRate
+   * 
+   * Result:
+   * - Positive delta: Contribution aligns with consensus (reward)
+   * - Negative delta: Contribution deviates from consensus (penalty)
+   * - Zero delta: Contribution is neutral (50% consistency)
+   * 
+   * @param contributedRate - FP rate contributed by the organization
+   * @param consensusRate - Consensus FP rate from the network
+   * @param learningRate - Rate of score adjustment (default: 0.05)
+   * @returns Delta to add to current consistency score
+   */
+  calculateConsistencyDelta(
+    contributedRate: number,
+    consensusRate: number,
+    learningRate: number = 0.05
+  ): number {
+    // Calculate absolute deviation
+    const deviation = Math.abs(contributedRate - consensusRate);
+    
+    // Convert deviation to consistency score (0 = perfect, 1 = total mismatch)
+    // Clamp to [0, 1] range
+    const consistencyForContribution = Math.max(0, Math.min(1, 1 - deviation));
+    
+    // Calculate delta (centered around 0.5 neutral score)
+    // If consistency > 0.5, delta is positive (reward)
+    // If consistency < 0.5, delta is negative (penalty)
+    const delta = (consistencyForContribution - 0.5) * learningRate;
+    
+    return delta;
+  }
 }

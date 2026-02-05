@@ -63,9 +63,6 @@ export {
 // Byzantine filter
 export { ByzantineFilter } from './reputation/byzantine-filter.js';
 
-// Consistency score calculator
-export { ConsistencyScoreCalculator } from './reputation/consistency-calculator.js';
-
 // Adapter interfaces
 export {
   IIdentityStoreAdapter,

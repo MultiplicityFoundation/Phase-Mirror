@@ -90,6 +90,17 @@ export class NonceBindingService {
   constructor(private identityStore: IIdentityStoreAdapter) {}
 
   /**
+   * Alias for generateAndBindNonce for backward compatibility.
+   * 
+   * @param orgId - Organization ID
+   * @param publicKey - Organization's public key
+   * @returns NonceBindingResult
+   */
+  async generateNonce(orgId: string, publicKey: string): Promise<NonceBindingResult> {
+    return this.generateAndBindNonce(orgId, publicKey);
+  }
+
+  /**
    * Generate a unique nonce and bind it to a verified organization
    * 
    * @param orgId - Organization ID (must be verified)

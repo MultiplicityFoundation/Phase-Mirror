@@ -94,7 +94,7 @@ async function verifyViaGitHub(options: {
       publicKey: options.publicKey,
       verificationMethod: 'github_org',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.nonce,
+      uniqueNonce: nonceResult.binding.nonce,
       githubOrgId: result.metadata.githubOrgId,
     };
 
@@ -225,7 +225,7 @@ async function verifyViaStripe(options: {
       publicKey: options.publicKey,
       verificationMethod: 'stripe_customer',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.nonce,
+      uniqueNonce: nonceResult.binding.nonce,
       stripeCustomerId: result.metadata.stripeCustomerId,
     };
 

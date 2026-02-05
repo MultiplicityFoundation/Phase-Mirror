@@ -1,0 +1,15 @@
+version: '1'
+rules:
+  enabled:
+    - MD-001
+    - MD-002
+    - MD-003
+  severity:
+    MD-001: critical
+    MD-002: high
+    MD-003: high
+l0_invariants:
+  enabled: true
+  strict: false
+drift:
+  enabled: false

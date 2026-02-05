@@ -3,8 +3,18 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Core Mirror Dissonance Protocol library",
-  "main": "dist/oracle.js",
-  "types": "dist/oracle.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/types.d.ts",
+      "import": "./dist/schemas/types.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
