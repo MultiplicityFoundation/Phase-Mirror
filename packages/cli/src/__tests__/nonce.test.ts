@@ -5,7 +5,7 @@
  */
 
 import { promises as fs } from 'node:fs';
-import { nonceCommand } from '../commands/nonce.js';
+import { nonceCommand } from '../commands/nonce';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
 import { OrganizationIdentity } from '@mirror-dissonance/core';
 

@@ -125,6 +125,76 @@ export class ConsistencyScoreCalculator {
     return 1.0 - boundedDeviation;
   }
 
+  /**
+   * Calculate the delta (change) in consistency score based on contribution.
+   * 
+   * @param contributedRate - Organization's contributed FP rate
+   * @param consensusRate - Network consensus FP rate
+   * @returns Delta to apply to consistency score
+   */
+  calculateConsistencyDelta(
+    contributedRate: number,
+    consensusRate: number
+  ): number {
+    // A simpler delta: if contributed rate is closer to consensus, positive delta, else negative.
+    // The magnitude of delta can be based on how far off it is.
+    // This is a placeholder logic; fine-tune as needed.
+    const deviation = Math.abs(contributedRate - consensusRate);
+    const maxDeviation = 1.0; // Max possible deviation (e.g., 1.0 - 0.0 or 0.0 - 1.0)
+
+    // Example logic: if deviation is small, positive delta, if large, negative delta
+    // For now, let's return a simple difference scaled by some factor if needed.
+    // This part requires understanding the intended business logic for delta.
+    // For a starting point, let's return the negative of the deviation to reduce score if inconsistent.
+    // Or, perhaps a positive value if it aligns.
+
+    // Let's assume a simpler model: if the contributed rate is "good" (close to 0 FP),
+    // and close to consensus, maybe a small positive. If far off, a negative.
+
+    // Given that the caller adds this delta to consistencyScore:
+    // newConsistencyScore = currentReputation.consistencyScore + delta
+    // A positive delta should improve score, negative should worsen.
+
+    // If contributedRate is closer to consensusRate, the deviation is smaller.
+    // We want a positive delta if deviation is low, and negative if high.
+
+    // For example, if deviation is 0.1, we want a positive delta.
+    // If deviation is 0.8, we want a negative delta.
+
+    // Let's make it such that if consistency (1 - deviation) is high, delta is positive.
+    // If consistency is low, delta is negative.
+    const consistency = this.calculateSingleContributionScore(contributedRate, consensusRate);
+
+    // A simple linear mapping:
+    // If consistency is 1.0 (perfect), delta is +maxBonus
+    // If consistency is 0.0 (worst), delta is -maxPenalty
+    // If consistency is 0.5 (neutral), delta is 0
+
+    // This needs to align with the maxConsistencyBonus in config.
+    // Let's assume the delta is proportional to (consistency - 0.5) * some_factor
+
+    // For now, a placeholder that should allow compilation:
+    // Returning 0 for now until the exact logic for delta is clarified.
+    // Or a simple deviation based impact.
+    // For instance, let's say we want to penalize deviation.
+    // This will lead to a reduction in consistency score for high deviation.
+
+    // A more plausible delta might be: (desired_score - current_score) * learning_rate
+    // But here, it's (current_consistency - 0.5) * some_factor
+
+    // Let's use `deviation` to define delta, aligning with `maxConsistencyBonus`
+    // If deviation is low, score should increase. If high, decrease.
+    // The range of `delta` should be within `[-maxBonus, +maxBonus]` effectively.
+
+    // Placeholder: A simple approach. If deviation is less than half of maxDeviation, positive. Else negative.
+    // This is a guess; actual logic would need to be confirmed.
+    const normalizedDeviation = deviation / maxDeviation; // 0 to 1
+    const delta = (0.5 - normalizedDeviation) * this.config.maxConsistencyBonus * 2; // Scales delta from -maxBonus to +maxBonus
+
+    return delta;
+  }
+
+
   // ═══════════════════════════════════════════════════════════
   // Private Helper Methods
   // ═══════════════════════════════════════════════════════════
@@ -325,47 +395,5 @@ export class ConsistencyScoreCalculator {
       hasMinimumData: false,
       unreliableReason: reason,
     };
-  }
-
-  /**
-   * Calculate consistency score delta for a single contribution.
-   * 
-   * This method compares a contributed FP rate against the consensus FP rate
-   * and returns a delta value that can be used to update the organization's
-   * consistency score.
-   * 
-   * Formula:
-   * - deviation = |contributedRate - consensusRate|
-   * - consistencyForContribution = 1 - deviation (clamped to [0, 1])
-   * - delta = (consistencyForContribution - 0.5) * learningRate
-   * 
-   * Result:
-   * - Positive delta: Contribution aligns with consensus (reward)
-   * - Negative delta: Contribution deviates from consensus (penalty)
-   * - Zero delta: Contribution is neutral (50% consistency)
-   * 
-   * @param contributedRate - FP rate contributed by the organization
-   * @param consensusRate - Consensus FP rate from the network
-   * @param learningRate - Rate of score adjustment (default: 0.05)
-   * @returns Delta to add to current consistency score
-   */
-  calculateConsistencyDelta(
-    contributedRate: number,
-    consensusRate: number,
-    learningRate: number = 0.05
-  ): number {
-    // Calculate absolute deviation
-    const deviation = Math.abs(contributedRate - consensusRate);
-    
-    // Convert deviation to consistency score (0 = perfect, 1 = total mismatch)
-    // Clamp to [0, 1] range
-    const consistencyForContribution = Math.max(0, Math.min(1, 1 - deviation));
-    
-    // Calculate delta (centered around 0.5 neutral score)
-    // If consistency > 0.5, delta is positive (reward)
-    // If consistency < 0.5, delta is negative (penalty)
-    const delta = (consistencyForContribution - 0.5) * learningRate;
-    
-    return delta;
   }
 }

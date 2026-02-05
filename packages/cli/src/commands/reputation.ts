@@ -14,8 +14,8 @@ import {
   OrganizationReputation
 } from '@mirror-dissonance/core';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger.js';
-import { CLIError } from '../lib/errors.js';
+import { logger } from '../utils/logger';
+import { CLIError } from '../lib/errors';
 
 /**
  * Get the data directory for trust adapters
@@ -138,9 +138,9 @@ async function list(options: {
     
     // Sort by requested field
     if (options.sortBy === 'consistency') {
-      reputations.sort((a, b) => b.consistencyScore - a.consistencyScore);
+      reputations.sort((a: OrganizationReputation, b: OrganizationReputation) => b.consistencyScore - a.consistencyScore);
     } else if (options.sortBy === 'stake') {
-      reputations.sort((a, b) => b.stakePledge - a.stakePledge);
+      reputations.sort((a: OrganizationReputation, b: OrganizationReputation) => b.stakePledge - a.stakePledge);
     }
     // Default sort is already by reputation score
     

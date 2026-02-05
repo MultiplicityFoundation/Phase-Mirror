@@ -14,8 +14,8 @@ import {
   createLocalTrustAdapters,
 } from '@mirror-dissonance/core';
 import type { OrganizationIdentity } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger.js';
-import { CLIError } from '../lib/errors.js';
+import { logger } from '../utils/logger';
+import { CLIError } from '../lib/errors';
 
 /**
  * Get the data directory for trust adapters
@@ -94,7 +94,7 @@ async function verifyViaGitHub(options: {
       publicKey: options.publicKey,
       verificationMethod: 'github_org',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.binding.nonce,
+      uniqueNonce: nonceResult.nonce,
       githubOrgId: result.metadata.githubOrgId,
     };
 
@@ -225,7 +225,7 @@ async function verifyViaStripe(options: {
       publicKey: options.publicKey,
       verificationMethod: 'stripe_customer',
       verifiedAt: new Date(),
-      uniqueNonce: nonceResult.binding.nonce,
+      uniqueNonce: nonceResult.nonce,
       stripeCustomerId: result.metadata.stripeCustomerId,
     };
 
@@ -279,7 +279,7 @@ async function listIdentities(options: {
 
       const tableData = [
         ['Org ID', 'Method', 'Verified At', 'Stripe Customer ID'],
-        ...stripeIdentities.map((identity) => [
+        ...stripeIdentities.map((identity: OrganizationIdentity) => [
           identity.orgId,
           identity.verificationMethod,
           identity.verifiedAt.toISOString(),

@@ -127,7 +127,7 @@ export class CalibrationStore implements ICalibrationStore {
         filterRate: filterResult.filterRate,
         outliersFiltered: filterResult.outlierFiltered.length,
         lowReputationFiltered: filterResult.reputationFiltered.length,
-        zScoreThreshold: this.byzantineFilter['config'].zScoreThreshold,
+        zScoreThreshold: this.byzantineFilter.zScoreThreshold,
         reputationPercentile: this.byzantineFilter['config'].byzantineFilterPercentile,
       },
     };
@@ -280,7 +280,7 @@ export class CalibrationStore implements ICalibrationStore {
         filterRate: 0,
         outliersFiltered: 0,
         lowReputationFiltered: 0,
-        zScoreThreshold: 3.0,
+        zScoreThreshold: this.byzantineFilter.zScoreThreshold,
         reputationPercentile: 0.2,
       },
     };

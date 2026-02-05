@@ -2,7 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "moduleSuffixes": [".js"],
+    "paths": {
+      "@mirror-dissonance/core": ["../mirror-dissonance/dist/index.js"],
+      "@mirror-dissonance/core/*": ["../mirror-dissonance/dist/*.js"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

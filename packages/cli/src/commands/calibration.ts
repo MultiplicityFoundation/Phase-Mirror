@@ -15,7 +15,7 @@ import {
 import { createFPStore } from '@mirror-dissonance/core';
 import { ReputationEngine } from '@mirror-dissonance/core';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger.js';
+import { logger } from '../utils/logger';
 import { CLIError } from '../lib/errors.js';
 
 /**
@@ -183,7 +183,7 @@ async function list(options: {
         chalk.bold('Contributors'),
         chalk.bold('Events')
       ],
-      ...results.map(r => [
+      ...results.map((r: CalibrationResultExtended) => [
         r.ruleId,
         (r.consensusFpRate * 100).toFixed(2) + '%',
         formatConfidence(r.confidence.category),
@@ -331,25 +331,25 @@ async function stats(): Promise<void> {
     
     // Calculate aggregate stats
     const totalResults = results.length;
-    const avgConfidence = results.reduce((sum, r) => sum + r.confidence.level, 0) / totalResults;
+    const avgConfidence = results.reduce((sum: number, r: CalibrationResultExtended) => sum + r.confidence.level, 0) / totalResults;
     const highConfidence = results.filter(r => r.confidence.category === 'high').length;
     const mediumConfidence = results.filter(r => r.confidence.category === 'medium').length;
     const lowConfidence = results.filter(r => r.confidence.category === 'low').length;
     const insufficient = results.filter(r => r.confidence.category === 'insufficient').length;
     
-    const totalContributors = results.reduce((sum, r) => sum + r.totalContributorCount, 0);
+    const totalContributors = results.reduce((sum: number, r: CalibrationResultExtended) => sum + r.totalContributorCount, 0);
     const avgContributors = totalContributors / totalResults;
     
-    const totalEvents = results.reduce((sum, r) => sum + r.totalEventCount, 0);
+    const totalEvents = results.reduce((sum: number, r: CalibrationResultExtended) => sum + r.totalEventCount, 0);
     const avgEvents = totalEvents / totalResults;
     
-    const avgFpRate = results.reduce((sum, r) => sum + r.consensusFpRate, 0) / totalResults;
+    const avgFpRate = results.reduce((sum: number, r: CalibrationResultExtended) => sum + r.consensusFpRate, 0) / totalResults;
     
     const withFiltering = results.filter(r => r.byzantineFilterSummary.filteringApplied).length;
     const avgFilterRate = withFiltering > 0
       ? results
           .filter(r => r.byzantineFilterSummary.filteringApplied)
-          .reduce((sum, r) => sum + r.byzantineFilterSummary.filterRate, 0) / withFiltering
+          .reduce((sum: number, r: CalibrationResultExtended) => sum + r.byzantineFilterSummary.filterRate, 0) / withFiltering
       : 0;
     
     logger.info(chalk.cyan.bold('═'.repeat(60)));

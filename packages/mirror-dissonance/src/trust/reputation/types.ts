@@ -156,252 +156,112 @@ export interface ConsistencyScoreResult {
 export interface ConsensusFpRate {
   /** Rule ID */
   ruleId: string;
-  
+
   /** Consensus FP rate (weighted average across orgs) */
   consensusRate: number;
-  
+
   /** Number of organizations that contributed */
   contributorCount: number;
-  
+
   /** Total event count across all contributors */
   totalEventCount: number;
-  
+
   /** Standard deviation of contributed rates */
   rateStdDev: number;
-  
+
   /** When this consensus was calculated */
   calculatedAt: Date;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Byzantine Filter Types
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Raw contribution data before filtering.
- */
-export interface RawContribution {
-  /** Organization ID hash */
-  orgIdHash: string;
-  
-  /** FP rate contributed */
-  fpRate: number;
-  
-  /** Number of FP events */
-  eventCount: number;
-}
-
-/**
- * Weighted contribution after Byzantine filtering.
- */
-export interface WeightedContribution {
-  /** Organization ID hash */
-  orgIdHash: string;
-  
-  /** FP rate */
-  fpRate: number;
-  
-  /** Weight assigned to this contribution */
-  weight: number;
-  
-  /** Number of FP events */
-  eventCount: number;
-  
-  /** Z-score for statistical outlier detection */
-  zScore: number;
-  
-  /** Breakdown of weight factors */
-  weightFactors: ContributionWeightFactors;
-}
-
-/**
- * Breakdown of contribution weight factors.
- */
-export interface ContributionWeightFactors {
-  /** Base reputation component */
-  baseReputation: number;
-  
-  /** Stake multiplier component */
-  stakeMultiplier: number;
-  
-  /** Consistency bonus component */
-  consistencyBonus: number;
-  
-  /** Total multiplier (sum of all factors) */
-  totalMultiplier: number;
-}
-
-/**
- * Contributor that was filtered out by Byzantine filter.
- */
-export interface FilteredContributor {
-  /** Organization ID hash */
-  orgIdHash: string;
-  
-  /** FP rate that was filtered */
-  fpRate: number;
-  
-  /** Weight that was assigned */
-  weight: number;
-  
-  /** Reason for filtering */
-  reason: 'statistical_outlier' | 'low_reputation' | 'no_stake' | 'below_minimum_reputation' | 'insufficient_data';
-  
-  /** Additional details */
-  details: string;
-}
-
-/**
- * Statistical summary of Byzantine filtering.
- */
-export interface FilterStatistics {
-  /** Mean FP rate of all valid contributions */
-  meanFpRate: number;
-  
-  /** Standard deviation of FP rates */
-  stdDevFpRate: number;
-  
-  /** Median FP rate */
-  medianFpRate: number;
-  
-  /** Mean FP rate of trusted contributors only */
-  trustedMeanFpRate: number;
-  
-  /** Mean weight across all contributors */
-  meanWeight: number;
-  
-  /** Weight percentile threshold used for filtering */
-  weightPercentileThreshold: number;
-  
-  /** Number of outliers filtered */
-  outlierCount: number;
-  
-  /** Number filtered due to low reputation */
-  reputationFilteredCount: number;
-}
-
-/**
- * Configuration for Byzantine filter.
- */
-export interface ByzantineFilterConfig {
-  /** Z-score threshold for outlier detection (default: 3.0) */
-  zScoreThreshold: number;
-  
-  /** Filter out bottom X percentile by reputation (default: 0.2) */
-  byzantineFilterPercentile: number;
-  
-  /** Minimum contributors needed for statistical filtering (default: 5) */
-  minContributorsForFiltering: number;
-  
-  /** Require economic stake (default: false) */
-  requireStake: boolean;
-  
-  /** Require minimum reputation score (default: true) */
-  requireMinimumReputation: boolean;
-  
-  /** Minimum reputation score threshold (default: 0.1) */
-  minimumReputationScore: number;
-}
-
-/**
- * Result of Byzantine filtering.
- */
-export interface ByzantineFilterResult {
-  /** Trusted contributors after filtering */
-  trustedContributors: WeightedContribution[];
-  
-  /** Contributors filtered as outliers */
-  outlierFiltered: FilteredContributor[];
-  
-  /** Contributors filtered due to low reputation */
-  reputationFiltered: FilteredContributor[];
-  
-  /** Contributors filtered for other reasons */
-  otherFiltered: FilteredContributor[];
-  
-  /** Total number of contributors before filtering */
-  totalContributors: number;
-  
-  /** Number of trusted contributors after filtering */
-  trustedCount: number;
-  
-  /** Filter rate (proportion filtered out) */
-  filterRate: number;
-  
-  /** Statistical summary */
-  statistics: FilterStatistics;
-}
-
-/**
- * Confidence metrics for calibration result.
- */
 export interface CalibrationConfidence {
-  /** Overall confidence level (0.0-1.0) */
-  level: number;
-  
-  /** Categorical confidence rating */
+  level: number; // 0.0 - 1.0
   category: 'high' | 'medium' | 'low' | 'insufficient';
-  
-  /** Breakdown of confidence factors */
   factors: {
     contributorCountFactor: number;
     agreementFactor: number;
     eventCountFactor: number;
     reputationFactor: number;
   };
-  
-  /** Reason if confidence is low */
   lowConfidenceReason?: string;
 }
 
-/**
- * Summary of Byzantine filtering for calibration result.
- */
 export interface ByzantineFilterSummary {
-  /** Whether Byzantine filtering was applied */
   filteringApplied: boolean;
-  
-  /** Proportion of contributors filtered out */
   filterRate: number;
-  
-  /** Number of outliers filtered */
   outliersFiltered: number;
-  
-  /** Number filtered due to low reputation */
   lowReputationFiltered: number;
-  
-  /** Z-score threshold used */
   zScoreThreshold: number;
-  
-  /** Reputation percentile threshold used */
   reputationPercentile: number;
 }
 
-/**
- * Extended calibration result with Byzantine fault tolerance.
- */
 export interface CalibrationResultExtended {
-  /** Rule ID */
   ruleId: string;
-  
-  /** Consensus FP rate (weighted average) */
   consensusFpRate: number;
-  
-  /** Number of trusted contributors */
   trustedContributorCount: number;
-  
-  /** Total number of contributors before filtering */
   totalContributorCount: number;
-  
-  /** Total number of FP events */
   totalEventCount: number;
-  
-  /** When this was calculated */
   calculatedAt: Date;
-  
-  /** Confidence metrics */
   confidence: CalibrationConfidence;
-  
-  /** Byzantine filter summary */
   byzantineFilterSummary: ByzantineFilterSummary;
+}
+
+export interface RawContribution {
+  orgIdHash: string;
+  fpRate: number;
+  eventCount: number;
+}
+
+export interface ByzantineFilterConfig {
+  zScoreThreshold: number;
+  byzantineFilterPercentile: number;
+  minContributorsForFiltering: number;
+  requireStake: boolean;
+  requireMinimumReputation: boolean;
+  minimumReputationScore: number;
+}
+
+export interface FilteredContributor {
+  orgIdHash: string;
+  fpRate: number;
+  weight: number;
+  reason: 'insufficient_data' | 'below_minimum_reputation' | 'no_stake' | 'statistical_outlier' | 'low_reputation';
+  details: string;
+}
+
+export interface ContributionWeightFactors {
+  baseReputation: number;
+  stakeMultiplier: number;
+  consistencyBonus: number;
+  totalMultiplier: number;
+}
+
+export interface WeightedContribution {
+  orgIdHash: string;
+  fpRate: number;
+  weight: number;
+  eventCount: number;
+  zScore: number;
+  weightFactors: ContributionWeightFactors;
+}
+
+export interface FilterStatistics {
+  meanFpRate: number;
+  stdDevFpRate: number;
+  medianFpRate: number;
+  trustedMeanFpRate: number;
+  meanWeight: number;
+  weightPercentileThreshold: number;
+  outlierCount: number;
+  reputationFilteredCount: number;
+}
+
+export interface ByzantineFilterResult {
+  trustedContributors: WeightedContribution[];
+  outlierFiltered: FilteredContributor[];
+  reputationFiltered: FilteredContributor[];
+  otherFiltered: FilteredContributor[];
+  totalContributors: number;
+  trustedCount: number;
+  filterRate: number;
+  statistics: FilterStatistics;
 }

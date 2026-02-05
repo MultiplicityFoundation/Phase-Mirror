@@ -81,16 +81,11 @@ export {
   NonceBindingService,
   ReputationEngine,
   createLocalTrustAdapters,
-  ConsistencyScoreCalculator,
-  GitHubVerifier,
-  StripeVerifier,
 } from "./trust/index.js";
 
 export type {
   NonceBinding,
   OrganizationReputation,
   ContributionWeight,
-  OrganizationIdentity,
-  ContributionRecord,
 } from "./trust/index.js";
 

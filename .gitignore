@@ -54,3 +54,4 @@ release-artifacts/
 .test-data/
 .example-data/
 .example-data-*/
+packages/google-cloud-sdk/

@@ -52,6 +52,10 @@ export class ByzantineFilter {
     };
   }
 
+  public get zScoreThreshold(): number {
+    return this.config.zScoreThreshold;
+  }
+
   /**
    * Filter contributors using Byzantine fault tolerance algorithms.
    * 
