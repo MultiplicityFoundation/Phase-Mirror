@@ -103,17 +103,19 @@ class JsonFileStore<T> {
   }
 
   async writeOne(item: T, idGetter: (item: T) => string): Promise<void> {
-    const items = await this.read();
-    const id = idGetter(item);
-    const index = items.findIndex((i) => idGetter(i) === id);
+    await this.withLock(async () => {
+      const items = await this.read();
+      const id = idGetter(item);
+      const index = items.findIndex((i) => idGetter(i) === id);
 
-    if (index >= 0) {
-      items[index] = item;
-    } else {
-      items.push(item);
-    }
+      if (index >= 0) {
+        items[index] = item;
+      } else {
+        items.push(item);
+      }
 
-    await this.write(items);
+      await this.write(items);
+    });
   }
 }
 
@@ -412,7 +414,18 @@ class LocalBlockCounter implements IBlockCounterAdapter {
     return bucketHour.toISOString();
   }
 
+  /**
+   * Remove expired entries. Acquires the store lock.
+   * Use _cleanExpiredUnsafe when already holding the lock.
+   */
   private async cleanExpired(): Promise<void> {
+    await this.store.withLock(async () => {
+      await this._cleanExpiredUnsafe();
+    });
+  }
+
+  /** Remove expired entries without acquiring the lock (caller must hold it). */
+  private async _cleanExpiredUnsafe(): Promise<void> {
     const entries = await this.store.read();
     const now = Date.now();
     const ttlMs = this.ttlHours * 3600 * 1000;
@@ -426,7 +439,7 @@ class LocalBlockCounter implements IBlockCounterAdapter {
 
   async increment(ruleId: string): Promise<number> {
     return this.store.withLock(async () => {
-      await this.cleanExpired();
+      await this._cleanExpiredUnsafe();
 
       const bucketKey = this.getBucketKey();
       const entries = await this.store.read();
@@ -506,16 +519,18 @@ class LocalSecretStore implements ISecretStoreAdapter {
   }
 
   async rotateNonce(newValue: string): Promise<void> {
-    const entries = await this.store.read();
-    const maxVersion = entries.length > 0 ? Math.max(...entries.map((e) => e.version)) : 0;
+    await this.store.withLock(async () => {
+      const entries = await this.store.read();
+      const maxVersion = entries.length > 0 ? Math.max(...entries.map((e) => e.version)) : 0;
 
-    entries.push({
-      value: newValue,
-      createdAt: new Date().toISOString(),
-      version: maxVersion + 1,
+      entries.push({
+        value: newValue,
+        createdAt: new Date().toISOString(),
+        version: maxVersion + 1,
+      });
+
+      await this.store.write(entries);
     });
-
-    await this.store.write(entries);
   }
 }
 
@@ -573,9 +588,11 @@ class LocalBaselineStorage implements IBaselineStorageAdapter {
   }
 
   async deleteBaseline(key: string): Promise<void> {
-    const entries = await this.store.read();
-    const filtered = entries.filter((e) => e.key !== key);
-    await this.store.write(filtered);
+    await this.store.withLock(async () => {
+      const entries = await this.store.read();
+      const filtered = entries.filter((e) => e.key !== key);
+      await this.store.write(filtered);
+    });
   }
 }
 
