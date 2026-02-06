@@ -1,9 +1,8 @@
 /**
  * Tests for RuleEvaluationError and structured error handling
  */
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { RuleEvaluationError, EvaluationResult } from '../rule-error.js';
-import { evaluateAllRules, RULES } from '../index.js';
+import { describe, it, expect } from '@jest/globals';
+import { RuleEvaluationError } from '../rule-error.js';
 import type { OracleInput, RuleViolation } from '../../../schemas/types.js';
 
 describe('RuleEvaluationError', () => {

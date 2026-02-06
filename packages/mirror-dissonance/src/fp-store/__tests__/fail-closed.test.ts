@@ -8,7 +8,7 @@ import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals
 
 import { DynamoDBFPStore, FPStoreError } from '../dynamodb-store.js';
 import type { FPEvent } from '../types.js';
-import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
 // Mock AWS SDK utilities
