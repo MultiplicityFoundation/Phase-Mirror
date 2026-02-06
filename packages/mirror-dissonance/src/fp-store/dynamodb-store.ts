@@ -13,6 +13,36 @@ import {
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import type { FPEvent, FPWindow, FPStoreConfig, FPStore } from './types.js';
 
+/**
+ * Custom error class for FP store failures.
+ * Carries structured context so the Oracle can decide
+ * whether to degrade gracefully or halt.
+ */
+export class FPStoreError extends Error {
+  public readonly ruleId?: string;
+  public readonly eventId?: string;
+  public readonly findingId?: string;
+  public readonly operation: string;
+  public readonly cause: unknown;
+
+  constructor(opts: {
+    message: string;
+    operation: string;
+    ruleId?: string;
+    eventId?: string;
+    findingId?: string;
+    cause?: unknown;
+  }) {
+    super(opts.message);
+    this.name = "FPStoreError";
+    this.operation = opts.operation;
+    this.ruleId = opts.ruleId;
+    this.eventId = opts.eventId;
+    this.findingId = opts.findingId;
+    this.cause = opts.cause;
+  }
+}
+
 export class DynamoDBFPStore implements FPStore {
   private client: DynamoDBClient;
   private tableName: string;
@@ -61,14 +91,24 @@ export class DynamoDBFPStore implements FPStore {
     } catch (error: any) {
       // ConditionalCheckFailedException means the event already exists
       if (error.name === 'ConditionalCheckFailedException') {
-        throw new Error(
-          `Duplicate FP event: ruleId=${event.ruleId}, eventId=${event.eventId}, findingId=${event.findingId}`
-        );
+        throw new FPStoreError({
+          message: `Duplicate FP event: ruleId=${event.ruleId}, eventId=${event.eventId}, findingId=${event.findingId}`,
+          operation: 'recordEvent:duplicate',
+          ruleId: event.ruleId,
+          eventId: event.eventId,
+          findingId: event.findingId,
+          cause: error,
+        });
       }
       // Re-throw with context for other errors
-      throw new Error(
-        `Failed to record FP event: ruleId=${event.ruleId}, eventId=${event.eventId}, findingId=${event.findingId}. ${error.message}`
-      );
+      throw new FPStoreError({
+        message: `Failed to record FP event ${event.eventId} for rule ${event.ruleId}: ${error.message}`,
+        operation: 'recordEvent',
+        ruleId: event.ruleId,
+        eventId: event.eventId,
+        findingId: event.findingId,
+        cause: error,
+      });
     }
   }
 
@@ -77,9 +117,10 @@ export class DynamoDBFPStore implements FPStore {
     reviewedBy: string,
     ticket: string
   ): Promise<void> {
+    // First, find the event via GSI
+    let queryResult;
     try {
-      // Query GSI to find the event
-      const queryResult = await this.client.send(new QueryCommand({
+      queryResult = await this.client.send(new QueryCommand({
         TableName: this.tableName,
         IndexName: 'FindingIndex',
         KeyConditionExpression: 'gsi1pk = :finding',
@@ -88,13 +129,26 @@ export class DynamoDBFPStore implements FPStore {
         }),
         Limit: 1,
       }));
+    } catch (error: any) {
+      throw new FPStoreError({
+        message: `Failed to query finding ${findingId} for FP marking: ${error.message}`,
+        operation: 'markFalsePositive:query',
+        findingId,
+        cause: error,
+      });
+    }
 
-      if (!queryResult.Items || queryResult.Items.length === 0) {
-        throw new Error(`Finding ${findingId} not found in FP store`);
-      }
+    if (!queryResult.Items || queryResult.Items.length === 0) {
+      throw new FPStoreError({
+        message: `Finding ${findingId} not found in FP store`,
+        operation: 'markFalsePositive:notFound',
+        findingId,
+      });
+    }
 
-      const item = unmarshall(queryResult.Items[0]);
+    const item = unmarshall(queryResult.Items[0]);
       
+    try {
       await this.client.send(new UpdateItemCommand({
         TableName: this.tableName,
         Key: marshall({ pk: item.pk, sk: item.sk }),
@@ -107,20 +161,19 @@ export class DynamoDBFPStore implements FPStore {
         }),
       }));
     } catch (error: any) {
-      // If it's already our custom error, re-throw as-is
-      if (error.message.includes('not found in FP store')) {
-        throw error;
-      }
-      // Otherwise, add context
-      throw new Error(
-        `Failed to mark finding as false positive: findingId=${findingId}, reviewedBy=${reviewedBy}, ticket=${ticket}. ${error.message}`
-      );
+      throw new FPStoreError({
+        message: `Failed to mark finding ${findingId} as false positive: ${error.message}`,
+        operation: 'markFalsePositive:update',
+        findingId,
+        cause: error,
+      });
     }
   }
 
   async getWindowByCount(ruleId: string, count: number): Promise<FPWindow> {
+    let result;
     try {
-      const result = await this.client.send(new QueryCommand({
+      result = await this.client.send(new QueryCommand({
         TableName: this.tableName,
         KeyConditionExpression: 'pk = :rule',
         ExpressionAttributeValues: marshall({
@@ -129,19 +182,27 @@ export class DynamoDBFPStore implements FPStore {
         ScanIndexForward: false, // Newest first
         Limit: count,
       }));
-
-      const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
-      return this.computeWindow(ruleId, events);
     } catch (error: any) {
-      throw new Error(
-        `Failed to get FP window by count: ruleId=${ruleId}, count=${count}. ${error.message}`
-      );
+      // ❌ BEFORE: catch (error) { return []; }
+      // ✅ AFTER: throw with full context
+      throw new FPStoreError({
+        message: `Failed to get FP window for ${ruleId} (count=${count}): ${error.message}`,
+        operation: 'getWindowByCount',
+        ruleId,
+        cause: error,
+      });
     }
+
+    // Empty result from a SUCCESSFUL query is legitimate —
+    // this rule genuinely has no events yet.
+    const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
+    return this.computeWindow(ruleId, events);
   }
 
   async getWindowBySince(ruleId: string, since: Date): Promise<FPWindow> {
+    let result;
     try {
-      const result = await this.client.send(new QueryCommand({
+      result = await this.client.send(new QueryCommand({
         TableName: this.tableName,
         KeyConditionExpression: 'pk = :rule AND sk >= :since',
         ExpressionAttributeValues: marshall({
@@ -150,14 +211,19 @@ export class DynamoDBFPStore implements FPStore {
         }),
         ScanIndexForward: false,
       }));
-
-      const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
-      return this.computeWindow(ruleId, events);
     } catch (error: any) {
-      throw new Error(
-        `Failed to get FP window by since: ruleId=${ruleId}, since=${since.toISOString()}. ${error.message}`
-      );
+      // ❌ BEFORE: catch (error) { return []; }
+      // ✅ AFTER: throw with full context
+      throw new FPStoreError({
+        message: `Failed to get FP window for ${ruleId} (since=${since.toISOString()}): ${error.message}`,
+        operation: 'getWindowBySince',
+        ruleId,
+        cause: error,
+      });
     }
+
+    const events = (result.Items || []).map((item: any) => this.unmarshallEvent(unmarshall(item)));
+    return this.computeWindow(ruleId, events);
   }
 
   private unmarshallEvent(item: any): FPEvent {

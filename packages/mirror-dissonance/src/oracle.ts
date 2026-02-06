@@ -118,12 +118,19 @@ export class Oracle {
   async analyze(input: OracleInput): Promise<OracleOutput> {
     console.log(`Oracle analyzing in ${input.mode} mode...`);
     
-    // Evaluate all rules
-    const violations = await evaluateAllRules(input);
+    // Evaluate all rules - now returns structured result with errors
+    const evalResult = await evaluateAllRules(input);
 
     // Filter out false positives (only if legacy store)
+    // Error-originated violations bypass FP filtering — they are never false positives
     const realViolations: RuleViolation[] = [];
-    for (const violation of violations) {
+    for (const violation of evalResult.violations) {
+      // Error violations bypass FP filtering — they have no FP history
+      if (violation.context?.isEvaluationError) {
+        realViolations.push(violation);
+        continue;
+      }
+
       // Check if the store has the legacy isFalsePositive method
       if ('isFalsePositive' in this.fpStore) {
         const isFP = await (this.fpStore as IFPStore).isFalsePositive(violation.ruleId);
@@ -148,7 +155,7 @@ export class Oracle {
       }
     }
 
-    // Make decision
+    // Make decision - error violations are critical severity, will block
     const machineDecision = makeDecision({
       violations: realViolations,
       mode: input.mode,
@@ -176,8 +183,8 @@ export class Oracle {
     // Count by severity
     const criticalCount = realViolations.filter(v => v.severity === 'critical').length;
 
-    // Count rules checked (5 rules: MD-001 through MD-005)
-    const rulesChecked = 5;
+    // Count rules checked - now we have the actual count
+    const rulesChecked = evalResult.rulesEvaluated + evalResult.rulesErrored;
 
     return {
       machineDecision,

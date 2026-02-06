@@ -66,6 +66,30 @@ pnpm lint
 
 ## Development Process
 
+### Branch Strategy and Commit Discipline
+
+Phase Mirror follows a **point-by-point commit, phase-level PR** strategy. This approach provides:
+- Clean `git bisect` history with atomic, verifiable commits
+- Reviewable narratives through coherent phase-level PRs
+- Clear architectural stories that map to project blueprints
+
+**📖 See [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md) for complete guidelines**  
+**📖 See [docs/COMMIT_DISCIPLINE.md](docs/COMMIT_DISCIPLINE.md) for commit workflow**
+
+### Quick Reference
+
+#### The Golden Rule
+**Write the commit message before you write the code.** The message defines your scope boundary.
+
+#### Phase Branches
+Major work is organized into phase branches with multiple atomic commits:
+- `fix/known-issues` - Phase 0: Critical error handling fixes
+- `refactor/adapter-layer` - Phase 1: Cloud-agnostic abstraction
+- `test/unit-coverage` - Phase 2: 80% test coverage
+- `test/integration` - Phase 3: Integration test suite
+- `docs/spec-documents` - Phase 4: Formal specifications
+- `infra/staging-deploy` - Phase 5: Production infrastructure
+
 ### 1. Fork and Branch
 
 1. Fork the repository to your GitHub account
@@ -114,6 +138,8 @@ Types:
 - `refactor`: Code refactoring
 - `test`: Adding tests
 - `chore`: Build, dependencies, tooling
+
+**Important**: For phase-level work, write commit messages *before* coding to maintain scope discipline.
 
 ### 4. Push and PR
 

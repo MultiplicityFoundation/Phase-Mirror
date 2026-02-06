@@ -23,6 +23,9 @@ export function makeDecision(context: DecisionContext): MachineDecision {
     low: context.violations.filter(v => v.severity === 'low').length,
   };
 
+  // Count error-originated violations separately for the reason string
+  const errorViolations = context.violations.filter(v => v.context?.isEvaluationError);
+
   const reasons: string[] = [];
   let outcome: 'allow' | 'block' | 'warn' = 'allow';
 
@@ -34,7 +37,15 @@ export function makeDecision(context: DecisionContext): MachineDecision {
 
   // Evaluate violations
   if (shouldBlock(counts.critical, counts.high, counts.medium, thresholds)) {
-    reasons.push(`Critical violations: ${counts.critical}, High: ${counts.high}, Medium: ${counts.medium}`);
+    // Add context about evaluation errors if present
+    if (errorViolations.length > 0) {
+      reasons.push(
+        `Critical violations: ${counts.critical} (including ${errorViolations.length} rule evaluation error(s): ` +
+        `${errorViolations.map(v => v.ruleId).join(', ')}), High: ${counts.high}, Medium: ${counts.medium}`
+      );
+    } else {
+      reasons.push(`Critical violations: ${counts.critical}, High: ${counts.high}, Medium: ${counts.medium}`);
+    }
     outcome = 'block';
   }
 

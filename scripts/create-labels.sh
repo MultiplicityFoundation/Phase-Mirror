@@ -1,78 +1,82 @@
 #!/usr/bin/env bash
-# Create GitHub labels for Phase Mirror issue tracking
-# This script is idempotent - it will not fail if labels already exist
-# Requires: bash 4.0+ (for associative arrays)
+# scripts/create-labels.sh
+# Create required GitHub labels for Phase Mirror issue tracking.
+# Idempotent — safe to run multiple times. Existing labels are updated
+# to match the canonical description and color.
+#
+# Usage: ./scripts/create-labels.sh [owner/repo]
+# Default: MultiplicityFoundation/Phase-Mirror
+
 set -euo pipefail
 
-# Check if gh CLI is available
-if ! command -v gh &> /dev/null; then
-  echo "[labels] ERROR: GitHub CLI (gh) is not installed or not in PATH"
-  echo "[labels] Install from: https://cli.github.com/"
+REPO="${1:-MultiplicityFoundation/Phase-Mirror}"
+
+log() { echo "[create-labels] $*"; }
+err() { echo "[create-labels] ERROR: $*" >&2; }
+
+# Verify gh CLI is available and authenticated
+if ! command -v gh >/dev/null 2>&1; then
+  err "GitHub CLI (gh) not found. Install: https://cli.github.com"
   exit 1
 fi
 
-# Check if authenticated
-if ! gh auth status &> /dev/null; then
-  echo "[labels] ERROR: Not authenticated with GitHub CLI"
-  echo "[labels] Run: gh auth login"
+if ! gh auth status >/dev/null 2>&1; then
+  err "Not authenticated. Run: gh auth login"
   exit 1
 fi
 
-# Define labels with colors
-# Note: Requires bash 4.0+ for associative array support
-declare -A LABELS
+# ── label definitions ───────────────────────────────────────────────
+# Format: name|color|description
+LABELS=(
+  "schema-drift|d93f0b|Schema mismatch between OSS and Pro repos"
+  "drift-detection|d93f0b|Drift detection workflow alert"
+  "priority-high|b60205|Requires immediate attention"
+  "fp-calibration|0e8a16|Related to false positive calibration"
+  "circuit-breaker|fbca04|Circuit breaker triggered or related"
+  "governance|5319e7|Steward review required"
+  "runtime-enforcement|1d76db|Nonce, HMAC, or validation issues"
+)
 
-LABELS["schema-drift"]="#d93f0b"
-LABELS["priority-high"]="#b60205"
-LABELS["fp-calibration"]="#0e8a16"
-LABELS["circuit-breaker"]="#fbca04"
-LABELS["governance"]="#5319e7"
-LABELS["runtime-enforcement"]="#1d76db"
+# ── create or update each label ─────────────────────────────────────
+CREATED=0
+UPDATED=0
+FAILED=0
 
-# Define explicit descriptions for clarity
-declare -A DESCRIPTIONS
-DESCRIPTIONS["schema-drift"]="Phase Mirror: Schema drift detection"
-DESCRIPTIONS["priority-high"]="Phase Mirror: High priority issue"
-DESCRIPTIONS["fp-calibration"]="Phase Mirror: False positive calibration"
-DESCRIPTIONS["circuit-breaker"]="Phase Mirror: Circuit breaker related"
-DESCRIPTIONS["governance"]="Phase Mirror: Governance related"
-DESCRIPTIONS["runtime-enforcement"]="Phase Mirror: Runtime enforcement"
+for ENTRY in "${LABELS[@]}"; do
+  IFS='|' read -r NAME COLOR DESCRIPTION <<< "${ENTRY}"
 
-echo "[labels] Creating Phase Mirror labels..."
-echo ""
-
-# Create or update labels
-for name in "${!LABELS[@]}"; do
-  color="${LABELS[$name]}"
-  description="${DESCRIPTIONS[$name]}"
-  
-  echo "[labels] Processing '${name}' (${color})..."
-  
-  # Check if label exists
-  if gh label list --json name --jq '.[].name' | grep -Fxq "${name}"; then
-    echo "[labels]   ✓ Label '${name}' already exists"
-    
-    # Update the label with the correct color and description
-    if ! gh label edit "${name}" \
-      --color "${color}" \
-      --description "${description}"; then
-      echo "[labels]   ⚠ Warning: Failed to update label '${name}'"
+  # Check if label already exists
+  if gh label list --repo "${REPO}" --json name --jq '.[].name' 2>/dev/null | grep -qx "${NAME}"; then
+    # Update existing label to ensure color/description match
+    if gh label edit "${NAME}" \
+      --repo "${REPO}" \
+      --color "${COLOR}" \
+      --description "${DESCRIPTION}" >/dev/null 2>&1; then
+      log "✓ Updated: ${NAME}"
+      ((UPDATED++))
+    else
+      err "✗ Failed to update: ${NAME}"
+      ((FAILED++))
     fi
   else
-    echo "[labels]   + Creating label '${name}'"
-    
-    # Create the label
-    if gh label create "${name}" \
-      --color "${color}" \
-      --description "${description}"; then
-      echo "[labels]   ✓ Label '${name}' created successfully"
+    # Create new label
+    if gh label create "${NAME}" \
+      --repo "${REPO}" \
+      --color "${COLOR}" \
+      --description "${DESCRIPTION}" >/dev/null 2>&1; then
+      log "✓ Created: ${NAME}"
+      ((CREATED++))
     else
-      echo "[labels]   ✗ Failed to create label '${name}'"
+      err "✗ Failed to create: ${NAME}"
+      ((FAILED++))
     fi
   fi
-  
-  echo ""
 done
 
-echo "[labels] Label creation complete!"
-echo "[labels] Verify at: https://github.com/$(gh repo view --json nameWithOwner --jq .nameWithOwner)/labels"
+# ── summary ─────────────────────────────────────────────────────────
+echo ""
+log "Done: ${CREATED} created, ${UPDATED} updated, ${FAILED} failed"
+
+if [ "${FAILED}" -gt 0 ]; then
+  exit 1
+fi
