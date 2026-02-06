@@ -57,3 +57,5 @@ release-artifacts/
 packages/google-cloud-sdk/
 mcp-test-output.txt
 mcp-test-results.txt
+*.backup
+*.old
