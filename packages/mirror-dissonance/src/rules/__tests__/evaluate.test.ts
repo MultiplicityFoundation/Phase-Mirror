@@ -4,15 +4,6 @@ import { evaluateAllRules, type EvaluationResult } from "../index";
 import { RuleEvaluationError } from "../rule-error";
 import type { Rule, OracleInput, RuleViolation } from "../../types";
 
-// Helper: create a rule that succeeds with given violations
-function successRule(id: string, violations: RuleViolation[] = []): Rule {
-  return {
-    id,
-    version: "1.0.0",
-    checker: jest.fn().mockResolvedValue(violations),
-  };
-}
-
 const mockInput: OracleInput = {
   repo: {
     owner: "test",
