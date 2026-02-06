@@ -65,7 +65,9 @@ export class DynamoDBFPStore implements IFPStore {
       return (response.Items?.length || 0) > 0;
     } catch (error) {
       console.error('Failed to check false positive:', error);
-      return false;
+      // ❌ BEFORE: return false (silent failure)
+      // ✅ AFTER: throw to prevent false negatives on calibration data
+      throw new Error(`Failed to check false positive for finding ${findingId}: ${error}`);
     }
   }
 
@@ -84,7 +86,9 @@ export class DynamoDBFPStore implements IFPStore {
       return (response.Items || []) as FalsePositiveEvent[];
     } catch (error) {
       console.error('Failed to get false positives by rule:', error);
-      return [];
+      // ❌ BEFORE: return [] (silent failure)
+      // ✅ AFTER: throw to prevent false 0.0 FPR computation
+      throw new Error(`Failed to get false positives for rule ${ruleId}: ${error}`);
     }
   }
 }
