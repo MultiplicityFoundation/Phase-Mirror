@@ -102,11 +102,8 @@ export class AWSFPStore implements FPStoreAdapter {
         })
       );
 
-      if (!result.Items) {
-        throw new Error(`No items returned for rule ${ruleId}`);
-      }
-
-      const events = result.Items.map((item) =>
+      // Empty result is valid when rule has no events yet
+      const events = (result.Items || []).map((item) =>
         this.unmarshallEvent(unmarshall(item))
       );
       return this.computeWindow(ruleId, events);
