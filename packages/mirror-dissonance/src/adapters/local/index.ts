@@ -166,8 +166,8 @@ class LocalFPStore implements FPStoreAdapter {
 
   private buildWindow(ruleId: string, events: FPEvent[]): FPWindow {
     const total = events.length;
-    const falsePositives = events.filter(e => e.isFalsePositive).length;
-    const pending = events.filter(e => !e.reviewedBy).length;
+    const falsePositives = events.filter(e => e.isFalsePositive === true).length;
+    const pending = events.filter(e => !e.reviewedAt).length;
     const truePositives = total - falsePositives - pending;
     const reviewed = total - pending;
     const observedFPR = reviewed > 0 ? falsePositives / reviewed : 0;
@@ -376,7 +376,8 @@ class LocalSecretStore implements SecretStoreAdapter {
   async getNonce(paramName: string): Promise<string> {
     const entries = await this.store.read();
     
-    const nonces = entries.filter(e => e.paramName === paramName);
+    // Filter by paramName, handling potential legacy entries without paramName
+    const nonces = entries.filter(e => e.paramName === paramName || (!e.paramName && entries.length === 1));
     
     if (nonces.length === 0) {
       throw new Error(`Nonce ${paramName} not found`);
@@ -390,7 +391,8 @@ class LocalSecretStore implements SecretStoreAdapter {
   async getNonceWithVersion(paramName: string): Promise<{ value: string; version: number }> {
     const entries = await this.store.read();
     
-    const nonces = entries.filter(e => e.paramName === paramName);
+    // Filter by paramName, handling potential legacy entries without paramName
+    const nonces = entries.filter(e => e.paramName === paramName || (!e.paramName && entries.length === 1));
     
     if (nonces.length === 0) {
       throw new Error(`Nonce ${paramName} not found`);

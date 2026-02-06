@@ -123,8 +123,8 @@ class GcpFPStore implements FPStoreAdapter {
 
   private buildWindow(ruleId: string, events: FPEvent[]): FPWindow {
     const total = events.length;
-    const falsePositives = events.filter(e => e.isFalsePositive).length;
-    const pending = events.filter(e => !e.reviewedBy).length;
+    const falsePositives = events.filter(e => e.isFalsePositive === true).length;
+    const pending = events.filter(e => !e.reviewedAt).length;
     const truePositives = total - falsePositives - pending;
     const reviewed = total - pending;
     const observedFPR = reviewed > 0 ? falsePositives / reviewed : 0;
