@@ -16,6 +16,9 @@ import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm';
 import { loadNonce } from './nonce/loader.js';
 import { createRedactor, Redactor } from './redaction/redactor.js';
 
+// Constants for adapter configuration
+const BLOCK_COUNTER_TTL_SECONDS = 3600; // 1 hour TTL for block counter entries
+
 export interface OracleConfig {
   region?: string;
   endpoint?: string;  // For LocalStack testing
@@ -149,27 +152,45 @@ export async function initializeOracleWithAdapters(
   // The adapter layer provides the new interface (recordEvent, etc.)
   // The Oracle expects the old interface (isFalsePositive legacy method)
   // For now, we create a compatibility wrapper
-  const fpStoreWrapper = {
-    // New adapter methods pass through
+  
+  // Define proper wrapper interfaces that match Oracle's expectations
+  interface OracleFPStore {
+    recordEvent: typeof adapters.fpStore.recordEvent;
+    markFalsePositive: typeof adapters.fpStore.markFalsePositive;
+    getWindowByCount: typeof adapters.fpStore.getWindowByCount;
+    getWindowBySince: typeof adapters.fpStore.getWindowBySince;
+    isFalsePositive: typeof adapters.fpStore.isFalsePositive;
+  }
+
+  interface OracleBlockCounter {
+    increment: (ruleId: string) => Promise<number>;
+    get: (key: string) => Promise<number>;
+    getCount: (key: string) => Promise<number>;
+  }
+
+  interface OracleConsentStore {
+    hasValidConsent: (orgId: string) => Promise<boolean>;
+  }
+
+  const fpStoreWrapper: OracleFPStore = {
     recordEvent: adapters.fpStore.recordEvent.bind(adapters.fpStore),
     markFalsePositive: adapters.fpStore.markFalsePositive.bind(adapters.fpStore),
     getWindowByCount: adapters.fpStore.getWindowByCount.bind(adapters.fpStore),
     getWindowBySince: adapters.fpStore.getWindowBySince.bind(adapters.fpStore),
-    // Legacy method needed by Oracle
     isFalsePositive: adapters.fpStore.isFalsePositive.bind(adapters.fpStore),
   };
 
-  const blockCounterWrapper = {
+  const blockCounterWrapper: OracleBlockCounter = {
     // Adapter uses (key, ttlSeconds), Oracle expects different signatures
     increment: async (ruleId: string) => {
-      return adapters.blockCounter.increment(ruleId, 3600); // 1 hour TTL
+      return adapters.blockCounter.increment(ruleId, BLOCK_COUNTER_TTL_SECONDS);
     },
     get: adapters.blockCounter.get.bind(adapters.blockCounter),
     getCount: adapters.blockCounter.get.bind(adapters.blockCounter), // Alias for compatibility
   };
 
   // Consent store needs wrapping to match Oracle's expected interface
-  const consentStoreWrapper = {
+  const consentStoreWrapper: OracleConsentStore = {
     // Minimal compatibility wrapper - Oracle currently doesn't use consent store methods heavily
     hasValidConsent: async (orgId: string) => {
       // Check a default resource for backward compatibility
@@ -178,9 +199,9 @@ export async function initializeOracleWithAdapters(
     },
   };
 
-  components.fpStore = fpStoreWrapper as any;
-  components.blockCounter = blockCounterWrapper as any;
-  components.consentStore = consentStoreWrapper as any;
+  components.fpStore = fpStoreWrapper as unknown as IFPStore | FPStore;
+  components.blockCounter = blockCounterWrapper as unknown as BlockCounter | MemoryBlockCounter;
+  components.consentStore = consentStoreWrapper as unknown as IConsentStore;
 
   return new Oracle(components);
 }

@@ -7,6 +7,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { randomUUID } from "crypto";
 import type { ConsentStoreAdapter } from "../types";
 import type {
   OrganizationConsent,
@@ -50,7 +51,7 @@ export class AWSConsentStore implements ConsentStoreAdapter {
 
     // Add history event
     consent.history.push({
-      eventId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      eventId: randomUUID(),
       eventType: "granted",
       resource,
       timestamp: now,
@@ -113,7 +114,7 @@ export class AWSConsentStore implements ConsentStoreAdapter {
 
     // Add history event
     consent.history.push({
-      eventId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      eventId: randomUUID(),
       eventType: "revoked",
       resource,
       timestamp: now,
