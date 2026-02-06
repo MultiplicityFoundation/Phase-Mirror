@@ -121,9 +121,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.26.0(zod@3.25.76)
-      chalk:
-        specifier: ^4.1.2
-        version: 4.1.2
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -131,9 +128,15 @@ importers:
       '@jest/globals':
         specifier: ^29.7.0
         version: 29.7.0
+      '@types/inquirer':
+        specifier: ^9.0.9
+        version: 9.0.9
       '@types/jest':
         specifier: ^29.5.11
         version: 29.5.14
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^20.11.5
         version: 20.19.30
