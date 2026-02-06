@@ -15,8 +15,9 @@
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-import { CloudAdapters, CloudConfig } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { Adapters, CloudConfig } from '../types.js';
+import { FPEvent } from '../../fp-store/types.js';
+import { CalibrationConsent } from '../../consent-store/types.js';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
@@ -27,7 +28,7 @@ import { join } from 'path';
  * 
  * Each provider must implement this function to create adapters for testing.
  */
-type AdapterFactory = (config: CloudConfig) => CloudAdapters | Promise<CloudAdapters>;
+type AdapterFactory = (config: CloudConfig) => Adapters | Promise<Adapters>;
 
 /**
  * Test cleanup function
@@ -367,6 +368,7 @@ describe('Adapter Parity Tests', () => {
       },
       config: {
         provider: 'local',
+        region: 'local',
         localDataDir: testDataDir,
       },
       cleanup: async () => {
@@ -383,8 +385,8 @@ describe('Adapter Parity Tests', () => {
     runAdapterParityTests({
       name: 'AWS',
       factory: async (config) => {
-        const { createAwsAdapters } = await import('../aws/index.js');
-        return createAwsAdapters(config);
+        const { createAWSAdapters } = await import('../aws/index.js');
+        return createAWSAdapters(config);
       },
       config: {
         provider: 'aws',
@@ -404,7 +406,7 @@ describe('Adapter Parity Tests', () => {
       },
       config: {
         provider: 'gcp',
-        projectId: 'test-project',
+        gcpProjectId: 'test-project',
         region: 'us-central1',
       },
       skip: true,

@@ -15,31 +15,19 @@ import { createHash, randomUUID } from 'crypto';
 import {
   CloudConfig,
   Adapters,
-  IFPStoreAdapter,
-  IConsentStoreAdapter,
-  IBlockCounterAdapter,
-  ISecretStoreAdapter,
-  IBaselineStorageAdapter,
-  ICalibrationStoreAdapter,
-  NonceConfig,
-  BaselineVersion,
-  CalibrationResult,
-  KAnonymityError,
+  FPStoreAdapter,
+  ConsentStoreAdapter,
+  BlockCounterAdapter,
+  SecretStoreAdapter,
+  BaselineStoreAdapter,
 } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
-import {
-  OrganizationConsent,
-  ConsentResource,
-  ConsentCheckResult,
-  MultiResourceConsentResult,
-  CURRENT_CONSENT_POLICY,
-  ConsentEvent,
-} from '../../consent-store/schema.js';
+import { FPEvent, FPWindow } from '../../fp-store/types.js';
+import { CalibrationConsent, ConsentQuery } from '../../consent-store/types.js';
 
 /**
  * GCP False Positive Store
  */
-class GcpFPStore implements IFPStoreAdapter {
+class GcpFPStore implements FPStoreAdapter {
   private db: Firestore;
   private collection: string = 'fp_events';
 
@@ -47,43 +35,123 @@ class GcpFPStore implements IFPStoreAdapter {
     this.db = new Firestore({ projectId });
   }
 
-  async recordFalsePositive(event: FalsePositiveEvent): Promise<void> {
-    await this.db.collection(this.collection).doc(event.id).set({
-      id: event.id,
+  async recordEvent(event: FPEvent): Promise<void> {
+    await this.db.collection(this.collection).doc(event.eventId).set({
+      eventId: event.eventId,
       findingId: event.findingId,
       ruleId: event.ruleId,
+      ruleVersion: event.ruleVersion,
+      outcome: event.outcome,
+      suppressionTicket: event.suppressionTicket,
+      reviewedBy: event.reviewedBy,
+      reviewedAt: event.reviewedAt,
+      isFalsePositive: event.isFalsePositive,
       timestamp: event.timestamp,
-      resolvedBy: event.resolvedBy,
       context: event.context,
-      orgIdHash: event.orgIdHash,
-      consent: event.consent,
     });
+  }
+
+  async markFalsePositive(findingId: string, reviewedBy: string, ticket: string): Promise<void> {
+    const snapshot = await this.db
+      .collection(this.collection)
+      .where('findingId', '==', findingId)
+      .get();
+
+    const batch = this.db.batch();
+    snapshot.docs.forEach((doc) => {
+      batch.update(doc.ref, {
+        isFalsePositive: true,
+        reviewedBy,
+        suppressionTicket: ticket,
+        reviewedAt: new Date(),
+      });
+    });
+
+    await batch.commit();
+  }
+
+  async getWindowByCount(ruleId: string, count: number): Promise<FPWindow> {
+    const snapshot = await this.db
+      .collection(this.collection)
+      .where('ruleId', '==', ruleId)
+      .orderBy('timestamp', 'desc')
+      .limit(count)
+      .get();
+
+    const events = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
+        reviewedAt: data.reviewedAt ? (data.reviewedAt instanceof Timestamp ? data.reviewedAt.toDate() : new Date(data.reviewedAt)) : undefined,
+      } as FPEvent;
+    });
+
+    return this.buildWindow(ruleId, events);
+  }
+
+  async getWindowBySince(ruleId: string, since: Date): Promise<FPWindow> {
+    const snapshot = await this.db
+      .collection(this.collection)
+      .where('ruleId', '==', ruleId)
+      .where('timestamp', '>=', since)
+      .orderBy('timestamp', 'desc')
+      .get();
+
+    const events = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
+        reviewedAt: data.reviewedAt ? (data.reviewedAt instanceof Timestamp ? data.reviewedAt.toDate() : new Date(data.reviewedAt)) : undefined,
+      } as FPEvent;
+    });
+
+    return this.buildWindow(ruleId, events);
   }
 
   async isFalsePositive(findingId: string): Promise<boolean> {
     const snapshot = await this.db
       .collection(this.collection)
       .where('findingId', '==', findingId)
+      .where('isFalsePositive', '==', true)
       .limit(1)
       .get();
 
     return !snapshot.empty;
   }
 
-  async getFalsePositivesByRule(ruleId: string): Promise<FalsePositiveEvent[]> {
-    const snapshot = await this.db
-      .collection(this.collection)
-      .where('ruleId', '==', ruleId)
-      .get();
+  private buildWindow(ruleId: string, events: FPEvent[]): FPWindow {
+    const total = events.length;
+    const falsePositives = events.filter(e => e.isFalsePositive).length;
+    const pending = events.filter(e => !e.reviewedBy).length;
+    const truePositives = total - falsePositives - pending;
+    const reviewed = total - pending;
+    const observedFPR = reviewed > 0 ? falsePositives / reviewed : 0;
 
-    return snapshot.docs.map((doc) => doc.data() as FalsePositiveEvent);
+    // Get the most recent rule version
+    const ruleVersion = events.length > 0 ? events[0].ruleVersion : '0.0.0';
+
+    return {
+      ruleId,
+      ruleVersion,
+      windowSize: total,
+      events,
+      statistics: {
+        total,
+        falsePositives,
+        truePositives,
+        pending,
+        observedFPR,
+      },
+    };
   }
 }
 
 /**
  * GCP Consent Store
  */
-class GcpConsentStore implements IConsentStoreAdapter {
+class GcpConsentStore implements ConsentStoreAdapter {
   private db: Firestore;
   private collection: string = 'consent';
 
@@ -91,12 +159,8 @@ class GcpConsentStore implements IConsentStoreAdapter {
     this.db = new Firestore({ projectId });
   }
 
-  private hashOrgId(orgId: string): string {
-    return createHash('sha256').update(orgId).digest('hex');
-  }
-
-  private hashAdminId(adminId: string): string {
-    return createHash('sha256').update(adminId).digest('hex');
+  private hashId(id: string): string {
+    return createHash('sha256').update(id).digest('hex');
   }
 
   private parseFirestoreDate(value: any): Date {
@@ -112,95 +176,78 @@ class GcpConsentStore implements IConsentStoreAdapter {
     return new Date();
   }
 
-  async checkResourceConsent(orgId: string, resource: ConsentResource): Promise<ConsentCheckResult> {
-    const summary = await this.getConsentSummary(orgId);
-
-    if (!summary) {
-      return {
-        granted: false,
-        state: 'not_requested',
-        resource,
-        reason: 'No consent record found',
+  async grantConsent(consent: CalibrationConsent): Promise<void> {
+    const docRef = this.db.collection(this.collection).doc(consent.orgId);
+    
+    await this.db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(docRef);
+      
+      const now = new Date();
+      const consentData = {
+        orgId: consent.orgId,
+        grantedBy: this.hashId(consent.grantedBy),
+        grantedAt: consent.grantedAt,
+        expiresAt: consent.expiresAt,
+        resources: consent.resources,
+        updatedAt: now,
+        createdAt: doc.exists ? this.parseFirestoreDate(doc.data()!.createdAt) : now,
       };
-    }
 
-    const resourceStatus = summary.resources[resource];
-
-    if (!resourceStatus) {
-      return {
-        granted: false,
-        state: 'not_requested',
-        resource,
-        reason: 'Resource not in consent record',
-      };
-    }
-
-    // Check if consent is expired
-    if (resourceStatus.expiresAt && new Date(resourceStatus.expiresAt) < new Date()) {
-      return {
-        granted: false,
-        state: 'expired',
-        resource,
-        grantedAt: resourceStatus.grantedAt,
-        expiresAt: resourceStatus.expiresAt,
-        version: resourceStatus.version,
-        reason: 'Consent has expired',
-      };
-    }
-
-    // Check consent version mismatch
-    if (
-      resourceStatus.version &&
-      resourceStatus.version !== CURRENT_CONSENT_POLICY.version
-    ) {
-      return {
-        granted: false,
-        state: resourceStatus.state,
-        resource,
-        grantedAt: resourceStatus.grantedAt,
-        expiresAt: resourceStatus.expiresAt,
-        version: resourceStatus.version,
-        reason: `Policy version mismatch (granted: ${resourceStatus.version}, current: ${CURRENT_CONSENT_POLICY.version})`,
-      };
-    }
-
-    const granted = resourceStatus.state === 'granted';
-
-    return {
-      granted,
-      state: resourceStatus.state,
-      resource,
-      grantedAt: resourceStatus.grantedAt,
-      expiresAt: resourceStatus.expiresAt,
-      version: resourceStatus.version,
-      reason: granted ? undefined : `Consent state is ${resourceStatus.state}`,
-    };
+      transaction.set(docRef, consentData);
+    });
   }
 
-  async checkMultipleResources(
-    orgId: string,
-    resources: ConsentResource[]
-  ): Promise<MultiResourceConsentResult> {
-    const results: Record<ConsentResource, ConsentCheckResult> = {} as any;
-    const missingConsent: ConsentResource[] = [];
+  async revokeConsent(orgId: string, revokedBy: string): Promise<void> {
+    const docRef = this.db.collection(this.collection).doc(orgId);
 
-    for (const resource of resources) {
-      const result = await this.checkResourceConsent(orgId, resource);
-      results[resource] = result;
+    await this.db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(docRef);
 
-      if (!result.granted) {
-        missingConsent.push(resource);
+      if (!doc.exists) {
+        throw new Error(`No consent record found for organization: ${orgId}`);
+      }
+
+      const now = new Date();
+      transaction.update(docRef, {
+        revokedAt: now,
+        revokedBy: this.hashId(revokedBy),
+        updatedAt: now,
+      });
+    });
+  }
+
+  async hasConsent(query: ConsentQuery): Promise<boolean> {
+    const doc = await this.db.collection(this.collection).doc(query.orgId).get();
+
+    if (!doc.exists) {
+      return false;
+    }
+
+    const data = doc.data()!;
+
+    // Check if revoked
+    if (data.revokedAt) {
+      return false;
+    }
+
+    // Check if expired
+    if (data.expiresAt) {
+      const expiresAt = this.parseFirestoreDate(data.expiresAt);
+      if (expiresAt < new Date()) {
+        return false;
       }
     }
 
-    return {
-      allGranted: missingConsent.length === 0,
-      results,
-      missingConsent,
-    };
+    // If checking for specific resource
+    if (query.resource) {
+      const resources = data.resources || [];
+      return resources.includes(query.resource);
+    }
+
+    return true;
   }
 
-  async getConsentSummary(orgId: string): Promise<OrganizationConsent | null> {
+  async getConsent(orgId: string): Promise<CalibrationConsent | null> {
     const doc = await this.db.collection(this.collection).doc(orgId).get();
 
     if (!doc.exists) {
@@ -211,193 +258,27 @@ class GcpConsentStore implements IConsentStoreAdapter {
 
     return {
       orgId: data.orgId,
-      orgName: data.orgName,
-      resources: data.resources || {},
       grantedBy: data.grantedBy,
-      consentVersion: data.consentVersion,
-      history: data.history || [],
-      createdAt: this.parseFirestoreDate(data.createdAt),
-      updatedAt: this.parseFirestoreDate(data.updatedAt),
+      grantedAt: this.parseFirestoreDate(data.grantedAt),
+      expiresAt: data.expiresAt ? this.parseFirestoreDate(data.expiresAt) : undefined,
+      resources: data.resources || [],
     };
-  }
-
-  async grantConsent(
-    orgId: string,
-    resource: ConsentResource,
-    grantedBy: string,
-    expiresAt?: Date
-  ): Promise<void> {
-    const docRef = this.db.collection(this.collection).doc(orgId);
-    
-    await this.db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(docRef);
-      
-      let summary: OrganizationConsent;
-      const now = new Date();
-
-      if (!doc.exists) {
-        // Create new consent record
-        summary = {
-          orgId,
-          resources: {} as any,
-          grantedBy: this.hashAdminId(grantedBy),
-          consentVersion: CURRENT_CONSENT_POLICY.version,
-          history: [],
-          createdAt: now,
-          updatedAt: now,
-        };
-      } else {
-        const data = doc.data()!;
-        summary = {
-          orgId: data.orgId,
-          orgName: data.orgName,
-          resources: data.resources || {},
-          grantedBy: data.grantedBy,
-          consentVersion: data.consentVersion,
-          history: data.history || [],
-          createdAt: this.parseFirestoreDate(data.createdAt),
-          updatedAt: this.parseFirestoreDate(data.updatedAt),
-        };
-      }
-
-      // Update or create resource status
-      const previousState = summary.resources[resource]?.state;
-
-      summary.resources[resource] = {
-        resource,
-        state: 'granted',
-        grantedAt: now,
-        expiresAt,
-        version: CURRENT_CONSENT_POLICY.version,
-      };
-
-      // Add to history
-      const event: ConsentEvent = {
-        eventId: randomUUID(),
-        eventType: previousState ? 'renewed' : 'granted',
-        resource,
-        timestamp: now,
-        actor: this.hashAdminId(grantedBy),
-        previousState,
-        newState: 'granted',
-      };
-
-      summary.history.push(event);
-      summary.updatedAt = now;
-
-      // Save to Firestore
-      transaction.set(docRef, summary);
-    });
-  }
-
-  async revokeConsent(orgId: string, resource: ConsentResource, revokedBy: string): Promise<void> {
-    const docRef = this.db.collection(this.collection).doc(orgId);
-
-    await this.db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(docRef);
-
-      if (!doc.exists) {
-        throw new Error(`No consent record found for organization: ${orgId}`);
-      }
-
-      const data = doc.data()!;
-      const summary: OrganizationConsent = {
-        orgId: data.orgId,
-        orgName: data.orgName,
-        resources: data.resources || {},
-        grantedBy: data.grantedBy,
-        consentVersion: data.consentVersion,
-        history: data.history || [],
-        createdAt: this.parseFirestoreDate(data.createdAt),
-        updatedAt: this.parseFirestoreDate(data.updatedAt),
-      };
-
-      const previousState = summary.resources[resource]?.state;
-
-      if (!previousState || previousState === 'revoked') {
-        // Already revoked or never granted
-        return;
-      }
-
-      const now = new Date();
-
-      summary.resources[resource] = {
-        ...summary.resources[resource],
-        state: 'revoked',
-        revokedAt: now,
-      };
-
-      // Add to history
-      const event: ConsentEvent = {
-        eventId: randomUUID(),
-        eventType: 'revoked',
-        resource,
-        timestamp: now,
-        actor: this.hashAdminId(revokedBy),
-        previousState,
-        newState: 'revoked',
-      };
-
-      summary.history.push(event);
-      summary.updatedAt = now;
-
-      // Save to Firestore
-      transaction.set(docRef, summary);
-    });
-  }
-
-  async checkConsent(orgId: string): Promise<'explicit' | 'implicit' | 'none'> {
-    const summary = await this.getConsentSummary(orgId);
-    if (!summary) {
-      return 'none';
-    }
-
-    // Check if any resource has granted consent
-    const hasAnyConsent = Object.values(summary.resources).some(
-      (status) => status.state === 'granted'
-    );
-
-    return hasAnyConsent ? 'explicit' : 'none';
-  }
-
-  async hasValidConsent(orgId: string): Promise<boolean> {
-    const consentType = await this.checkConsent(orgId);
-    return consentType === 'explicit' || consentType === 'implicit';
   }
 }
 
 /**
  * GCP Block Counter
  */
-class GcpBlockCounter implements IBlockCounterAdapter {
+class GcpBlockCounter implements BlockCounterAdapter {
   private db: Firestore;
   private collection: string = 'block_counter';
-  private ttlHours: number;
 
-  constructor(projectId: string, ttlHours: number = 24) {
+  constructor(projectId: string) {
     this.db = new Firestore({ projectId });
-    this.ttlHours = ttlHours;
   }
 
-  private getBucketKey(): string {
-    // Create hourly bucket key
-    const now = new Date();
-    const bucketHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0
-    );
-    return bucketHour.toISOString();
-  }
-
-  async increment(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-    const docId = `${bucketKey}:${ruleId}`;
-    const docRef = this.db.collection(this.collection).doc(docId);
+  async increment(key: string, ttlSeconds: number): Promise<number> {
+    const docRef = this.db.collection(this.collection).doc(key);
 
     const result = await this.db.runTransaction(async (transaction) => {
       const doc = await transaction.get(docRef);
@@ -408,11 +289,10 @@ class GcpBlockCounter implements IBlockCounterAdapter {
       }
 
       transaction.set(docRef, {
-        bucketKey,
-        ruleId,
+        key,
         count,
         timestamp: Date.now(),
-        expiresAt: new Date(Date.now() + this.ttlHours * 3600 * 1000),
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
       });
 
       return count;
@@ -421,40 +301,49 @@ class GcpBlockCounter implements IBlockCounterAdapter {
     return result;
   }
 
-  async getCount(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-    const docId = `${bucketKey}:${ruleId}`;
-    const doc = await this.db.collection(this.collection).doc(docId).get();
+  async get(key: string): Promise<number> {
+    const doc = await this.db.collection(this.collection).doc(key).get();
 
     if (!doc.exists) {
       return 0;
     }
 
-    return doc.data()!.count || 0;
+    const data = doc.data()!;
+
+    // Check if expired
+    if (data.expiresAt) {
+      const expiresAt = data.expiresAt instanceof Timestamp 
+        ? data.expiresAt.toDate() 
+        : new Date(data.expiresAt);
+      
+      if (expiresAt < new Date()) {
+        return 0;
+      }
+    }
+
+    return data.count || 0;
   }
 }
 
 /**
  * GCP Secret Store
  */
-class GcpSecretStore implements ISecretStoreAdapter {
+class GcpSecretStore implements SecretStoreAdapter {
   private client: SecretManagerServiceClient;
   private projectId: string;
-  private secretName: string;
 
-  constructor(projectId: string, secretName: string = 'hmac-nonce') {
+  constructor(projectId: string) {
     this.client = new SecretManagerServiceClient();
     this.projectId = projectId;
-    this.secretName = secretName;
   }
 
-  async getNonce(): Promise<NonceConfig | null> {
+  async getNonce(paramName: string): Promise<string> {
     try {
-      const name = `projects/${this.projectId}/secrets/${this.secretName}/versions/latest`;
+      const name = `projects/${this.projectId}/secrets/${paramName}/versions/latest`;
       const [version] = await this.client.accessSecretVersion({ name });
 
       if (!version.payload?.data) {
-        return null;
+        throw new Error(`Secret ${paramName} has no data`);
       }
 
       // Handle both Buffer and Uint8Array
@@ -463,51 +352,64 @@ class GcpSecretStore implements ISecretStoreAdapter {
         ? payloadData.toString('utf-8')
         : Buffer.from(payloadData as Uint8Array).toString('utf-8');
 
-      return {
-        value,
-        loadedAt: new Date().toISOString(),
-        source: name,
-      };
+      return value;
     } catch (error) {
       console.error('Failed to load nonce from Secret Manager:', error);
-      return null; // Fail-closed
+      throw error;
     }
   }
 
-  async rotateNonce(newValue: string): Promise<void> {
-    const parent = `projects/${this.projectId}/secrets/${this.secretName}`;
+  async getNonceWithVersion(paramName: string): Promise<{ value: string; version: number }> {
+    try {
+      const name = `projects/${this.projectId}/secrets/${paramName}/versions/latest`;
+      const [versionResponse] = await this.client.accessSecretVersion({ name });
 
-    await this.client.addSecretVersion({
-      parent,
-      payload: {
-        data: Buffer.from(newValue, 'utf-8'),
-      },
-    });
+      if (!versionResponse.payload?.data) {
+        throw new Error(`Secret ${paramName} has no data`);
+      }
+
+      // Handle both Buffer and Uint8Array
+      const payloadData = versionResponse.payload.data;
+      const value = Buffer.isBuffer(payloadData) 
+        ? payloadData.toString('utf-8')
+        : Buffer.from(payloadData as Uint8Array).toString('utf-8');
+
+      // Extract version number from the version name
+      // Format: projects/{project}/secrets/{secret}/versions/{version}
+      const versionParts = versionResponse.name?.split('/');
+      const versionNum = versionParts && versionParts.length > 0 
+        ? parseInt(versionParts[versionParts.length - 1], 10) 
+        : 1;
+
+      return { value, version: versionNum };
+    } catch (error) {
+      console.error('Failed to load nonce with version from Secret Manager:', error);
+      throw error;
+    }
+  }
+
+  async isReachable(): Promise<boolean> {
+    try {
+      const parent = `projects/${this.projectId}`;
+      await this.client.listSecrets({ parent, pageSize: 1 });
+      return true;
+    } catch (error) {
+      console.error('Secret Manager health check failed:', error);
+      return false;
+    }
   }
 }
 
 /**
  * GCP Baseline Storage
  */
-class GcpBaselineStorage implements IBaselineStorageAdapter {
+class GcpBaselineStorage implements BaselineStoreAdapter {
   private storage: Storage;
   private bucketName: string;
 
   constructor(projectId: string, bucketName: string) {
     this.storage = new Storage({ projectId });
     this.bucketName = bucketName;
-  }
-
-  async storeBaseline(key: string, content: string | Buffer, contentType?: string): Promise<void> {
-    const bucket = this.storage.bucket(this.bucketName);
-    const file = bucket.file(key);
-
-    await file.save(content, {
-      contentType: contentType || 'application/json',
-      metadata: {
-        contentType: contentType || 'application/json',
-      },
-    });
   }
 
   async getBaseline(key: string): Promise<string | null> {
@@ -528,112 +430,16 @@ class GcpBaselineStorage implements IBaselineStorageAdapter {
     }
   }
 
-  async listBaselines(): Promise<BaselineVersion[]> {
-    const bucket = this.storage.bucket(this.bucketName);
-    const [files] = await bucket.getFiles();
-
-    return files
-      .map((file) => ({
-        version: file.name,
-        uploadedAt: file.metadata.timeCreated ? new Date(file.metadata.timeCreated) : new Date(),
-        size: typeof file.metadata.size === 'string' 
-          ? parseInt(file.metadata.size, 10) 
-          : (file.metadata.size || 0),
-        contentType: file.metadata.contentType,
-      }))
-      .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
-  }
-
-  async deleteBaseline(key: string): Promise<void> {
+  async putBaseline(key: string, content: string): Promise<void> {
     const bucket = this.storage.bucket(this.bucketName);
     const file = bucket.file(key);
-    await file.delete();
-  }
-}
 
-/**
- * GCP Calibration Store
- */
-class GcpCalibrationStore implements ICalibrationStoreAdapter {
-  private fpStore: GcpFPStore;
-  private kThreshold: number;
-
-  constructor(projectId: string, kThreshold: number = 10) {
-    this.fpStore = new GcpFPStore(projectId);
-    this.kThreshold = kThreshold;
-  }
-
-  async aggregateFPsByRule(ruleId: string): Promise<CalibrationResult | KAnonymityError> {
-    const events = await this.fpStore.getFalsePositivesByRule(ruleId);
-
-    const uniqueOrgs = new Set(events.map((e) => e.orgIdHash || 'unknown'));
-    const orgCount = uniqueOrgs.size;
-
-    if (orgCount < this.kThreshold) {
-      return {
-        error: 'INSUFFICIENT_K_ANONYMITY',
-        message: `Insufficient data for privacy-preserving query. Requires at least ${this.kThreshold} organizations, found ${orgCount}.`,
-        requiredK: this.kThreshold,
-        actualK: orgCount,
-      };
-    }
-
-    const totalFPs = events.filter((e) => e.context?.isFalsePositive === true).length;
-
-    return {
-      ruleId,
-      totalFPs,
-      orgCount,
-      averageFPsPerOrg: orgCount > 0 ? totalFPs / orgCount : 0,
-      meetsKAnonymity: true,
-    };
-  }
-
-  async getRuleFPRate(
-    ruleId: string,
-    startDate?: string,
-    endDate?: string
-  ): Promise<CalibrationResult | KAnonymityError> {
-    let events = await this.fpStore.getFalsePositivesByRule(ruleId);
-
-    // Filter by date range
-    if (startDate) {
-      const start = new Date(startDate).getTime();
-      events = events.filter((e) => new Date(e.timestamp).getTime() >= start);
-    }
-
-    if (endDate) {
-      const end = new Date(endDate).getTime();
-      events = events.filter((e) => new Date(e.timestamp).getTime() <= end);
-    }
-
-    const uniqueOrgs = new Set(events.map((e) => e.orgIdHash || 'unknown'));
-    const orgCount = uniqueOrgs.size;
-
-    if (orgCount < this.kThreshold) {
-      return {
-        error: 'INSUFFICIENT_K_ANONYMITY',
-        message: `Insufficient data for privacy-preserving query. Requires at least ${this.kThreshold} organizations, found ${orgCount}.`,
-        requiredK: this.kThreshold,
-        actualK: orgCount,
-      };
-    }
-
-    const totalFPs = events.filter((e) => e.context?.isFalsePositive === true).length;
-
-    return {
-      ruleId,
-      totalFPs,
-      orgCount,
-      averageFPsPerOrg: orgCount > 0 ? totalFPs / orgCount : 0,
-      meetsKAnonymity: true,
-    };
-  }
-
-  async getAllRuleFPRates(): Promise<CalibrationResult[] | KAnonymityError> {
-    // For GCP, we'd need to scan all FP events
-    // This is a simplified implementation
-    throw new Error('getAllRuleFPRates not yet implemented for GCP');
+    await file.save(content, {
+      contentType: 'application/json',
+      metadata: {
+        contentType: 'application/json',
+      },
+    });
   }
 }
 
@@ -641,22 +447,21 @@ class GcpCalibrationStore implements ICalibrationStoreAdapter {
  * Create GCP adapters from configuration
  */
 export function createGcpAdapters(config: CloudConfig): Adapters {
-  if (!config.projectId) {
+  if (!config.gcpProjectId) {
     throw new Error('GCP project ID is required');
   }
 
-  const projectId = config.projectId;
+  const projectId = config.gcpProjectId;
   
   // Get resource names from environment or use defaults
   const baselineBucket = process.env.GCP_BASELINE_BUCKET || `${projectId}-phase-mirror-baselines-staging`;
-  const secretName = process.env.GCP_SECRET_NAME || 'phase-mirror-hmac-nonce-staging';
 
   return {
     fpStore: new GcpFPStore(projectId),
     consentStore: new GcpConsentStore(projectId),
     blockCounter: new GcpBlockCounter(projectId),
-    secretStore: new GcpSecretStore(projectId, secretName),
-    baselineStorage: new GcpBaselineStorage(projectId, baselineBucket),
-    calibrationStore: new GcpCalibrationStore(projectId),
+    secretStore: new GcpSecretStore(projectId),
+    baselineStore: new GcpBaselineStorage(projectId, baselineBucket),
+    provider: 'gcp',
   };
 }
