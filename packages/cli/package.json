@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "node -e \"const {cpSync,mkdirSync}=require('fs');const {join}=require('path');mkdirSync('dist/schemas',{recursive:true});cpSync('../mirror-dissonance/schemas/dissonance-report.schema.json','dist/schemas/dissonance-report.schema.json')\"",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest --passWithNoTests",

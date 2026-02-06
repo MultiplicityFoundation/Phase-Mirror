@@ -24,12 +24,15 @@ This document tracks known issues, limitations, and areas for improvement in the
 
 ## Important Improvements
 
-### 4. CLI Path Resolution
-**File:** `packages/cli/src/index.ts`, line 36
-**Issue:** Uses hardcoded relative path to oracle module
-**Impact:** Will break if installed globally or package structure changes
-**Severity:** Medium
-**Recommendation:** Use package resolution or environment-based path configuration
+### 4. CLI Path Resolution ✅ RESOLVED
+**File:** `packages/cli/src/paths.ts`
+**Status:** Resolved - Implemented package-relative path resolution
+**Solution:** Created path resolution utility that works in all deployment contexts:
+  - Monorepo development: Uses sibling package resolution
+  - Global install: Uses node_modules resolution
+  - npx execution: Cascades through multiple strategies
+  - Docker containers: Falls back to bundled resources
+**Implementation:** Three-tier resolution cascade for schema, rules, and config files
 
 ### 5. SSM Nonce Lifecycle Management
 **File:** `infra/terraform/main.tf`, lines 109-111
@@ -183,12 +186,12 @@ This document tracks known issues, limitations, and areas for improvement in the
 ## Summary
 
 - **Critical**: 3 items requiring attention before production
-- **Important**: 8 items for near-term improvement
+- **Important**: 7 items for near-term improvement (1 resolved)
 - **Future**: 7 enhancement ideas
 - **Documentation**: 3 gaps to fill
 - **Testing**: 3 coverage areas
 - **Operational**: 3 deployment considerations
 
-Total: 24 tracked items
+Total: 23 tracked items (1 resolved)
 
-Last Updated: 2026-01-28
+Last Updated: 2026-02-06
