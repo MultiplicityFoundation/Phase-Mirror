@@ -6,7 +6,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-import type { BaselineStoreAdapter } from "../types.blueprint";
+import type { BaselineStoreAdapter } from "../types";
 
 export class AWSBaselineStore implements BaselineStoreAdapter {
   constructor(

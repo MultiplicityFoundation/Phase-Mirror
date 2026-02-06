@@ -1,71 +1,56 @@
-/**
- * Cloud Configuration Loader
- * 
- * Reads cloud provider configuration from environment variables
- */
+// Reads cloud provider configuration from environment.
+// Single source of truth for all adapter wiring decisions.
 
-import { CloudConfig } from './types.js';
+export type CloudProvider = "aws" | "gcp" | "local";
 
-/**
- * Load cloud configuration from environment variables
- * 
- * Environment variables:
- * - CLOUD_PROVIDER: 'aws' | 'gcp' | 'local' (default: 'local')
- * - CLOUD_REGION: AWS region or GCP region (default: 'us-east-1' for AWS, 'us-central1' for GCP)
- * - GCP_PROJECT_ID: GCP project ID (required for GCP)
- * - LOCAL_DATA_DIR: Local data directory (default: '.test-data')
- */
+export interface CloudConfig {
+  provider: CloudProvider;
+  region: string;
+
+  // AWS-specific
+  fpTableName?: string;
+  consentTableName?: string;
+  blockCounterTableName?: string;
+  nonceParameterName?: string;
+  baselineBucket?: string;
+
+  // GCP-specific
+  gcpProjectId?: string;
+
+  // Local-specific (JSON file paths)
+  localDataDir?: string;
+
+  // Override endpoint for LocalStack / emulators
+  endpoint?: string;
+}
+
 export function loadCloudConfig(): CloudConfig {
-  const provider = (process.env.CLOUD_PROVIDER || 'local') as 'aws' | 'gcp' | 'local';
+  const provider = (process.env.CLOUD_PROVIDER || "local") as CloudProvider;
 
-  if (!['aws', 'gcp', 'local'].includes(provider)) {
+  if (!["aws", "gcp", "local"].includes(provider)) {
     throw new Error(
-      `Invalid CLOUD_PROVIDER: ${provider}. Must be 'aws', 'gcp', or 'local'.`
+      `Invalid CLOUD_PROVIDER: "${provider}". Must be aws | gcp | local.`
     );
   }
 
-  const config: CloudConfig = {
+  return {
     provider,
+    region: process.env.AWS_REGION || process.env.GCP_REGION || "us-east-1",
+
+    // AWS
+    fpTableName: process.env.FP_TABLE_NAME,
+    consentTableName: process.env.CONSENT_TABLE_NAME,
+    blockCounterTableName: process.env.BLOCK_COUNTER_TABLE_NAME,
+    nonceParameterName: process.env.NONCE_PARAMETER_NAME,
+    baselineBucket: process.env.BASELINE_BUCKET,
+
+    // GCP
+    gcpProjectId: process.env.GCP_PROJECT_ID,
+
+    // Local
+    localDataDir: process.env.LOCAL_DATA_DIR || ".mirror-data",
+
+    // Endpoint override (LocalStack, DynamoDB Local, etc.)
+    endpoint: process.env.CLOUD_ENDPOINT,
   };
-
-  // Provider-specific configuration
-  switch (provider) {
-    case 'aws':
-      config.region = process.env.CLOUD_REGION || process.env.AWS_REGION || 'us-east-1';
-      break;
-
-    case 'gcp':
-      config.region = process.env.CLOUD_REGION || process.env.GCP_REGION || 'us-central1';
-      config.projectId = process.env.GCP_PROJECT_ID;
-      
-      if (!config.projectId) {
-        throw new Error(
-          'GCP_PROJECT_ID environment variable is required when CLOUD_PROVIDER=gcp'
-        );
-      }
-      break;
-
-    case 'local':
-      config.localDataDir = process.env.LOCAL_DATA_DIR || '.test-data';
-      break;
-  }
-
-  return config;
-}
-
-/**
- * Validate cloud configuration
- */
-export function validateCloudConfig(config: CloudConfig): void {
-  if (!config.provider) {
-    throw new Error('Cloud provider is required');
-  }
-
-  if (config.provider === 'gcp' && !config.projectId) {
-    throw new Error('GCP project ID is required for GCP provider');
-  }
-
-  if (config.provider === 'local' && !config.localDataDir) {
-    throw new Error('Local data directory is required for local provider');
-  }
 }

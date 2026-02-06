@@ -7,7 +7,7 @@ import {
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import type { BlockCounterAdapter } from "../types.blueprint";
+import type { BlockCounterAdapter } from "../types";
 
 export class AWSBlockCounter implements BlockCounterAdapter {
   constructor(

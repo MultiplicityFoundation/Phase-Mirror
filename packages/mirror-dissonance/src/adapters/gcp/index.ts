@@ -14,7 +14,7 @@ import { createHash, randomUUID } from 'crypto';
 
 import {
   CloudConfig,
-  CloudAdapters,
+  Adapters,
   IFPStoreAdapter,
   IConsentStoreAdapter,
   IBlockCounterAdapter,
@@ -640,7 +640,7 @@ class GcpCalibrationStore implements ICalibrationStoreAdapter {
 /**
  * Create GCP adapters from configuration
  */
-export function createGcpAdapters(config: CloudConfig): CloudAdapters {
+export function createGcpAdapters(config: CloudConfig): Adapters {
   if (!config.projectId) {
     throw new Error('GCP project ID is required');
   }

@@ -5,7 +5,7 @@
  * Uses dynamic imports so unused provider SDKs don't bloat the bundle.
  */
 
-import { CloudConfig, CloudAdapters } from './types.js';
+import type { CloudConfig, Adapters } from './types.js';
 
 /**
  * Create cloud adapters based on configuration
@@ -16,11 +16,11 @@ import { CloudConfig, CloudAdapters } from './types.js';
  * @param config Cloud configuration
  * @returns Promise resolving to cloud adapters
  */
-export async function createAdapters(config: CloudConfig): Promise<CloudAdapters> {
+export async function createAdapters(config: CloudConfig): Promise<Adapters> {
   switch (config.provider) {
     case 'aws': {
       const awsModule = await import('./aws/index.js');
-      return awsModule.createAwsAdapters(config);
+      return awsModule.createAWSAdapters(config);
     }
 
     case 'gcp': {
@@ -44,7 +44,7 @@ export async function createAdapters(config: CloudConfig): Promise<CloudAdapters
  * Loads configuration from environment variables and creates adapters.
  * This is a convenience function for the most common use case.
  */
-export async function createDefaultAdapters(): Promise<CloudAdapters> {
+export async function createDefaultAdapters(): Promise<Adapters> {
   const { loadCloudConfig } = await import('./config.js');
   const config = loadCloudConfig();
   return createAdapters(config);

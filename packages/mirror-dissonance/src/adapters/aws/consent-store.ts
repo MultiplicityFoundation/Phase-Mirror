@@ -8,7 +8,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import type { ConsentStoreAdapter } from "../types.blueprint";
+import type { ConsentStoreAdapter } from "../types";
 import type {
   CalibrationConsent,
   ConsentQuery,

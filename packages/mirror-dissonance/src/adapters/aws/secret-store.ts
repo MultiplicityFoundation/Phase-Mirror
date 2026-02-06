@@ -2,7 +2,7 @@
 // Implements SecretStoreAdapter using AWS Systems Manager Parameter Store
 
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import type { SecretStoreAdapter } from "../types.blueprint";
+import type { SecretStoreAdapter } from "../types";
 
 export class AWSSecretStore implements SecretStoreAdapter {
   constructor(private readonly client: SSMClient) {}

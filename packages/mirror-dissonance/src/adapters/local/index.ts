@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import {
   CloudConfig,
-  CloudAdapters,
+  Adapters,
   IFPStoreAdapter,
   IConsentStoreAdapter,
   IBlockCounterAdapter,
@@ -726,7 +726,7 @@ class LocalCalibrationStore implements ICalibrationStoreAdapter {
 /**
  * Create local adapters
  */
-export function createLocalAdapters(config: CloudConfig): CloudAdapters {
+export function createLocalAdapters(config: CloudConfig): Adapters {
   const dataDir = config.localDataDir || '.test-data';
 
   return {

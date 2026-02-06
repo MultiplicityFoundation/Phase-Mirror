@@ -10,7 +10,7 @@ import {
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import type { FPStoreAdapter } from "../types.blueprint";
+import type { FPStoreAdapter } from "../types";
 import type { FPEvent, FPWindow } from "../../fp-store/types";
 
 export class AWSFPStore implements FPStoreAdapter {
