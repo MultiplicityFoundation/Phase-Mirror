@@ -102,6 +102,89 @@ export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
   return new Oracle(components);
 }
 
+/**
+ * Initialize Oracle with cloud adapters (Phase 1 Adapter Layer)
+ * 
+ * This is the new initialization path that uses the adapter layer to:
+ * 1. Consolidate all AWS SDK instantiation in one place
+ * 2. Enable zero-credential local development
+ * 3. Make the Oracle cloud-agnostic
+ * 4. Fail-closed instead of silently falling back to NoOp stores
+ * 
+ * Usage:
+ * ```
+ * import { initializeOracleWithAdapters } from './oracle';
+ * import { loadCloudConfig } from './adapters/config';
+ * 
+ * const config = loadCloudConfig(); // Reads from environment
+ * const oracle = await initializeOracleWithAdapters(config);
+ * ```
+ */
+export async function initializeOracleWithAdapters(
+  cloudConfig: import('./adapters/types').CloudConfig
+): Promise<Oracle> {
+  const { createAdapters } = await import('./adapters/factory');
+  const adapters = await createAdapters(cloudConfig);
+
+  const components: OracleComponents = {};
+
+  // Load nonce if we're in AWS mode with SSM configured
+  if (cloudConfig.provider === 'aws' && cloudConfig.nonceParameterName) {
+    try {
+      const nonce = await adapters.secretStore.getNonce(cloudConfig.nonceParameterName);
+      const { createRedactor } = await import('./redaction/redactor');
+      components.redactor = createRedactor({
+        value: nonce,
+        loadedAt: new Date().toISOString(),
+        source: cloudConfig.nonceParameterName,
+      });
+    } catch (error) {
+      // Fail-closed: throw error if nonce cannot be loaded
+      console.error('Failed to load nonce from secret store:', error);
+      throw error;
+    }
+  }
+
+  // Wrap adapters in Oracle-compatible interfaces
+  // The adapter layer provides the new interface (recordEvent, etc.)
+  // The Oracle expects the old interface (isFalsePositive legacy method)
+  // For now, we create a compatibility wrapper
+  const fpStoreWrapper = {
+    // New adapter methods pass through
+    recordEvent: adapters.fpStore.recordEvent.bind(adapters.fpStore),
+    markFalsePositive: adapters.fpStore.markFalsePositive.bind(adapters.fpStore),
+    getWindowByCount: adapters.fpStore.getWindowByCount.bind(adapters.fpStore),
+    getWindowBySince: adapters.fpStore.getWindowBySince.bind(adapters.fpStore),
+    // Legacy method needed by Oracle
+    isFalsePositive: adapters.fpStore.isFalsePositive.bind(adapters.fpStore),
+  };
+
+  const blockCounterWrapper = {
+    // Adapter uses (key, ttlSeconds), Oracle expects different signatures
+    increment: async (ruleId: string) => {
+      return adapters.blockCounter.increment(ruleId, 3600); // 1 hour TTL
+    },
+    get: adapters.blockCounter.get.bind(adapters.blockCounter),
+    getCount: adapters.blockCounter.get.bind(adapters.blockCounter), // Alias for compatibility
+  };
+
+  // Consent store needs wrapping to match Oracle's expected interface
+  const consentStoreWrapper = {
+    // Minimal compatibility wrapper - Oracle currently doesn't use consent store methods heavily
+    hasValidConsent: async (orgId: string) => {
+      // Check a default resource for backward compatibility
+      // In a full migration, we'd map this properly
+      return adapters.consentStore.hasConsent(orgId, 'fp_patterns');
+    },
+  };
+
+  components.fpStore = fpStoreWrapper as any;
+  components.blockCounter = blockCounterWrapper as any;
+  components.consentStore = consentStoreWrapper as any;
+
+  return new Oracle(components);
+}
+
 export class Oracle {
   private blockCounter: BlockCounter | MemoryBlockCounter;
   private fpStore: IFPStore | FPStore;
@@ -254,3 +337,7 @@ export {
   type FileArtifact,
   type RepositoryContext,
 } from './analysis/index.js';
+
+// Export adapter layer types and config loader
+export { loadCloudConfig } from './adapters/config';
+export type { CloudConfig, CloudProvider, Adapters } from './adapters/types';
