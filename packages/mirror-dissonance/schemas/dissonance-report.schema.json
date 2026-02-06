@@ -45,6 +45,20 @@
             },
             "required": ["ruleId", "fromStatus", "toStatus", "reason"]
           }
+        },
+        "evaluationErrors": {
+          "type": "array",
+          "description": "Rules that threw during evaluation. Each generates a synthetic critical violation.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ruleId": { "type": "string" },
+              "ruleVersion": { "type": "string" },
+              "phase": { "type": "string", "enum": ["init", "evaluate", "evidence", "post"] },
+              "message": { "type": "string" }
+            },
+            "required": ["ruleId", "phase", "message"]
+          }
         }
       }
     },
