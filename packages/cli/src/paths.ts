@@ -19,6 +19,12 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 
 /**
+ * Package names for resolution
+ */
+const CORE_PACKAGE_NAME = "@mirror-dissonance/core";
+const SIBLING_PACKAGE_DIR = "mirror-dissonance";
+
+/**
  * Anchor point: the directory containing THIS compiled file.
  * Works correctly in all contexts:
  *   - Local dev: packages/cli/dist/paths.js
@@ -45,11 +51,11 @@ export const CLI_PACKAGE_ROOT = resolve(__dirname, "..");
 export function resolveSchemaPath(): string {
   const candidates = [
     // 1. Monorepo sibling: packages/cli/dist/../../../mirror-dissonance/schemas/
-    join(__dirname, "..", "..", "mirror-dissonance", "schemas", "dissonance-report.schema.json"),
+    join(__dirname, "..", "..", SIBLING_PACKAGE_DIR, "schemas", "dissonance-report.schema.json"),
 
     // 2. Node module resolution: the schema is exported from @mirror-dissonance/core
     resolveFromNodeModules(
-      "@mirror-dissonance/core",
+      CORE_PACKAGE_NAME,
       "schemas/dissonance-report.schema.json"
     ),
 
@@ -76,8 +82,8 @@ export function resolveSchemaPath(): string {
  */
 export function resolveRulesDir(): string {
   const candidates = [
-    join(__dirname, "..", "..", "mirror-dissonance", "src", "rules"),
-    resolveFromNodeModules("@mirror-dissonance/core", "dist/src/rules"),
+    join(__dirname, "..", "..", SIBLING_PACKAGE_DIR, "src", "rules"),
+    resolveFromNodeModules(CORE_PACKAGE_NAME, "dist/src/rules"),
     join(CLI_PACKAGE_ROOT, "rules"),
   ].filter(Boolean) as string[];
 
