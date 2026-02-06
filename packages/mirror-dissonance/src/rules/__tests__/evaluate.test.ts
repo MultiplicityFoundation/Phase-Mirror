@@ -13,17 +13,6 @@ function successRule(id: string, violations: RuleViolation[] = []): Rule {
   };
 }
 
-// Helper: create a rule that throws
-function failingRule(id: string, error: Error | string = "boom"): Rule {
-  return {
-    id,
-    version: "1.0.0",
-    checker: jest.fn().mockRejectedValue(
-      typeof error === "string" ? new Error(error) : error
-    ),
-  };
-}
-
 const mockInput: OracleInput = {
   repo: {
     owner: "test",
@@ -58,9 +47,6 @@ describe("evaluateAllRules — fail-closed error propagation", () => {
         line: 10,
       },
     };
-    const rules = {
-      "MD-001": successRule("MD-001", [violation]).checker,
-    };
 
     const result = await evaluateAllRules(mockInput);
 
@@ -71,7 +57,6 @@ describe("evaluateAllRules — fail-closed error propagation", () => {
 
   it("converts throwing rule into synthetic critical violation", async () => {
     // We need to mock a specific rule to throw
-    const originalRules = require("../index").RULES;
     const mockRules = {
       "MD-002": jest.fn().mockRejectedValue(new Error("regex timeout")),
     };
