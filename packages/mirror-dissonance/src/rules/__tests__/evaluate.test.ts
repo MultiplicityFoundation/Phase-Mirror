@@ -28,17 +28,6 @@ const mockInput: OracleInput = {
 
 describe("evaluateAllRules — fail-closed error propagation", () => {
   it("returns violations from successful rules", async () => {
-    const violation: RuleViolation = {
-      ruleId: "MD-001",
-      ruleVersion: "1.0.0",
-      severity: "high",
-      message: "Unpinned action detected",
-      context: {
-        file: "README.md",
-        line: 10,
-      },
-    };
-
     const result = await evaluateAllRules(mockInput);
 
     expect(result.violations.length).toBeGreaterThan(0);
