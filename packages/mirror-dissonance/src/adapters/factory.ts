@@ -34,7 +34,10 @@ export async function createAdapters(config: CloudConfig): Promise<Adapters> {
     }
 
     default:
-      throw new Error(`Unsupported cloud provider: ${config.provider}`);
+      throw new Error(
+        `Unknown provider: "${config.provider}". ` +
+        `Set CLOUD_PROVIDER to aws | gcp | local.`
+      );
   }
 }
 

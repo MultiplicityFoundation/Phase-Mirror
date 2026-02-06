@@ -121,26 +121,124 @@ class JsonFileStore<T> {
 
 /**
  * Local False Positive Store
+ * Updated to support blueprint FPStoreAdapter interface
  */
 class LocalFPStore implements IFPStoreAdapter {
   private store: JsonFileStore<FalsePositiveEvent>;
+  private fpEventStore: JsonFileStore<any>; // For new FPEvent format
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'fp-events.json');
+    this.fpEventStore = new JsonFileStore(dataDir, 'fp-events-v2.json');
   }
 
+  // Legacy interface
   async recordFalsePositive(event: FalsePositiveEvent): Promise<void> {
     await this.store.writeOne(event, (e) => e.id);
   }
 
   async isFalsePositive(findingId: string): Promise<boolean> {
-    const event = await this.store.readOne((e) => e.findingId === findingId);
-    return event !== null;
+    // Check both old and new stores
+    const legacyEvent = await this.store.readOne((e) => e.findingId === findingId);
+    if (legacyEvent !== null) return true;
+    
+    const newEvent = await this.fpEventStore.readOne((e: any) => e.findingId === findingId && e.isFalsePositive === true);
+    return newEvent !== null;
   }
 
   async getFalsePositivesByRule(ruleId: string): Promise<FalsePositiveEvent[]> {
     const events = await this.store.read();
     return events.filter((e) => e.ruleId === ruleId);
+  }
+
+  // Blueprint FPStoreAdapter interface
+  async recordEvent(event: any): Promise<void> {
+    // Check for duplicates
+    const existing = await this.fpEventStore.readOne((e: any) => e.eventId === event.eventId);
+    if (existing) {
+      throw new Error(`Duplicate event: ${event.eventId}`);
+    }
+    await this.fpEventStore.withLock(async () => {
+      const events = await this.fpEventStore.read();
+      events.push(event);
+      await this.fpEventStore.write(events);
+    });
+  }
+
+  async markFalsePositive(
+    findingId: string,
+    reviewedBy: string,
+    ticket: string
+  ): Promise<void> {
+    await this.fpEventStore.withLock(async () => {
+      const events = await this.fpEventStore.read();
+      const event = events.find((e: any) => e.findingId === findingId);
+      if (!event) {
+        throw new Error(`Finding ${findingId} not found`);
+      }
+      event.isFalsePositive = true;
+      event.reviewedBy = reviewedBy;
+      event.reviewedAt = new Date();
+      event.suppressionTicket = ticket;
+      await this.fpEventStore.write(events);
+    });
+  }
+
+  async getWindowByCount(ruleId: string, count: number): Promise<any> {
+    const events = await this.fpEventStore.read();
+    const ruleEvents = events.filter((e: any) => e.ruleId === ruleId);
+    const sortedEvents = ruleEvents.sort((a: any, b: any) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    const windowEvents = sortedEvents.slice(0, count);
+    return this.computeWindow(ruleId, windowEvents);
+  }
+
+  async getWindowBySince(ruleId: string, since: Date): Promise<any> {
+    const events = await this.fpEventStore.read();
+    const ruleEvents = events.filter((e: any) => 
+      e.ruleId === ruleId && new Date(e.timestamp) >= since
+    );
+    return this.computeWindow(ruleId, ruleEvents);
+  }
+
+  private computeWindow(ruleId: string, events: any[]): any {
+    // Get most common version
+    const versionCounts = new Map<string, number>();
+    events.forEach(e => {
+      versionCounts.set(e.ruleVersion, (versionCounts.get(e.ruleVersion) || 0) + 1);
+    });
+    
+    let mostCommonVersion = '';
+    let maxCount = 0;
+    versionCounts.forEach((count, version) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommonVersion = version;
+      }
+    });
+
+    // Compute statistics
+    const total = events.length;
+    const falsePositives = events.filter((e: any) => e.isFalsePositive).length;
+    const pending = events.filter((e: any) => !e.reviewedBy || !e.reviewedAt).length;
+    const reviewed = total - pending;
+    const truePositives = reviewed - falsePositives;
+    const observedFPR = reviewed > 0 ? falsePositives / reviewed : 0;
+
+    return {
+      ruleId,
+      ruleVersion: mostCommonVersion,
+      windowSize: total,
+      events,
+      statistics: {
+        total,
+        falsePositives,
+        truePositives,
+        pending,
+        observedFPR,
+      },
+    };
   }
 }
 
@@ -374,6 +472,16 @@ class LocalConsentStore implements IConsentStoreAdapter {
   async hasValidConsent(orgId: string): Promise<boolean> {
     const consentType = await this.checkConsent(orgId);
     return consentType === 'explicit' || consentType === 'implicit';
+  }
+
+  // Blueprint ConsentStoreAdapter interface
+  async hasConsent(orgId: string, resource: ConsentResource): Promise<boolean> {
+    const result = await this.checkResourceConsent(orgId, resource);
+    return result.granted;
+  }
+
+  async getConsent(orgId: string): Promise<OrganizationConsent | null> {
+    return this.getConsentSummary(orgId);
   }
 }
 
@@ -736,5 +844,6 @@ export function createLocalAdapters(config: CloudConfig): CloudAdapters {
     secretStore: new LocalSecretStore(dataDir),
     baselineStorage: new LocalBaselineStorage(dataDir),
     calibrationStore: new LocalCalibrationStore(dataDir),
+    provider: 'local', // Add provider field for blueprint compliance
   };
 }
