@@ -40,13 +40,34 @@ import {
 } from '../../consent-store/schema.js';
 
 /**
- * Utility class for atomic JSON file operations
+ * Utility class for atomic JSON file operations.
+ * Uses an in-process mutex so concurrent read-modify-write cycles
+ * within the same Node.js process are serialised correctly.
  */
 class JsonFileStore<T> {
+  private _lock: Promise<void> = Promise.resolve();
+
   constructor(
     private dataDir: string,
     private filename: string
   ) {}
+
+  /**
+   * Run `fn` while holding a per-store mutex.
+   * Guarantees that concurrent callers are serialised.
+   */
+  async withLock<R>(fn: () => Promise<R>): Promise<R> {
+    let release!: () => void;
+    const next = new Promise<void>((res) => { release = res; });
+    const prev = this._lock;
+    this._lock = next;
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
 
   async read(): Promise<T[]> {
     const filePath = join(this.dataDir, this.filename);
@@ -63,7 +84,8 @@ class JsonFileStore<T> {
 
   async write(data: T[]): Promise<void> {
     const filePath = join(this.dataDir, this.filename);
-    const tempPath = `${filePath}.tmp`;
+    // Use a unique temp file per call to avoid races under concurrency
+    const tempPath = `${filePath}.${randomUUID()}.tmp`;
 
     // Ensure directory exists
     await fs.mkdir(this.dataDir, { recursive: true });
@@ -403,29 +425,31 @@ class LocalBlockCounter implements IBlockCounterAdapter {
   }
 
   async increment(ruleId: string): Promise<number> {
-    await this.cleanExpired();
+    return this.store.withLock(async () => {
+      await this.cleanExpired();
 
-    const bucketKey = this.getBucketKey();
-    const entries = await this.store.read();
-    const entryIndex = entries.findIndex(
-      (e) => e.bucketKey === bucketKey && e.ruleId === ruleId
-    );
+      const bucketKey = this.getBucketKey();
+      const entries = await this.store.read();
+      const entryIndex = entries.findIndex(
+        (e) => e.bucketKey === bucketKey && e.ruleId === ruleId
+      );
 
-    if (entryIndex >= 0) {
-      entries[entryIndex].count += 1;
-      entries[entryIndex].timestamp = Date.now();
-    } else {
-      entries.push({
-        bucketKey,
-        ruleId,
-        count: 1,
-        timestamp: Date.now(),
-      });
-    }
+      if (entryIndex >= 0) {
+        entries[entryIndex].count += 1;
+        entries[entryIndex].timestamp = Date.now();
+      } else {
+        entries.push({
+          bucketKey,
+          ruleId,
+          count: 1,
+          timestamp: Date.now(),
+        });
+      }
 
-    await this.store.write(entries);
+      await this.store.write(entries);
 
-    return entries[entryIndex >= 0 ? entryIndex : entries.length - 1].count;
+      return entries[entryIndex >= 0 ? entryIndex : entries.length - 1].count;
+    });
   }
 
   async getCount(ruleId: string): Promise<number> {
