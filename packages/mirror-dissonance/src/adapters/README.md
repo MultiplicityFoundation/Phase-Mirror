@@ -1,6 +1,15 @@
-# Cloud Provider Adapters
+# Cloud Provider Adapters - Phase 1 Complete
 
-Phase Mirror now supports multiple cloud providers through a unified adapter interface. This allows you to run the same Phase Mirror code on AWS, GCP, or locally without any changes to your application logic.
+Phase Mirror now supports multiple cloud providers through a unified adapter interface. **Phase 1** consolidates all AWS SDK usage behind testable interfaces and enables zero-credential local development.
+
+## Phase 1 Improvements
+
+The adapter layer has been enhanced to address critical production safety issues:
+
+1. **Fail-Closed Validation**: AWS adapter now throws descriptive errors when required configuration is missing, preventing silent fallback to NoOp stores.
+2. **Consolidated AWS SDK Usage**: All `DynamoDBClient`, `SSMClient`, and `S3Client` instantiation is now in `adapters/aws/` only.
+3. **Oracle Integration**: New `initializeOracleWithAdapters()` function uses the adapter factory instead of direct SDK calls.
+4. **Blueprint Compliance**: Implements the complete Day 5 + Day 6 adapter specification.
 
 ## Architecture Overview
 
@@ -88,12 +97,74 @@ const config = loadCloudConfig();
 const adapters = await createAdapters(config);
 
 // Use adapters (same API regardless of provider)
-await adapters.fpStore.recordFalsePositive(event);
+await adapters.fpStore.recordEvent(event);
 await adapters.consentStore.grantConsent('org-123', 'fp_patterns', 'admin');
-const count = await adapters.blockCounter.increment('rule-456');
-const nonce = await adapters.secretStore.getNonce();
-await adapters.baselineStorage.storeBaseline('baseline-v1.json', content);
-const calibration = await adapters.calibrationStore.aggregateFPsByRule('rule-789');
+const count = await adapters.blockCounter.increment('rule-456', 3600);
+const nonce = await adapters.secretStore.getNonce('/param/name');
+await adapters.baselineStore.putBaseline('baseline-v1.json', content);
+```
+
+## Phase 1: Oracle Integration (Recommended)
+
+The recommended way to initialize the Oracle is now with the adapter layer:
+
+```typescript
+import { initializeOracleWithAdapters, loadCloudConfig } from '@mirror-dissonance/core';
+
+// Load configuration from environment variables
+const config = loadCloudConfig();
+
+// Create Oracle with adapters (fail-closed - throws if config invalid)
+const oracle = await initializeOracleWithAdapters(config);
+
+// Use the Oracle as normal
+const result = await oracle.analyze(input);
+```
+
+### Environment Variables for Oracle
+
+**AWS Production** (requires all or none):
+```bash
+CLOUD_PROVIDER=aws
+AWS_REGION=us-east-1
+FP_TABLE_NAME=phase-mirror-fp-events
+CONSENT_TABLE_NAME=phase-mirror-consent
+BLOCK_COUNTER_TABLE_NAME=phase-mirror-block-counter
+NONCE_PARAMETER_NAME=/phase-mirror/nonce
+BASELINE_BUCKET=phase-mirror-baselines
+```
+
+**Local Development** (zero credentials needed):
+```bash
+CLOUD_PROVIDER=local
+LOCAL_DATA_DIR=./.mirror-data
+```
+
+**LocalStack Testing** (AWS-compatible local):
+```bash
+CLOUD_PROVIDER=aws
+CLOUD_ENDPOINT=http://localhost:4566
+# ... (table names as above)
+```
+
+### Fail-Closed Validation
+
+The AWS adapter validates all required configuration on startup and throws descriptive errors instead of silently falling back to NoOp stores:
+
+```typescript
+// ❌ Missing config throws immediately
+await createAWSAdapters({ provider: 'aws', region: 'us-east-1' });
+// Error: AWS adapter requires FP_TABLE_NAME. Set CLOUD_PROVIDER=local for development without AWS.
+
+// ✅ Complete config succeeds
+await createAWSAdapters({
+  provider: 'aws',
+  region: 'us-east-1',
+  fpTableName: 'fp-events',
+  consentTableName: 'consent',
+  blockCounterTableName: 'counter',
+  nonceParameterName: '/nonce',
+});
 ```
 
 ## Adapter Interfaces
