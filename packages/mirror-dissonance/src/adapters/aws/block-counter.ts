@@ -16,6 +16,7 @@ import {
   GetCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { BlockCounterAdapter, CloudConfig } from '../types.js';
+import { BlockCounterError } from '../errors.js';
 
 export class AwsBlockCounter implements BlockCounterAdapter {
   private client: DynamoDBDocumentClient;
@@ -72,8 +73,12 @@ export class AwsBlockCounter implements BlockCounterAdapter {
       const response = await this.client.send(command);
       return response.Attributes?.count || 1;
     } catch (error) {
-      console.error('Failed to increment block counter:', error);
-      throw error;
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to increment counter in DynamoDB',
+        'INCREMENT_FAILED',
+        { source: 'aws-dynamodb', ruleId, orgId, tableName: this.tableName, originalError: error },
+      );
     }
   }
 
@@ -89,8 +94,12 @@ export class AwsBlockCounter implements BlockCounterAdapter {
       const response = await this.client.send(command);
       return response.Item?.count || 0;
     } catch (error) {
-      console.error('Failed to get block count:', error);
-      return 0;
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to read counter from DynamoDB',
+        'READ_FAILED',
+        { source: 'aws-dynamodb', ruleId, orgId, tableName: this.tableName, originalError: error },
+      );
     }
   }
 
@@ -99,7 +108,16 @@ export class AwsBlockCounter implements BlockCounterAdapter {
     orgId: string,
     threshold: number,
   ): Promise<boolean> {
-    const count = await this.getCount(ruleId, orgId);
-    return count >= threshold;
+    try {
+      const count = await this.getCount(ruleId, orgId);
+      return count >= threshold;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to check circuit breaker in DynamoDB',
+        'CIRCUIT_CHECK_FAILED',
+        { source: 'aws-dynamodb', ruleId, orgId, threshold, tableName: this.tableName, originalError: error },
+      );
+    }
   }
 }

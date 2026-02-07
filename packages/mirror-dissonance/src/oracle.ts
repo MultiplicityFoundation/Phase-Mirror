@@ -7,7 +7,7 @@
 import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
-import { createAdapters, loadCloudConfig } from './adapters/index.js';
+import { createAdapters, loadCloudConfig, BlockCounterError } from './adapters/index.js';
 import type { CloudAdapters, FPStoreAdapter, BlockCounterAdapter, ConsentStoreAdapter, SecretStoreAdapter } from './adapters/types.js';
 import { createRedactor, Redactor } from './redaction/redactor.js';
 
@@ -48,20 +48,14 @@ export async function initializeOracle(config: OracleConfig = {}): Promise<Oracl
   // Load nonce and create redactor
   let redactor: Redactor | undefined;
   try {
-    const nonce = await adapters.secretStore.getNonce();
-    if (nonce) {
-      redactor = createRedactor({
-        value: nonce,
-        loadedAt: new Date().toISOString(),
-        source: `adapters/${cloudConfig.provider}`,
-      });
-    }
+    const nonceConfig = await adapters.secretStore.getNonce();
+    redactor = createRedactor(nonceConfig);
   } catch (error) {
-    console.warn('Failed to load nonce via adapter, redaction will be limited:', error);
-    // Fail-closed: throw if nonce loading fails for non-local providers
+    // L0 fail-closed: nonce is required for non-local providers
     if (cloudConfig.provider !== 'local') {
       throw error;
     }
+    console.warn('Failed to load nonce via adapter, redaction will be limited:', error);
   }
 
   return new Oracle({
@@ -103,20 +97,30 @@ export class Oracle {
       }
 
       // Use adapter's isFalsePositive method
-      const isFP = await this.fpStore.isFalsePositive(violation.ruleId, violation.ruleId);
+      const isFP = await this.fpStore.isFalsePositive(violation.ruleId);
       if (!isFP) {
         realViolations.push(violation);
       }
     }
 
-    // Check circuit breaker via adapter
+    // Check circuit breaker via adapter — fail-open on counter failure
     let circuitBreakerTripped = false;
     const orgId = input.context?.repositoryName || 'unknown';
     for (const violation of realViolations) {
-      const broken = await this.blockCounter.isCircuitBroken(violation.ruleId, orgId, 100);
-      if (broken) {
-        circuitBreakerTripped = true;
-        break;
+      try {
+        const broken = await this.blockCounter.isCircuitBroken(violation.ruleId, orgId, 100);
+        if (broken) {
+          circuitBreakerTripped = true;
+          break;
+        }
+      } catch (error) {
+        // L0 fail-open: counter failure should NOT block PRs or trip breaker
+        console.warn('Circuit breaker counter unavailable, defaulting to open', {
+          ruleId: violation.ruleId,
+          orgId,
+          error: error instanceof BlockCounterError ? error.context : error,
+        });
+        // Don't trip breaker on infrastructure failure
       }
     }
 
@@ -129,10 +133,19 @@ export class Oracle {
       circuitBreakerTripped,
     });
 
-    // Update block counter if blocking
+    // Update block counter if blocking — fail-open on increment failure
     if (machineDecision.outcome === 'block') {
       for (const violation of realViolations) {
-        await this.blockCounter.increment(violation.ruleId, orgId);
+        try {
+          await this.blockCounter.increment(violation.ruleId, orgId);
+        } catch (error) {
+          // L0 fail-open: increment failure is observed but non-blocking
+          console.warn('Block counter increment failed, continuing', {
+            ruleId: violation.ruleId,
+            orgId,
+            error: error instanceof BlockCounterError ? error.context : error,
+          });
+        }
       }
     }
 

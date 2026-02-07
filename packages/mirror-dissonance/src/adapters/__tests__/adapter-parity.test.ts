@@ -15,6 +15,7 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { CloudAdapters, CloudConfig, FPEvent } from '../types.js';
+import { SecretStoreError } from '../errors.js';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
@@ -257,15 +258,45 @@ function runAdapterParityTests(providerConfig: ProviderTestConfig) {
     });
     
     describe('SecretStore Interface Conformance', () => {
-      it('should retrieve nonce as string or null', async () => {
-        const nonce = await adapters.secretStore.getNonce();
-        // nonce is string | null — local adapter returns from file, cloud returns from SSM/Secret Manager
-        expect(nonce === null || typeof nonce === 'string').toBe(true);
+      it('should throw SecretStoreError when no nonce exists (empty store)', async () => {
+        // Fresh adapter with no nonce data — must throw, not return null
+        await expect(adapters.secretStore.getNonce()).rejects.toThrow(SecretStoreError);
       });
-      
-      it('should retrieve nonces array', async () => {
+
+      it('should throw SecretStoreError from getNonces when no nonces exist', async () => {
+        // Must run before any rotations — adapter store is still empty here
+        await expect(adapters.secretStore.getNonces()).rejects.toThrow(SecretStoreError);
+      });
+
+      it('should throw with structured error code', async () => {
+        try {
+          await adapters.secretStore.getNonce();
+          fail('Expected SecretStoreError to be thrown');
+        } catch (error) {
+          expect(error).toBeInstanceOf(SecretStoreError);
+          const secretError = error as SecretStoreError;
+          expect(typeof secretError.code).toBe('string');
+          expect(typeof secretError.context).toBe('object');
+        }
+      });
+
+      it('should return NonceConfig after rotation', async () => {
+        await adapters.secretStore.rotateNonce('test-nonce-value');
+        const nonceConfig = await adapters.secretStore.getNonce();
+        expect(typeof nonceConfig).toBe('object');
+        expect(nonceConfig.value).toBe('test-nonce-value');
+        expect(typeof nonceConfig.loadedAt).toBe('string');
+        expect(typeof nonceConfig.source).toBe('string');
+      });
+
+      it('should retrieve nonces array after rotation', async () => {
+        await adapters.secretStore.rotateNonce('nonce-v1');
+        await adapters.secretStore.rotateNonce('nonce-v2');
         const nonces = await adapters.secretStore.getNonces();
         expect(Array.isArray(nonces)).toBe(true);
+        expect(nonces.length).toBeGreaterThanOrEqual(2);
+        // Newest first
+        expect(nonces[0]).toBe('nonce-v2');
       });
     });
     
