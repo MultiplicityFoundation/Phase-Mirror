@@ -27,7 +27,7 @@ import { BlockCounter, BlockCounterConfig } from '../../block-counter/counter.js
 import { NonceLoader } from '../../nonce/loader.js';
 import { DynamoDBCalibrationStore, ICalibrationStore } from '../../calibration-store/index.js';
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { FalsePositiveEvent } from '../../schemas/types.js';
 import { OrganizationConsent, ConsentResource, ConsentCheckResult, MultiResourceConsentResult } from '../../consent-store/schema.js';
 
 /**

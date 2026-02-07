@@ -16,7 +16,7 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 import { CloudAdapters, CloudConfig } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { FalsePositiveEvent } from '../../schemas/types.js';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';

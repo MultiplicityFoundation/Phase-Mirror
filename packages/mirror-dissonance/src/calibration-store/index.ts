@@ -9,7 +9,7 @@
 // Legacy k-anonymity implementation
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { CalibrationResult, KAnonymityError } from '../../schemas/types.js';
+import { CalibrationResult, KAnonymityError } from '../schemas/types.js';
 
 export interface CalibrationStoreConfig {
   tableName: string;

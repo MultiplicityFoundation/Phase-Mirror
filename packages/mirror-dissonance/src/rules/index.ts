@@ -1,7 +1,7 @@
 /**
  * Rule registry and orchestration
  */
-import { RuleViolation, OracleInput } from '../../schemas/types.js';
+import { RuleViolation, OracleInput } from '../schemas/types.js';
 import { checkMD001 } from './md-001.js';
 import { checkMD002 } from './md-002.js';
 import { checkMD003 } from './md-003.js';

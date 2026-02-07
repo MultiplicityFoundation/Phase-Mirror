@@ -6,7 +6,7 @@
  * specific cloud provider SDKs.
  */
 
-import { FalsePositiveEvent } from '../../schemas/types.js';
+import { FalsePositiveEvent } from '../schemas/types.js';
 import { OrganizationConsent, ConsentResource, ConsentCheckResult, MultiResourceConsentResult } from '../consent-store/schema.js';
 
 /**

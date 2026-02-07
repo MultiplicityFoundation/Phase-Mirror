@@ -29,7 +29,7 @@ import {
   CalibrationResult,
   KAnonymityError,
 } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { FalsePositiveEvent } from '../../schemas/types.js';
 import {
   OrganizationConsent,
   ConsentResource,

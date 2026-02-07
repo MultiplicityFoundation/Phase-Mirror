@@ -3,7 +3,7 @@
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { BlockCounterEntry } from '../../schemas/types.js';
+import { BlockCounterEntry } from '../schemas/types.js';
 
 export interface BlockCounterConfig {
   tableName: string;

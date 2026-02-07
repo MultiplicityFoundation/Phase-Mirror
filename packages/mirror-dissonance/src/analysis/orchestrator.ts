@@ -18,7 +18,7 @@ import { Oracle } from '../oracle.js';
 import { IFPStore, NoOpFPStore } from '../fp-store/index.js';
 import { IConsentStore, NoOpConsentStore } from '../consent-store/index.js';
 import { MemoryBlockCounter } from '../block-counter/counter.js';
-import { OracleInput, OracleOutput } from '../../schemas/types.js';
+import { OracleInput, OracleOutput } from '../schemas/types.js';
 
 /**
  * Configuration for analysis orchestrator

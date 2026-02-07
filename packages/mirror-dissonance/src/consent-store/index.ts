@@ -4,7 +4,7 @@
  */
 import { DynamoDBClient, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { ConsentRecord, ConsentType } from '../../schemas/types.js';
+import { ConsentRecord, ConsentType } from '../schemas/types.js';
 
 // Re-export schema types
 export * from './schema.js';

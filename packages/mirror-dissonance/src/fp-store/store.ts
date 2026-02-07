@@ -3,7 +3,7 @@
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { FalsePositiveEvent } from '../../schemas/types.js';
+import { FalsePositiveEvent } from '../schemas/types.js';
 
 export interface FPStoreConfig {
   tableName: string;
