@@ -1,51 +1,27 @@
-/**
- * Cloud Adapter Factory
- * 
- * Dynamically imports and creates adapters based on the cloud provider.
- * Uses dynamic imports so unused provider SDKs don't bloat the bundle.
- */
+// packages/mirror-dissonance/src/adapters/factory.ts
 
-import { CloudConfig, CloudAdapters } from './types.js';
+import { CloudAdapters, CloudConfig } from './types.js';
 
-/**
- * Create cloud adapters based on configuration
- * 
- * Uses dynamic imports to avoid loading unused cloud provider SDKs.
- * This keeps the bundle size small and allows optional peer dependencies.
- * 
- * @param config Cloud configuration
- * @returns Promise resolving to cloud adapters
- */
 export async function createAdapters(config: CloudConfig): Promise<CloudAdapters> {
   switch (config.provider) {
     case 'aws': {
-      const awsModule = await import('./aws/index.js');
-      return awsModule.createAwsAdapters(config);
+      // Dynamic import: aws-sdk only loaded when CLOUD_PROVIDER=aws
+      const { createAWSAdapters } = await import('./aws/index.js');
+      return createAWSAdapters(config);
     }
 
     case 'gcp': {
-      const gcpModule = await import('./gcp/index.js');
-      return gcpModule.createGcpAdapters(config);
+      // Dynamic import: @google-cloud/* only loaded when CLOUD_PROVIDER=gcp
+      const { createGcpAdapters } = await import('./gcp/index.js');
+      return createGcpAdapters(config);
     }
 
     case 'local': {
-      const localModule = await import('./local/index.js');
-      return localModule.createLocalAdapters(config);
+      const { createLocalAdapters } = await import('./local/index.js');
+      return createLocalAdapters(config);
     }
 
     default:
       throw new Error(`Unsupported cloud provider: ${config.provider}`);
   }
-}
-
-/**
- * Create adapters with default configuration
- * 
- * Loads configuration from environment variables and creates adapters.
- * This is a convenience function for the most common use case.
- */
-export async function createDefaultAdapters(): Promise<CloudAdapters> {
-  const { loadCloudConfig } = await import('./config.js');
-  const config = loadCloudConfig();
-  return createAdapters(config);
 }
