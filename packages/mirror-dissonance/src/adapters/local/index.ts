@@ -21,6 +21,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import type { NonceConfig, FalsePositiveEvent, CalibrationResult, KAnonymityError, ConsentType } from '../../../schemas/types.js';
 import {
   CloudConfig,
   CloudAdapters,
@@ -31,7 +32,10 @@ import {
   BlockCounterAdapter,
   SecretStoreAdapter,
   ObjectStoreAdapter,
+  BaselineStorageAdapter,
+  CalibrationStoreAdapter,
 } from '../types.js';
+import { SecretStoreError, BlockCounterError } from '../errors.js';
 
 // ---------------------------------------------------------------------------
 // JsonFileStore<T> — atomic JSON file operations
@@ -115,9 +119,11 @@ interface StoredFPEvent extends Omit<FPEvent, 'timestamp'> {
 
 class LocalFPStore implements FPStoreAdapter {
   private store: JsonFileStore<StoredFPEvent>;
+  private fpEventStore: JsonFileStore<FalsePositiveEvent>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'fp-events.json');
+    this.fpEventStore = new JsonFileStore(dataDir, 'fp-false-positives.json');
   }
 
   async recordEvent(event: FPEvent): Promise<void> {
@@ -157,11 +163,39 @@ class LocalFPStore implements FPStoreAdapter {
     });
   }
 
-  async isFalsePositive(ruleId: string, findingId: string): Promise<boolean> {
-    const event = await this.store.readOne(
-      (e) => e.ruleId === ruleId && e.findingId === findingId && e.isFalsePositive,
-    );
-    return event !== null;
+  async isFalsePositive(ruleIdOrFindingId: string, findingId?: string): Promise<boolean> {
+    if (findingId !== undefined) {
+      // 2-arg: search by ruleId AND findingId in windowed event store
+      const event = await this.store.readOne(
+        (e) => e.ruleId === ruleIdOrFindingId && e.findingId === findingId && e.isFalsePositive,
+      );
+      if (event) return true;
+      // Also check simple FP store
+      const fpEvent = await this.fpEventStore.readOne(
+        (e) => e.ruleId === ruleIdOrFindingId && e.findingId === findingId,
+      );
+      return fpEvent !== null;
+    } else {
+      // 1-arg: search by findingId only
+      const actualFindingId = ruleIdOrFindingId;
+      const fpEvent = await this.fpEventStore.readOne(
+        (e) => e.findingId === actualFindingId,
+      );
+      if (fpEvent) return true;
+      const event = await this.store.readOne(
+        (e) => e.findingId === actualFindingId && e.isFalsePositive,
+      );
+      return event !== null;
+    }
+  }
+
+  async recordFalsePositive(event: FalsePositiveEvent): Promise<void> {
+    await this.fpEventStore.writeOne(event, (e) => e.id);
+  }
+
+  async getFalsePositivesByRule(ruleId: string): Promise<FalsePositiveEvent[]> {
+    const all = await this.fpEventStore.read();
+    return all.filter((e) => e.ruleId === ruleId);
   }
 
   computeWindow(ruleId: string, events: FPEvent[]): FPWindow {
@@ -241,20 +275,20 @@ class LocalConsentStore implements ConsentStoreAdapter {
     await this.store.writeOne(record, (r) => r.id);
   }
 
-  async hasValidConsent(orgId: string, repoId: string, scope: string): Promise<boolean> {
+  async hasValidConsent(orgId: string, repoId?: string, scope?: string): Promise<boolean> {
     const all = await this.store.read();
     const now = Date.now();
     return all.some(
       (r) =>
         r.orgId === orgId &&
-        (r.repoId === repoId || !r.repoId) &&
-        r.scope === scope &&
+        (!repoId || r.repoId === repoId || !r.repoId) &&
+        (!scope || r.scope === scope) &&
         !r.revoked &&
         (!r.expiresAt || new Date(r.expiresAt).getTime() > now),
     );
   }
 
-  async revokeConsent(orgId: string, scope: string): Promise<void> {
+  async revokeConsent(orgId: string, scope: string, _revokedBy?: string): Promise<void> {
     await this.store.withLock(async () => {
       const items = await this.store.read();
       let changed = false;
@@ -273,6 +307,80 @@ class LocalConsentStore implements ConsentStoreAdapter {
   async getConsent(orgId: string): Promise<any> {
     const all = await this.store.read();
     return all.filter((r) => r.orgId === orgId);
+  }
+
+  async grantConsent(orgId: string, scope: string, grantedBy: string, expiresAt?: Date): Promise<void> {
+    await this.recordConsent({ orgId, scope, grantedBy, expiresAt });
+  }
+
+  async checkResourceConsent(orgId: string, scope: string): Promise<{ granted: boolean; state: string }> {
+    const all = await this.store.read();
+    const matching = all.filter((r) => r.orgId === orgId && r.scope === scope);
+
+    if (matching.length === 0) {
+      return { granted: false, state: 'not_requested' };
+    }
+
+    const latest = matching[matching.length - 1];
+
+    if (latest.revoked) {
+      return { granted: false, state: 'revoked' };
+    }
+
+    if (latest.expiresAt && new Date(latest.expiresAt).getTime() <= Date.now()) {
+      return { granted: false, state: 'expired' };
+    }
+
+    return { granted: true, state: 'granted' };
+  }
+
+  async checkMultipleResources(orgId: string, scopes: string[]): Promise<{
+    allGranted: boolean;
+    missingConsent: string[];
+    results: Record<string, { granted: boolean }>;
+  }> {
+    const results: Record<string, { granted: boolean }> = {};
+    const missingConsent: string[] = [];
+
+    for (const scope of scopes) {
+      const check = await this.checkResourceConsent(orgId, scope);
+      results[scope] = { granted: check.granted };
+      if (!check.granted) {
+        missingConsent.push(scope);
+      }
+    }
+
+    return { allGranted: missingConsent.length === 0, missingConsent, results };
+  }
+
+  async getConsentSummary(orgId: string): Promise<{
+    orgId: string;
+    resources: Record<string, { state: string }>;
+  } | null> {
+    const all = await this.store.read();
+    const orgRecords = all.filter((r) => r.orgId === orgId);
+
+    if (orgRecords.length === 0) return null;
+
+    const resources: Record<string, { state: string }> = {};
+    const scopes = [...new Set(orgRecords.map((r) => r.scope))];
+
+    for (const scope of scopes) {
+      const check = await this.checkResourceConsent(orgId, scope);
+      resources[scope] = { state: check.state };
+    }
+
+    return { orgId, resources };
+  }
+
+  async checkConsent(orgId: string): Promise<ConsentType> {
+    const all = await this.store.read();
+    const now = Date.now();
+    const valid = all.filter(
+      (r) => r.orgId === orgId && !r.revoked &&
+        (!r.expiresAt || new Date(r.expiresAt).getTime() > now),
+    );
+    return valid.length > 0 ? 'explicit' : 'none';
   }
 }
 
@@ -307,38 +415,65 @@ class LocalBlockCounter implements BlockCounterAdapter {
   }
 
   async increment(ruleId: string, orgId: string): Promise<number> {
-    return this.store.withLock(async () => {
-      const key = this.bucketKey(ruleId, orgId);
-      const items = await this.store.read();
-      const idx = items.findIndex((e) => e.bucketKey === key);
+    try {
+      return await this.store.withLock(async () => {
+        const key = this.bucketKey(ruleId, orgId);
+        const items = await this.store.read();
+        const idx = items.findIndex((e) => e.bucketKey === key);
 
-      if (idx >= 0) {
-        items[idx].count += 1;
-        items[idx].updatedAt = new Date().toISOString();
+        if (idx >= 0) {
+          items[idx].count += 1;
+          items[idx].updatedAt = new Date().toISOString();
+          await this.store.write(items);
+          return items[idx].count;
+        }
+
+        const entry: BlockCounterEntry = {
+          bucketKey: key,
+          count: 1,
+          updatedAt: new Date().toISOString(),
+        };
+        items.push(entry);
         await this.store.write(items);
-        return items[idx].count;
-      }
-
-      const entry: BlockCounterEntry = {
-        bucketKey: key,
-        count: 1,
-        updatedAt: new Date().toISOString(),
-      };
-      items.push(entry);
-      await this.store.write(items);
-      return 1;
-    });
+        return 1;
+      });
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to increment counter in local store',
+        'INCREMENT_FAILED',
+        { source: 'local-file', ruleId, orgId, originalError: error },
+      );
+    }
   }
 
   async getCount(ruleId: string, orgId: string): Promise<number> {
-    const key = this.bucketKey(ruleId, orgId);
-    const entry = await this.store.readOne((e) => e.bucketKey === key);
-    return entry?.count ?? 0;
+    try {
+      const key = this.bucketKey(ruleId, orgId);
+      const entry = await this.store.readOne((e) => e.bucketKey === key);
+      return entry?.count ?? 0;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to read counter from local store',
+        'READ_FAILED',
+        { source: 'local-file', ruleId, orgId, originalError: error },
+      );
+    }
   }
 
   async isCircuitBroken(ruleId: string, orgId: string, threshold: number): Promise<boolean> {
-    const count = await this.getCount(ruleId, orgId);
-    return count >= threshold;
+    try {
+      const count = await this.getCount(ruleId, orgId);
+      return count >= threshold;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to check circuit breaker in local store',
+        'CIRCUIT_CHECK_FAILED',
+        { source: 'local-file', ruleId, orgId, threshold, originalError: error },
+      );
+    }
   }
 }
 
@@ -359,29 +494,77 @@ class LocalSecretStore implements SecretStoreAdapter {
     this.store = new JsonFileStore(dataDir, 'nonce.json');
   }
 
-  async getNonce(): Promise<string | null> {
+  async getNonce(): Promise<NonceConfig> {
     try {
       const entries = await this.store.read();
       if (entries.length === 0) {
-        return null;
+        throw new SecretStoreError(
+          'No nonce found in local store',
+          'NONCE_NOT_FOUND',
+          { source: 'local-file' },
+        );
       }
       // Return the latest version
       const latest = entries.sort((a, b) => b.version - a.version)[0];
-      return latest.value;
-    } catch {
-      // Fail-closed: return null on any error
-      return null;
+      return {
+        value: latest.value,
+        loadedAt: new Date().toISOString(),
+        source: 'local-file',
+      };
+    } catch (error) {
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to load nonce from local store',
+        'READ_FAILED',
+        { source: 'local-file', originalError: error },
+      );
     }
   }
 
   async getNonces(): Promise<string[]> {
     try {
       const entries = await this.store.read();
+      if (entries.length === 0) {
+        throw new SecretStoreError(
+          'No nonces found in local store',
+          'NONCE_NOT_FOUND',
+          { source: 'local-file' },
+        );
+      }
       return entries
         .sort((a, b) => b.version - a.version)
         .map((e) => e.value);
-    } catch {
-      return [];
+    } catch (error) {
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to load nonces from local store',
+        'VERSIONS_FAILED',
+        { source: 'local-file', originalError: error },
+      );
+    }
+  }
+
+  async rotateNonce(newValue: string): Promise<void> {
+    try {
+      await this.store.withLock(async () => {
+        const entries = await this.store.read();
+        const nextVersion = entries.length > 0
+          ? Math.max(...entries.map((e) => e.version)) + 1
+          : 1;
+        entries.push({
+          value: newValue,
+          createdAt: new Date().toISOString(),
+          version: nextVersion,
+        });
+        await this.store.write(entries);
+      });
+    } catch (error) {
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to rotate nonce in local store',
+        'ROTATION_FAILED',
+        { source: 'local-file', originalError: error },
+      );
     }
   }
 }
@@ -439,6 +622,123 @@ class LocalObjectStore implements ObjectStoreAdapter {
 }
 
 // ---------------------------------------------------------------------------
+// LocalBaselineStorage
+// ---------------------------------------------------------------------------
+
+interface BaselineEntry {
+  name: string;
+  content: string;
+  updatedAt: string;
+}
+
+class LocalBaselineStorage implements BaselineStorageAdapter {
+  private store: JsonFileStore<BaselineEntry>;
+
+  constructor(dataDir: string) {
+    this.store = new JsonFileStore(dataDir, 'baseline-storage.json');
+  }
+
+  async storeBaseline(name: string, content: string | Buffer): Promise<void> {
+    const entry: BaselineEntry = {
+      name,
+      content: Buffer.isBuffer(content) ? content.toString('utf-8') : content,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.store.writeOne(entry, (e) => e.name);
+  }
+
+  async getBaseline(name: string): Promise<string | null> {
+    const entry = await this.store.readOne((e) => e.name === name);
+    return entry?.content ?? null;
+  }
+
+  async listBaselines(): Promise<Array<{ version: string }>> {
+    const all = await this.store.read();
+    return all.map((e) => ({ version: e.name }));
+  }
+
+  async deleteBaseline(name: string): Promise<void> {
+    await this.store.withLock(async () => {
+      const items = await this.store.read();
+      const filtered = items.filter((e) => e.name !== name);
+      await this.store.write(filtered);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// LocalCalibrationStore
+// ---------------------------------------------------------------------------
+
+class LocalCalibrationStore implements CalibrationStoreAdapter {
+  private fpEventStore: JsonFileStore<FalsePositiveEvent>;
+  private kThreshold = 5;
+
+  constructor(dataDir: string) {
+    // Reads from the same file as LocalFPStore.recordFalsePositive
+    this.fpEventStore = new JsonFileStore(dataDir, 'fp-false-positives.json');
+  }
+
+  async aggregateFPsByRule(ruleId: string): Promise<CalibrationResult | KAnonymityError> {
+    const events = await this.fpEventStore.read();
+    const matching = events.filter((e) => e.ruleId === ruleId);
+    const distinctOrgs = new Set(matching.map((e) => e.orgIdHash).filter(Boolean));
+
+    if (distinctOrgs.size < this.kThreshold) {
+      return {
+        error: 'INSUFFICIENT_K_ANONYMITY',
+        message: `Rule ${ruleId} has data from ${distinctOrgs.size} orgs, requires ${this.kThreshold}`,
+        requiredK: this.kThreshold,
+        actualK: distinctOrgs.size,
+      };
+    }
+
+    return {
+      ruleId,
+      totalFPs: matching.length,
+      orgCount: distinctOrgs.size,
+      averageFPsPerOrg: matching.length / distinctOrgs.size,
+      meetsKAnonymity: true,
+    };
+  }
+
+  async getRuleFPRate(ruleId: string, since?: string): Promise<CalibrationResult | KAnonymityError> {
+    const events = await this.fpEventStore.read();
+    let matching = events.filter((e) => e.ruleId === ruleId);
+
+    if (since) {
+      const sinceMs = new Date(since).getTime();
+      matching = matching.filter((e) => new Date(e.timestamp).getTime() >= sinceMs);
+    }
+
+    const distinctOrgs = new Set(matching.map((e) => e.orgIdHash).filter(Boolean));
+
+    if (distinctOrgs.size < this.kThreshold) {
+      return {
+        error: 'INSUFFICIENT_K_ANONYMITY',
+        message: `Rule ${ruleId} has data from ${distinctOrgs.size} orgs after filter, requires ${this.kThreshold}`,
+        requiredK: this.kThreshold,
+        actualK: distinctOrgs.size,
+      };
+    }
+
+    return {
+      ruleId,
+      totalFPs: matching.length,
+      orgCount: distinctOrgs.size,
+      averageFPsPerOrg: matching.length / distinctOrgs.size,
+      meetsKAnonymity: true,
+    };
+  }
+
+  async getAllRuleFPRates(): Promise<Array<CalibrationResult | KAnonymityError>> {
+    const events = await this.fpEventStore.read();
+    const ruleIds = [...new Set(events.map((e) => e.ruleId))];
+    return Promise.all(ruleIds.map((ruleId) => this.aggregateFPsByRule(ruleId)));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
@@ -450,5 +750,7 @@ export function createLocalAdapters(config: CloudConfig): CloudAdapters {
     blockCounter: new LocalBlockCounter(dataDir),
     secretStore: new LocalSecretStore(dataDir),
     objectStore: new LocalObjectStore(dataDir),
+    baselineStorage: new LocalBaselineStorage(dataDir),
+    calibrationStore: new LocalCalibrationStore(dataDir),
   };
 }

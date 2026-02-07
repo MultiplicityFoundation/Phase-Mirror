@@ -17,8 +17,12 @@ try {
   console.log('✅ Firestore reachable, consent check returned:', hasConsent);
   
   // Test Secret Manager via nonce
-  const nonce = await adapters.secretStore.getNonce();
-  console.log('✅ Secret Manager reachable, nonce loaded:', nonce ? 'yes' : 'no');
+  try {
+    const nonceConfig = await adapters.secretStore.getNonce();
+    console.log('✅ Secret Manager reachable, nonce loaded: yes, source:', nonceConfig.source);
+  } catch (nonceErr) {
+    console.log('⚠️  Secret Manager nonce not available:', nonceErr.code || nonceErr.message);
+  }
   
   console.log(`
 🎉 GCP infrastructure verified!`);

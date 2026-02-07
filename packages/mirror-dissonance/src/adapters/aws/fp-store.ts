@@ -16,6 +16,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { FPStoreAdapter, FPEvent, FPWindow, CloudConfig } from '../types.js';
+import type { FalsePositiveEvent } from '../../../schemas/types.js';
 
 export class FPStoreError extends Error {
   public readonly ruleId?: string;
@@ -219,17 +220,22 @@ export class AwsFPStore implements FPStoreAdapter {
     }
   }
 
-  async isFalsePositive(ruleId: string, findingId: string): Promise<boolean> {
+  async isFalsePositive(ruleIdOrFindingId: string, findingId?: string): Promise<boolean> {
+    const actualFindingId = findingId ?? ruleIdOrFindingId;
+    const ruleId = findingId !== undefined ? ruleIdOrFindingId : undefined;
     try {
       const result = await this.client.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'FindingIndex',
-          KeyConditionExpression: 'gsi1pk = :finding AND begins_with(gsi1sk, :rule)',
-          ExpressionAttributeValues: marshall({
-            ':finding': `finding#${findingId}`,
-            ':rule': `rule#${ruleId}`,
-          }),
+          KeyConditionExpression: ruleId
+            ? 'gsi1pk = :finding AND begins_with(gsi1sk, :rule)'
+            : 'gsi1pk = :finding',
+          ExpressionAttributeValues: marshall(
+            ruleId
+              ? { ':finding': `finding#${actualFindingId}`, ':rule': `rule#${ruleId}` }
+              : { ':finding': `finding#${actualFindingId}` },
+          ),
           Limit: 1,
         }),
       );
@@ -240,6 +246,14 @@ export class AwsFPStore implements FPStoreAdapter {
     } catch {
       return false; // Fail-closed: treat as not FP
     }
+  }
+
+  async recordFalsePositive(_event: FalsePositiveEvent): Promise<void> {
+    throw new Error('recordFalsePositive not yet implemented for AWS adapter');
+  }
+
+  async getFalsePositivesByRule(_ruleId: string): Promise<FalsePositiveEvent[]> {
+    throw new Error('getFalsePositivesByRule not yet implemented for AWS adapter');
   }
 
   computeWindow(ruleId: string, events: FPEvent[]): FPWindow {

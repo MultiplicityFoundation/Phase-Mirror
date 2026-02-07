@@ -12,6 +12,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { createHash, randomUUID } from 'crypto';
 import { ConsentStoreAdapter, CloudConfig } from '../types.js';
+import type { ConsentType } from '../../../schemas/types.js';
 
 interface ConsentRecord {
   orgId: string;
@@ -85,21 +86,21 @@ export class AwsConsentStore implements ConsentStoreAdapter {
 
   async hasValidConsent(
     orgId: string,
-    repoId: string,
-    scope: string,
+    repoId?: string,
+    scope?: string,
   ): Promise<boolean> {
     const records = await this.getConsentRecords(orgId);
     const now = Date.now();
     return records.some(
       (r) =>
-        (r.repoId === repoId || !r.repoId) &&
-        r.scope === scope &&
+        (!repoId || r.repoId === repoId || !r.repoId) &&
+        (!scope || r.scope === scope) &&
         !r.revoked &&
         (!r.expiresAt || new Date(r.expiresAt).getTime() > now),
     );
   }
 
-  async revokeConsent(orgId: string, scope: string): Promise<void> {
+  async revokeConsent(orgId: string, scope: string, _revokedBy?: string): Promise<void> {
     const records = await this.getConsentRecords(orgId);
     const toRevoke = records.filter(
       (r) => r.scope === scope && !r.revoked,
@@ -130,6 +131,33 @@ export class AwsConsentStore implements ConsentStoreAdapter {
 
   async getConsent(orgId: string): Promise<any> {
     return this.getConsentRecords(orgId);
+  }
+
+  async grantConsent(orgId: string, scope: string, grantedBy: string, expiresAt?: Date): Promise<void> {
+    await this.recordConsent({ orgId, scope, grantedBy, expiresAt });
+  }
+
+  async checkResourceConsent(_orgId: string, _scope: string): Promise<{ granted: boolean; state: string }> {
+    throw new Error('checkResourceConsent not yet implemented for AWS adapter');
+  }
+
+  async checkMultipleResources(_orgId: string, _scopes: string[]): Promise<{
+    allGranted: boolean;
+    missingConsent: string[];
+    results: Record<string, { granted: boolean }>;
+  }> {
+    throw new Error('checkMultipleResources not yet implemented for AWS adapter');
+  }
+
+  async getConsentSummary(_orgId: string): Promise<{
+    orgId: string;
+    resources: Record<string, { state: string }>;
+  } | null> {
+    throw new Error('getConsentSummary not yet implemented for AWS adapter');
+  }
+
+  async checkConsent(_orgId: string): Promise<ConsentType> {
+    throw new Error('checkConsent not yet implemented for AWS adapter');
   }
 
   private async getConsentRecords(orgId: string): Promise<ConsentRecord[]> {

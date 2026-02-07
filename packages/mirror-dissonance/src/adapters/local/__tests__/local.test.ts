@@ -172,60 +172,60 @@ describe('Local Adapters', () => {
 
   describe('Block Counter Adapter', () => {
     it('should increment counter', async () => {
-      const count1 = await adapters.blockCounter.increment('rule-test');
+      const count1 = await adapters.blockCounter.increment('rule-test', 'test-org');
       expect(count1).toBe(1);
 
-      const count2 = await adapters.blockCounter.increment('rule-test');
+      const count2 = await adapters.blockCounter.increment('rule-test', 'test-org');
       expect(count2).toBe(2);
     });
 
     it('should get current count', async () => {
-      await adapters.blockCounter.increment('rule-test');
-      await adapters.blockCounter.increment('rule-test');
+      await adapters.blockCounter.increment('rule-test', 'test-org');
+      await adapters.blockCounter.increment('rule-test', 'test-org');
 
-      const count = await adapters.blockCounter.getCount('rule-test');
+      const count = await adapters.blockCounter.getCount('rule-test', 'test-org');
       expect(count).toBe(2);
     });
 
     it('should return 0 for non-existent rule', async () => {
-      const count = await adapters.blockCounter.getCount('nonexistent');
+      const count = await adapters.blockCounter.getCount('nonexistent', 'test-org');
       expect(count).toBe(0);
     });
 
     it('should use hourly buckets', async () => {
       // Increment counter
-      const count = await adapters.blockCounter.increment('rule-test');
+      const count = await adapters.blockCounter.increment('rule-test', 'test-org');
       expect(count).toBe(1);
 
       // Should get the same count in the same hour
-      const sameHourCount = await adapters.blockCounter.getCount('rule-test');
+      const sameHourCount = await adapters.blockCounter.getCount('rule-test', 'test-org');
       expect(sameHourCount).toBe(1);
     });
   });
 
   describe('Secret Store Adapter', () => {
-    it('should return null when no nonce exists', async () => {
-      const nonce = await adapters.secretStore.getNonce();
-      expect(nonce).toBeNull();
+    it('should throw SecretStoreError when no nonce exists', async () => {
+      await expect(adapters.secretStore.getNonce()).rejects.toThrow();
     });
 
-    it('should rotate and retrieve nonce', async () => {
+    it('should rotate and retrieve nonce as NonceConfig', async () => {
       const testNonce = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
       
       await adapters.secretStore.rotateNonce(testNonce);
 
-      const nonce = await adapters.secretStore.getNonce();
-      expect(nonce).not.toBeNull();
-      expect(nonce!.value).toBe(testNonce);
-      expect(nonce!.source).toBe('local-file');
+      const nonceConfig = await adapters.secretStore.getNonce();
+      expect(nonceConfig).toBeDefined();
+      expect(nonceConfig.value).toBe(testNonce);
+      expect(nonceConfig.source).toBe('local-file');
+      expect(typeof nonceConfig.loadedAt).toBe('string');
     });
 
     it('should support multiple nonce versions', async () => {
       await adapters.secretStore.rotateNonce('nonce-v1');
       await adapters.secretStore.rotateNonce('nonce-v2');
 
-      const nonce = await adapters.secretStore.getNonce();
-      expect(nonce!.value).toBe('nonce-v2'); // Should get latest
+      const nonceConfig = await adapters.secretStore.getNonce();
+      expect(nonceConfig.value).toBe('nonce-v2'); // Should get latest
     });
   });
 

@@ -5,12 +5,14 @@
  * src/nonce/loader.ts and src/redaction/redactor-v3.ts into a
  * single SecretStoreAdapter implementation.
  *
- * Preserves existing SSM GetParameter call with WithDecryption=true
- * and fail-closed error handling — no behavior change.
+ * Phase 0: Throws SecretStoreError on failure instead of returning null.
+ * Callers at L0 (business logic) implement fail-closed behavior.
  */
 
-import { SSMClient, GetParameterCommand, GetParametersByPathCommand } from '@aws-sdk/client-ssm';
+import { SSMClient, GetParameterCommand, GetParametersByPathCommand, PutParameterCommand } from '@aws-sdk/client-ssm';
+import type { NonceConfig } from '../../../schemas/types.js';
 import { SecretStoreAdapter, CloudConfig } from '../types.js';
+import { SecretStoreError } from '../errors.js';
 
 export class AwsSecretStore implements SecretStoreAdapter {
   private ssm: SSMClient;
@@ -22,7 +24,7 @@ export class AwsSecretStore implements SecretStoreAdapter {
       config.nonceParameterName || 'guardian/redaction_nonce';
   }
 
-  async getNonce(): Promise<string | null> {
+  async getNonce(): Promise<NonceConfig> {
     try {
       const result = await this.ssm.send(
         new GetParameterCommand({
@@ -30,10 +32,28 @@ export class AwsSecretStore implements SecretStoreAdapter {
           WithDecryption: true,
         }),
       );
-      return result.Parameter?.Value ?? null;
+
+      const value = result.Parameter?.Value;
+      if (!value) {
+        throw new SecretStoreError(
+          'SSM parameter exists but has no value',
+          'MALFORMED_SECRET',
+          { source: 'aws-ssm', parameterName: this.nonceParameterName },
+        );
+      }
+
+      return {
+        value,
+        loadedAt: new Date().toISOString(),
+        source: 'aws-ssm',
+      };
     } catch (error) {
-      console.error('Failed to retrieve HMAC nonce:', error);
-      return null; // Fail-closed: caller must handle
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to retrieve HMAC nonce from SSM',
+        'READ_FAILED',
+        { source: 'aws-ssm', parameterName: this.nonceParameterName, originalError: error },
+      );
     }
   }
 
@@ -53,10 +73,10 @@ export class AwsSecretStore implements SecretStoreAdapter {
       if (!result.Parameters || result.Parameters.length === 0) {
         // Fall back to single nonce
         const single = await this.getNonce();
-        return single ? [single] : [];
+        return [single.value];
       }
 
-      return result.Parameters
+      const nonces = result.Parameters
         .filter((p) => p.Value)
         .sort((a, b) => {
           // Sort by version number descending (newest first)
@@ -65,11 +85,42 @@ export class AwsSecretStore implements SecretStoreAdapter {
           return parseInt(vB, 10) - parseInt(vA, 10);
         })
         .map((p) => p.Value!);
+
+      if (nonces.length === 0) {
+        throw new SecretStoreError(
+          'SSM parameters found but all values are empty',
+          'MALFORMED_SECRET',
+          { source: 'aws-ssm', basePath },
+        );
+      }
+
+      return nonces;
     } catch (error) {
-      console.error('Failed to retrieve nonce versions:', error);
-      // Fall back to single nonce
-      const single = await this.getNonce();
-      return single ? [single] : [];
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to retrieve nonce versions from SSM',
+        'VERSIONS_FAILED',
+        { source: 'aws-ssm', parameterName: this.nonceParameterName, originalError: error },
+      );
+    }
+  }
+
+  async rotateNonce(newValue: string): Promise<void> {
+    try {
+      await this.ssm.send(
+        new PutParameterCommand({
+          Name: this.nonceParameterName,
+          Value: newValue,
+          Type: 'SecureString',
+          Overwrite: true,
+        }),
+      );
+    } catch (error) {
+      throw new SecretStoreError(
+        'Failed to rotate nonce in SSM',
+        'ROTATION_FAILED',
+        { source: 'aws-ssm', parameterName: this.nonceParameterName, originalError: error },
+      );
     }
   }
 }

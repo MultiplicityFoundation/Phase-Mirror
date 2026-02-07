@@ -37,8 +37,8 @@ Core logic depends only on `types.ts` interfaces. AWS/GCP SDKs are never importe
 ### 2. **Dynamic Imports**
 `factory.ts` uses `await import()` to load adapters at runtime. Unused provider SDKs don't bloat the bundle.
 
-### 3. **Fail-Closed Secrets**
-`getNonce()` returns `null` on error. Callers must handle missing secrets gracefully (matches existing Phase Mirror behavior).
+### 3. **Throw-on-Failure Secrets (Phase 0+)**
+`getNonce()` throws `SecretStoreError` on error with full context (error code, source, original error). Callers at L0 (business logic) handle errors with appropriate fail-closed or fail-open behavior. See SPEC-COMPUTE.md for the formal error propagation contract.
 
 ### 4. **Atomic Counters**
 Block counter uses transactions (Firestore) or atomic operations (DynamoDB) for race-safe circuit breaker.
@@ -91,7 +91,7 @@ const adapters = await createAdapters(config);
 await adapters.fpStore.recordFalsePositive(event);
 await adapters.consentStore.grantConsent('org-123', 'fp_patterns', 'admin');
 const count = await adapters.blockCounter.increment('rule-456');
-const nonce = await adapters.secretStore.getNonce();
+const nonce = await adapters.secretStore.getNonce(); // returns NonceConfig, throws SecretStoreError on failure
 await adapters.baselineStorage.storeBaseline('baseline-v1.json', content);
 const calibration = await adapters.calibrationStore.aggregateFPsByRule('rule-789');
 ```
@@ -136,23 +136,35 @@ interface IConsentStoreAdapter {
 
 ```typescript
 interface IBlockCounterAdapter {
-  increment(ruleId: string): Promise<number>;
-  getCount(ruleId: string): Promise<number>;
+  increment(ruleId: string, orgId: string): Promise<number>;   // Throws BlockCounterError on failure
+  getCount(ruleId: string, orgId: string): Promise<number>;    // Throws BlockCounterError on failure
+  isCircuitBroken(ruleId: string, orgId: string, threshold: number): Promise<boolean>; // Throws BlockCounterError on failure
 }
 ```
 
-**AWS**: DynamoDB with atomic increments  
-**GCP**: Firestore with transactions  
+**Error codes**: `INCREMENT_FAILED`, `READ_FAILED`, `CIRCUIT_CHECK_FAILED`
+
+**Important**: `getCount()` returning `0` means "never incremented" (success).
+`getCount()` throwing `BlockCounterError` means "infrastructure failure" (DynamoDB throttle, etc.).
+Callers implement **fail-open** — counter failure should NOT block PRs.
+
+**AWS**: DynamoDB with atomic increments
+**GCP**: Firestore with transactions
 **Local**: JSON file with hourly cleanup
 
 ### `ISecretStoreAdapter` - Nonce Storage
 
 ```typescript
 interface ISecretStoreAdapter {
-  getNonce(): Promise<NonceConfig | null>;  // Fail-closed
-  rotateNonce(newValue: string): Promise<void>;
+  getNonce(): Promise<NonceConfig>;         // Throws SecretStoreError on failure
+  getNonces(): Promise<string[]>;           // Throws SecretStoreError on failure
+  rotateNonce(newValue: string): Promise<void>; // Throws SecretStoreError on failure
 }
 ```
+
+`NonceConfig` returns `{ value, loadedAt, source }` for observability.
+
+**Error codes**: `NONCE_NOT_FOUND`, `READ_FAILED`, `MALFORMED_SECRET`, `ROTATION_FAILED`, `VERSIONS_FAILED`
 
 **AWS**: SSM Parameter Store (rotation via Terraform/Console)  
 **GCP**: Secret Manager with versioning  

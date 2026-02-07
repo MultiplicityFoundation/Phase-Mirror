@@ -15,6 +15,7 @@ import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { Storage } from '@google-cloud/storage';
 import { createHash, randomUUID } from 'crypto';
 
+import type { NonceConfig, FalsePositiveEvent, ConsentType } from '../../../schemas/types.js';
 import {
   CloudConfig,
   CloudAdapters,
@@ -25,7 +26,10 @@ import {
   BlockCounterAdapter,
   SecretStoreAdapter,
   ObjectStoreAdapter,
+  BaselineStorageAdapter,
+  CalibrationStoreAdapter,
 } from '../types.js';
+import { SecretStoreError, BlockCounterError } from '../errors.js';
 
 /**
  * GCP False Positive Store
@@ -100,16 +104,33 @@ class GcpFPStore implements FPStoreAdapter {
     });
   }
 
-  async isFalsePositive(ruleId: string, findingId: string): Promise<boolean> {
-    const snapshot = await this.db
-      .collection(this.collection)
-      .where('ruleId', '==', ruleId)
-      .where('findingId', '==', findingId)
-      .where('isFalsePositive', '==', true)
-      .limit(1)
-      .get();
+  async isFalsePositive(ruleIdOrFindingId: string, findingId?: string): Promise<boolean> {
+    if (findingId !== undefined) {
+      const snapshot = await this.db
+        .collection(this.collection)
+        .where('ruleId', '==', ruleIdOrFindingId)
+        .where('findingId', '==', findingId)
+        .where('isFalsePositive', '==', true)
+        .limit(1)
+        .get();
+      return !snapshot.empty;
+    } else {
+      const snapshot = await this.db
+        .collection(this.collection)
+        .where('findingId', '==', ruleIdOrFindingId)
+        .where('isFalsePositive', '==', true)
+        .limit(1)
+        .get();
+      return !snapshot.empty;
+    }
+  }
 
-    return !snapshot.empty;
+  async recordFalsePositive(_event: FalsePositiveEvent): Promise<void> {
+    throw new Error('recordFalsePositive not yet implemented for GCP adapter');
+  }
+
+  async getFalsePositivesByRule(_ruleId: string): Promise<FalsePositiveEvent[]> {
+    throw new Error('getFalsePositivesByRule not yet implemented for GCP adapter');
   }
 
   computeWindow(ruleId: string, events: FPEvent[]): FPWindow {
@@ -220,21 +241,21 @@ class GcpConsentStore implements ConsentStoreAdapter {
 
   async hasValidConsent(
     orgId: string,
-    repoId: string,
-    scope: string,
+    repoId?: string,
+    scope?: string,
   ): Promise<boolean> {
     const records = await this.getConsentRecords(orgId);
     const now = Date.now();
     return records.some(
       (r: any) =>
-        (r.repoId === repoId || !r.repoId) &&
-        r.scope === scope &&
+        (!repoId || r.repoId === repoId || !r.repoId) &&
+        (!scope || r.scope === scope) &&
         !r.revoked &&
         (!r.expiresAt || new Date(r.expiresAt).getTime() > now),
     );
   }
 
-  async revokeConsent(orgId: string, scope: string): Promise<void> {
+  async revokeConsent(orgId: string, scope: string, _revokedBy?: string): Promise<void> {
     const hashedOrgId = this.hashId(orgId);
     const docRef = this.db.collection(this.collection).doc(hashedOrgId);
 
@@ -256,6 +277,33 @@ class GcpConsentStore implements ConsentStoreAdapter {
 
   async getConsent(orgId: string): Promise<any> {
     return this.getConsentRecords(orgId);
+  }
+
+  async grantConsent(orgId: string, scope: string, grantedBy: string, expiresAt?: Date): Promise<void> {
+    await this.recordConsent({ orgId, scope, grantedBy, expiresAt });
+  }
+
+  async checkResourceConsent(_orgId: string, _scope: string): Promise<{ granted: boolean; state: string }> {
+    throw new Error('checkResourceConsent not yet implemented for GCP adapter');
+  }
+
+  async checkMultipleResources(_orgId: string, _scopes: string[]): Promise<{
+    allGranted: boolean;
+    missingConsent: string[];
+    results: Record<string, { granted: boolean }>;
+  }> {
+    throw new Error('checkMultipleResources not yet implemented for GCP adapter');
+  }
+
+  async getConsentSummary(_orgId: string): Promise<{
+    orgId: string;
+    resources: Record<string, { state: string }>;
+  } | null> {
+    throw new Error('getConsentSummary not yet implemented for GCP adapter');
+  }
+
+  async checkConsent(_orgId: string): Promise<ConsentType> {
+    throw new Error('checkConsent not yet implemented for GCP adapter');
   }
 
   private async getConsentRecords(orgId: string): Promise<any[]> {
@@ -301,41 +349,59 @@ class GcpBlockCounter implements BlockCounterAdapter {
   }
 
   async increment(ruleId: string, orgId: string): Promise<number> {
-    const bucketKey = this.getBucketKey(ruleId, orgId);
-    const docRef = this.db.collection(this.collection).doc(bucketKey);
+    try {
+      const bucketKey = this.getBucketKey(ruleId, orgId);
+      const docRef = this.db.collection(this.collection).doc(bucketKey);
 
-    const result = await this.db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(docRef);
+      const result = await this.db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(docRef);
 
-      let count = 1;
-      if (doc.exists) {
-        count = (doc.data()!.count || 0) + 1;
-      }
+        let count = 1;
+        if (doc.exists) {
+          count = (doc.data()!.count || 0) + 1;
+        }
 
-      transaction.set(docRef, {
-        bucketKey,
-        ruleId,
-        orgId,
-        count,
-        timestamp: Date.now(),
-        expiresAt: new Date(Date.now() + this.ttlHours * 3600 * 1000),
+        transaction.set(docRef, {
+          bucketKey,
+          ruleId,
+          orgId,
+          count,
+          timestamp: Date.now(),
+          expiresAt: new Date(Date.now() + this.ttlHours * 3600 * 1000),
+        });
+
+        return count;
       });
 
-      return count;
-    });
-
-    return result;
+      return result;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to increment counter in Firestore',
+        'INCREMENT_FAILED',
+        { source: 'gcp-firestore', ruleId, orgId, originalError: error },
+      );
+    }
   }
 
   async getCount(ruleId: string, orgId: string): Promise<number> {
-    const bucketKey = this.getBucketKey(ruleId, orgId);
-    const doc = await this.db.collection(this.collection).doc(bucketKey).get();
+    try {
+      const bucketKey = this.getBucketKey(ruleId, orgId);
+      const doc = await this.db.collection(this.collection).doc(bucketKey).get();
 
-    if (!doc.exists) {
-      return 0;
+      if (!doc.exists) {
+        return 0;
+      }
+
+      return doc.data()!.count || 0;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to read counter from Firestore',
+        'READ_FAILED',
+        { source: 'gcp-firestore', ruleId, orgId, originalError: error },
+      );
     }
-
-    return doc.data()!.count || 0;
   }
 
   async isCircuitBroken(
@@ -343,8 +409,17 @@ class GcpBlockCounter implements BlockCounterAdapter {
     orgId: string,
     threshold: number,
   ): Promise<boolean> {
-    const count = await this.getCount(ruleId, orgId);
-    return count >= threshold;
+    try {
+      const count = await this.getCount(ruleId, orgId);
+      return count >= threshold;
+    } catch (error) {
+      if (error instanceof BlockCounterError) throw error;
+      throw new BlockCounterError(
+        'Failed to check circuit breaker in Firestore',
+        'CIRCUIT_CHECK_FAILED',
+        { source: 'gcp-firestore', ruleId, orgId, threshold, originalError: error },
+      );
+    }
   }
 }
 
@@ -352,7 +427,8 @@ class GcpBlockCounter implements BlockCounterAdapter {
  * GCP Secret Store
  *
  * Uses Secret Manager for nonce retrieval.
- * Preserves existing Secret Manager access pattern and fail-closed behavior.
+ * Phase 0: Throws SecretStoreError on failure instead of returning null.
+ * Callers at L0 (business logic) implement fail-closed behavior.
  */
 class GcpSecretStore implements SecretStoreAdapter {
   private client: SecretManagerServiceClient;
@@ -365,23 +441,37 @@ class GcpSecretStore implements SecretStoreAdapter {
     this.secretName = secretName;
   }
 
-  async getNonce(): Promise<string | null> {
+  async getNonce(): Promise<NonceConfig> {
     try {
       const name = `projects/${this.projectId}/secrets/${this.secretName}/versions/latest`;
       const [version] = await this.client.accessSecretVersion({ name });
 
       if (!version.payload?.data) {
-        return null;
+        throw new SecretStoreError(
+          'Secret version exists but has no payload data',
+          'MALFORMED_SECRET',
+          { source: 'gcp-secret-manager', projectId: this.projectId, secretName: this.secretName },
+        );
       }
 
       // Handle both Buffer and Uint8Array
       const payloadData = version.payload.data;
-      return Buffer.isBuffer(payloadData)
+      const value = Buffer.isBuffer(payloadData)
         ? payloadData.toString('utf-8')
         : Buffer.from(payloadData as Uint8Array).toString('utf-8');
+
+      return {
+        value,
+        loadedAt: new Date().toISOString(),
+        source: 'gcp-secret-manager',
+      };
     } catch (error) {
-      console.error('Failed to load nonce from Secret Manager:', error);
-      return null; // Fail-closed
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to load nonce from Secret Manager',
+        'READ_FAILED',
+        { source: 'gcp-secret-manager', projectId: this.projectId, secretName: this.secretName, originalError: error },
+      );
     }
   }
 
@@ -418,21 +508,43 @@ class GcpSecretStore implements SecretStoreAdapter {
               nonces.push(value);
             }
           } catch {
-            // Skip inaccessible versions
+            // Skip inaccessible versions — will throw below if none succeed
           }
         }
       }
 
       if (nonces.length === 0) {
+        // Fall back to single nonce (will throw if that also fails)
         const single = await this.getNonce();
-        return single ? [single] : [];
+        return [single.value];
       }
 
       return nonces;
     } catch (error) {
-      console.error('Failed to retrieve nonce versions:', error);
-      const single = await this.getNonce();
-      return single ? [single] : [];
+      if (error instanceof SecretStoreError) throw error;
+      throw new SecretStoreError(
+        'Failed to retrieve nonce versions from Secret Manager',
+        'VERSIONS_FAILED',
+        { source: 'gcp-secret-manager', projectId: this.projectId, secretName: this.secretName, originalError: error },
+      );
+    }
+  }
+
+  async rotateNonce(newValue: string): Promise<void> {
+    try {
+      const parent = `projects/${this.projectId}/secrets/${this.secretName}`;
+      await this.client.addSecretVersion({
+        parent,
+        payload: {
+          data: Buffer.from(newValue, 'utf-8'),
+        },
+      });
+    } catch (error) {
+      throw new SecretStoreError(
+        'Failed to rotate nonce in Secret Manager',
+        'ROTATION_FAILED',
+        { source: 'gcp-secret-manager', projectId: this.projectId, secretName: this.secretName, originalError: error },
+      );
     }
   }
 }
@@ -522,11 +634,26 @@ export function createGcpAdapters(config: CloudConfig): CloudAdapters {
   const secretName =
     process.env.GCP_SECRET_NAME || 'phase-mirror-hmac-nonce-staging';
 
+  const notImplemented = (name: string) => () => {
+    throw new Error(`${name} not yet implemented for GCP adapter`);
+  };
+
   return {
     fpStore: new GcpFPStore(projectId),
     consentStore: new GcpConsentStore(projectId),
     blockCounter: new GcpBlockCounter(projectId),
     secretStore: new GcpSecretStore(projectId, secretName),
     objectStore: new GcpObjectStore(projectId, baselineBucket),
+    baselineStorage: {
+      storeBaseline: notImplemented('BaselineStorage.storeBaseline'),
+      getBaseline: notImplemented('BaselineStorage.getBaseline'),
+      listBaselines: notImplemented('BaselineStorage.listBaselines'),
+      deleteBaseline: notImplemented('BaselineStorage.deleteBaseline'),
+    } as BaselineStorageAdapter,
+    calibrationStore: {
+      aggregateFPsByRule: notImplemented('CalibrationStore.aggregateFPsByRule'),
+      getRuleFPRate: notImplemented('CalibrationStore.getRuleFPRate'),
+      getAllRuleFPRates: notImplemented('CalibrationStore.getAllRuleFPRates'),
+    } as CalibrationStoreAdapter,
   };
 }
