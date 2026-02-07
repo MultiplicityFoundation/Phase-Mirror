@@ -1,27 +1,26 @@
-# Mirror Dissonance Protocol CODEOWNERS
-# These owners will be requested for review when someone opens a pull request.
+# Phase Mirror Code Ownership
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Governance & Rule Registry
-/packages/mirror-dissonance/src/rules/   @PhaseMirror
-/docs/governance/                        @PhaseMirror
+# Steward approves all rule changes and governance updates
+packages/mirror-dissonance/src/rules/    @PhaseMirror
+docs/governance/                          @PhaseMirror
 
-# Core Library & Infra
-/packages/mirror-dissonance/src/         @PhaseMirror
-/infra/                                  @PhaseMirror
+# Lead Architect approves infrastructure and core library
+packages/mirror-dissonance/src/           @PhaseMirror
+packages/cli/                             @PhaseMirror
+packages/mcp-server/                      @PhaseMirror
+infra/                                    @PhaseMirror
 
-# Security-sensitive paths (require Steward approval)
-/packages/mirror-dissonance/src/redaction/  @PhaseMirror
-/packages/mirror-dissonance/src/nonce/      @PhaseMirror
-/packages/mirror-dissonance/src/anonymizer/ @PhaseMirror
+# Security-sensitive paths require Steward approval
+packages/mirror-dissonance/src/redaction/     @PhaseMirror
+packages/mirror-dissonance/src/nonce/         @PhaseMirror
+packages/mirror-dissonance/src/anonymizer/    @PhaseMirror
+packages/mirror-dissonance/src/consent-store/ @PhaseMirror
 
-# Policy decisions
-/packages/mirror-dissonance/src/policy/ @PhaseMirror
+# Schemas and config changes affect all consumers
+schemas/                    @PhaseMirror
+.github/workflows/          @PhaseMirror
+.github/CODEOWNERS          @PhaseMirror
 
-# Schema definitions
-/packages/mirror-dissonance/schemas/    @PhaseMirror
-
-# GitHub Actions workflows
-/.github/workflows/                     @PhaseMirror
-
-# Documentation
-/docs/                                  @PhaseMirror
+# Adapters (cloud provider integrations)
+packages/mirror-dissonance/src/adapters/ @PhaseMirror
