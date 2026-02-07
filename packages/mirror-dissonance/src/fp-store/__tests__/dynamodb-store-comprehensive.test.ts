@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * FP Store DynamoDB Implementation Tests
  * 

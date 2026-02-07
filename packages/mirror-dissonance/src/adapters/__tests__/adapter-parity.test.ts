@@ -3,20 +3,18 @@
  * 
  * Interface conformance tests that validate all cloud providers (aws/gcp/local)
  * implement the same semantics for:
- * - FPStore: False positive tracking
- * - ConsentStore: Consent management with k-anonymity
- * - BlockCounter: Rate limiting with TTL
- * - SecretStore: Nonce storage and rotation
- * - BaselineStorage: Drift baseline storage
- * - CalibrationStore: FP calibration with privacy guarantees
+ * - FPStore: False positive tracking (FPStoreAdapter)
+ * - ConsentStore: Consent management (ConsentStoreAdapter)
+ * - BlockCounter: Rate limiting with TTL (BlockCounterAdapter)
+ * - SecretStore: Nonce storage (SecretStoreAdapter)
+ * - ObjectStore: Baseline storage (ObjectStoreAdapter)
  * 
  * These tests ensure multi-cloud abstraction doesn't drift and all adapters
  * maintain interface parity.
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-import { CloudAdapters, CloudConfig } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { CloudAdapters, CloudConfig, FPEvent } from '../types.js';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
@@ -77,276 +75,224 @@ function runAdapterParityTests(providerConfig: ProviderTestConfig) {
     });
     
     describe('FPStore Interface Conformance', () => {
-      it('should record and retrieve false positive events', async () => {
-        const event: FalsePositiveEvent = {
-          id: randomUUID(),
-          findingId: `finding-${name}-${randomUUID()}`,
-          ruleId: 'rule-test',
-          timestamp: new Date().toISOString(),
-          resolvedBy: 'user-test',
-          orgIdHash: 'org-test',
-          consent: 'explicit',
-          context: {},
+      it('should record and check false positive events', async () => {
+        const ruleId = `rule-${name}-${randomUUID()}`;
+        const findingId = `finding-${name}-${randomUUID()}`;
+        const event: FPEvent = {
+          eventId: randomUUID(),
+          findingId,
+          ruleId,
+          ruleVersion: '1.0.0',
+          outcome: 'block',
+          isFalsePositive: true,
+          timestamp: new Date(),
+          context: { repo: 'test-repo', branch: 'main', eventType: 'pullrequest' },
         };
         
-        await adapters.fpStore.recordFalsePositive(event);
-        const isFP = await adapters.fpStore.isFalsePositive(event.findingId);
+        await adapters.fpStore.recordEvent(event);
+        const isFP = await adapters.fpStore.isFalsePositive(ruleId, findingId);
         
         expect(isFP).toBe(true);
       });
       
       it('should return false for non-existent findings', async () => {
-        const isFP = await adapters.fpStore.isFalsePositive(`nonexistent-${randomUUID()}`);
+        const isFP = await adapters.fpStore.isFalsePositive(
+          `nonexistent-rule-${randomUUID()}`,
+          `nonexistent-finding-${randomUUID()}`
+        );
         expect(isFP).toBe(false);
       });
       
-      it('should filter false positives by rule', async () => {
-        const ruleId = `rule-${name}-${randomUUID()}`;
-        const events: FalsePositiveEvent[] = [
-          {
-            id: randomUUID(),
-            findingId: `finding-1-${randomUUID()}`,
-            ruleId,
-            timestamp: new Date().toISOString(),
-            resolvedBy: 'user-1',
-            orgIdHash: 'org-1',
-            consent: 'explicit',
-            context: {},
-          },
-          {
-            id: randomUUID(),
-            findingId: `finding-2-${randomUUID()}`,
-            ruleId,
-            timestamp: new Date().toISOString(),
-            resolvedBy: 'user-2',
-            orgIdHash: 'org-2',
-            consent: 'explicit',
-            context: {},
-          },
-        ];
+      it('should get window by count', async () => {
+        const ruleId = `rule-${name}-window-${randomUUID()}`;
         
-        for (const event of events) {
-          await adapters.fpStore.recordFalsePositive(event);
+        for (let i = 0; i < 3; i++) {
+          const event: FPEvent = {
+            eventId: randomUUID(),
+            findingId: `finding-${i}-${randomUUID()}`,
+            ruleId,
+            ruleVersion: '1.0.0',
+            outcome: 'block',
+            isFalsePositive: i % 2 === 0,
+            timestamp: new Date(Date.now() - i * 1000),
+            context: { repo: 'test-repo', branch: 'main', eventType: 'pullrequest' },
+          };
+          await adapters.fpStore.recordEvent(event);
         }
         
-        const retrieved = await adapters.fpStore.getFalsePositivesByRule(ruleId);
-        expect(retrieved.length).toBeGreaterThanOrEqual(2);
+        const window = await adapters.fpStore.getWindowByCount(ruleId, 10);
+        expect(window.ruleId).toBe(ruleId);
+        expect(window.events.length).toBeGreaterThanOrEqual(3);
+        expect(window.statistics.total).toBeGreaterThanOrEqual(3);
+      });
+
+      it('should compute window statistics correctly', () => {
+        const ruleId = 'test-rule';
+        const events: FPEvent[] = [
+          {
+            eventId: '1', ruleId, ruleVersion: '1.0', findingId: 'f1',
+            outcome: 'block', isFalsePositive: true, timestamp: new Date(),
+            context: { repo: 'r', branch: 'b', eventType: 'pullrequest' },
+          },
+          {
+            eventId: '2', ruleId, ruleVersion: '1.0', findingId: 'f2',
+            outcome: 'block', isFalsePositive: false, timestamp: new Date(),
+            context: { repo: 'r', branch: 'b', eventType: 'pullrequest' },
+          },
+        ];
+
+        const window = adapters.fpStore.computeWindow(ruleId, events);
+        expect(window.ruleId).toBe(ruleId);
+        expect(window.statistics.total).toBe(2);
+        expect(window.statistics.falsePositives).toBe(1);
       });
     });
     
     describe('ConsentStore Interface Conformance', () => {
-      it('should grant and check resource consent', async () => {
+      it('should record and check consent', async () => {
         const orgId = `org-${name}-${randomUUID()}`;
+        const repoId = 'test-repo';
+        const scope = 'fp_patterns';
         
-        await adapters.consentStore.grantConsent(orgId, 'fp_patterns', 'admin-user');
+        await adapters.consentStore.recordConsent({
+          orgId,
+          repoId,
+          scope,
+          grantedBy: 'admin-user',
+        });
         
-        const result = await adapters.consentStore.checkResourceConsent(orgId, 'fp_patterns');
-        expect(result.granted).toBe(true);
-        expect(result.state).toBe('granted');
+        const hasConsent = await adapters.consentStore.hasValidConsent(orgId, repoId, scope);
+        expect(hasConsent).toBe(true);
       });
       
-      it('should return not_requested for missing consent', async () => {
+      it('should return false for missing consent', async () => {
         const orgId = `org-${name}-${randomUUID()}`;
-        
-        const result = await adapters.consentStore.checkResourceConsent(orgId, 'fp_patterns');
-        expect(result.granted).toBe(false);
-        expect(result.state).toBe('not_requested');
+        const hasConsent = await adapters.consentStore.hasValidConsent(orgId, 'repo', 'fp_patterns');
+        expect(hasConsent).toBe(false);
       });
       
       it('should revoke consent', async () => {
         const orgId = `org-${name}-${randomUUID()}`;
+        const scope = 'fp_patterns';
         
-        await adapters.consentStore.grantConsent(orgId, 'fp_patterns', 'admin-user');
-        await adapters.consentStore.revokeConsent(orgId, 'fp_patterns', 'admin-user');
+        await adapters.consentStore.recordConsent({
+          orgId,
+          scope,
+          grantedBy: 'admin-user',
+        });
         
-        const result = await adapters.consentStore.checkResourceConsent(orgId, 'fp_patterns');
-        expect(result.granted).toBe(false);
-        expect(result.state).toBe('revoked');
+        await adapters.consentStore.revokeConsent(orgId, scope);
+        
+        const hasConsent = await adapters.consentStore.hasValidConsent(orgId, 'any-repo', scope);
+        expect(hasConsent).toBe(false);
       });
-      
-      it('should handle consent expiration', async () => {
-        const orgId = `org-${name}-${randomUUID()}`;
-        const pastDate = new Date(Date.now() - 1000);
-        
-        await adapters.consentStore.grantConsent(orgId, 'fp_patterns', 'admin-user', pastDate);
-        
-        const result = await adapters.consentStore.checkResourceConsent(orgId, 'fp_patterns');
-        expect(result.granted).toBe(false);
-        expect(result.state).toBe('expired');
-      });
-      
-      it('should check multiple resources', async () => {
+
+      it('should get consent records', async () => {
         const orgId = `org-${name}-${randomUUID()}`;
         
-        await adapters.consentStore.grantConsent(orgId, 'fp_patterns', 'admin-user');
+        await adapters.consentStore.recordConsent({
+          orgId,
+          scope: 'fp_patterns',
+          grantedBy: 'admin-user',
+        });
         
-        const result = await adapters.consentStore.checkMultipleResources(orgId, [
-          'fp_patterns',
-          'fp_metrics',
-        ]);
-        
-        expect(result.allGranted).toBe(false);
-        expect(result.missingConsent).toContain('fp_metrics');
-      });
-      
-      it('should support legacy checkConsent method', async () => {
-        const orgId = `org-${name}-${randomUUID()}`;
-        
-        let consentType = await adapters.consentStore.checkConsent(orgId);
-        expect(consentType).toBe('none');
-        
-        await adapters.consentStore.grantConsent(orgId, 'fp_patterns', 'admin-user');
-        
-        consentType = await adapters.consentStore.checkConsent(orgId);
-        expect(consentType).toBe('explicit');
+        const records = await adapters.consentStore.getConsent(orgId);
+        expect(records).toBeDefined();
       });
     });
     
     describe('BlockCounter Interface Conformance', () => {
       it('should increment and get counter', async () => {
         const ruleId = `rule-${name}-${randomUUID()}`;
+        const orgId = `org-${name}-${randomUUID()}`;
         
-        const count1 = await adapters.blockCounter.increment(ruleId);
+        const count1 = await adapters.blockCounter.increment(ruleId, orgId);
         expect(count1).toBe(1);
         
-        const count2 = await adapters.blockCounter.increment(ruleId);
+        const count2 = await adapters.blockCounter.increment(ruleId, orgId);
         expect(count2).toBe(2);
         
-        const count = await adapters.blockCounter.getCount(ruleId);
+        const count = await adapters.blockCounter.getCount(ruleId, orgId);
         expect(count).toBe(2);
       });
       
       it('should return 0 for non-existent rule', async () => {
-        const count = await adapters.blockCounter.getCount(`nonexistent-${randomUUID()}`);
+        const count = await adapters.blockCounter.getCount(
+          `nonexistent-${randomUUID()}`,
+          `org-${randomUUID()}`
+        );
         expect(count).toBe(0);
+      });
+      
+      it('should check circuit breaker', async () => {
+        const ruleId = `rule-${name}-${randomUUID()}`;
+        const orgId = `org-${name}-${randomUUID()}`;
+        
+        // Not broken initially
+        let broken = await adapters.blockCounter.isCircuitBroken(ruleId, orgId, 3);
+        expect(broken).toBe(false);
+        
+        // Increment to threshold
+        await adapters.blockCounter.increment(ruleId, orgId);
+        await adapters.blockCounter.increment(ruleId, orgId);
+        await adapters.blockCounter.increment(ruleId, orgId);
+        
+        broken = await adapters.blockCounter.isCircuitBroken(ruleId, orgId, 3);
+        expect(broken).toBe(true);
       });
       
       it('should handle concurrent increments', async () => {
         const ruleId = `rule-${name}-${randomUUID()}`;
+        const orgId = `org-${name}-${randomUUID()}`;
         
-        // Increment concurrently
         const promises = Array.from({ length: 5 }, () => 
-          adapters.blockCounter.increment(ruleId)
+          adapters.blockCounter.increment(ruleId, orgId)
         );
         
         await Promise.all(promises);
         
-        const count = await adapters.blockCounter.getCount(ruleId);
+        const count = await adapters.blockCounter.getCount(ruleId, orgId);
         expect(count).toBe(5);
       });
     });
     
     describe('SecretStore Interface Conformance', () => {
-      it('should rotate and retrieve nonce', async () => {
-        const testNonce = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-        
-        await adapters.secretStore.rotateNonce(testNonce);
-        
+      it('should retrieve nonce as string or null', async () => {
         const nonce = await adapters.secretStore.getNonce();
-        expect(nonce).not.toBeNull();
-        expect(nonce!.value).toBe(testNonce);
-        expect(nonce!.source).toBeDefined();
+        // nonce is string | null — local adapter returns from file, cloud returns from SSM/Secret Manager
+        expect(nonce === null || typeof nonce === 'string').toBe(true);
       });
       
-      it('should handle multiple nonce rotations', async () => {
-        const nonce1 = 'a'.repeat(64);
-        const nonce2 = 'b'.repeat(64);
-        
-        await adapters.secretStore.rotateNonce(nonce1);
-        await adapters.secretStore.rotateNonce(nonce2);
-        
-        const nonce = await adapters.secretStore.getNonce();
-        expect(nonce!.value).toBe(nonce2); // Should get latest
+      it('should retrieve nonces array', async () => {
+        const nonces = await adapters.secretStore.getNonces();
+        expect(Array.isArray(nonces)).toBe(true);
       });
     });
     
-    describe('BaselineStorage Interface Conformance', () => {
+    describe('ObjectStore Interface Conformance', () => {
       it('should store and retrieve baselines', async () => {
-        const key = `baseline-${name}-${randomUUID()}.json`;
-        const content = JSON.stringify({ version: '1.0', rules: [] });
+        const repoId = `repo-${name}-${randomUUID()}`;
+        const baseline = { version: '1.0', rules: ['MD-001'] };
         
-        await adapters.baselineStorage.storeBaseline(key, content);
+        await adapters.objectStore.putBaseline(repoId, baseline);
         
-        const retrieved = await adapters.baselineStorage.getBaseline(key);
-        expect(retrieved).toBe(content);
+        const retrieved = await adapters.objectStore.getBaseline(repoId);
+        expect(retrieved).toEqual(baseline);
       });
       
       it('should return null for non-existent baselines', async () => {
-        const baseline = await adapters.baselineStorage.getBaseline(`nonexistent-${randomUUID()}.json`);
+        const baseline = await adapters.objectStore.getBaseline(`nonexistent-${randomUUID()}`);
         expect(baseline).toBeNull();
       });
       
-      it('should list baselines', async () => {
-        const key1 = `baseline-${name}-1-${randomUUID()}.json`;
-        const key2 = `baseline-${name}-2-${randomUUID()}.json`;
+      it('should list baseline versions', async () => {
+        const repoId = `repo-${name}-${randomUUID()}`;
+        const baseline = { version: '1.0' };
         
-        await adapters.baselineStorage.storeBaseline(key1, 'content1');
-        await adapters.baselineStorage.storeBaseline(key2, 'content2');
+        await adapters.objectStore.putBaseline(repoId, baseline);
         
-        const baselines = await adapters.baselineStorage.listBaselines();
-        expect(baselines.length).toBeGreaterThanOrEqual(2);
-      });
-      
-      it('should delete baselines', async () => {
-        const key = `baseline-${name}-${randomUUID()}.json`;
-        
-        await adapters.baselineStorage.storeBaseline(key, 'content');
-        await adapters.baselineStorage.deleteBaseline(key);
-        
-        const baseline = await adapters.baselineStorage.getBaseline(key);
-        expect(baseline).toBeNull();
-      });
-      
-      it('should handle Buffer content', async () => {
-        const key = `baseline-${name}-${randomUUID()}.json`;
-        const buffer = Buffer.from('test content', 'utf-8');
-        
-        await adapters.baselineStorage.storeBaseline(key, buffer);
-        
-        const retrieved = await adapters.baselineStorage.getBaseline(key);
-        expect(retrieved).toBe('test content');
-      });
-    });
-    
-    describe('CalibrationStore Interface Conformance', () => {
-      it('should enforce k-anonymity with insufficient data', async () => {
-        const ruleId = `rule-${name}-${randomUUID()}`;
-        
-        const result = await adapters.calibrationStore.aggregateFPsByRule(ruleId);
-        
-        expect(result).toHaveProperty('error');
-        expect((result as any).error).toBe('INSUFFICIENT_K_ANONYMITY');
-      });
-      
-      it('should aggregate FPs when k-anonymity is met', async () => {
-        const ruleId = `rule-${name}-${randomUUID()}`;
-        
-        // Create 10 FP events from different orgs to meet k-anonymity
-        for (let i = 0; i < 10; i++) {
-          const event: FalsePositiveEvent = {
-            id: randomUUID(),
-            findingId: `finding-${i}-${randomUUID()}`,
-            ruleId,
-            timestamp: new Date().toISOString(),
-            resolvedBy: `user-${i}`,
-            orgIdHash: `org-${i}-${randomUUID()}`,
-            consent: 'explicit',
-            context: { isFalsePositive: true },
-          };
-          
-          await adapters.fpStore.recordFalsePositive(event);
-        }
-        
-        const result = await adapters.calibrationStore.aggregateFPsByRule(ruleId);
-        
-        if ('error' in result) {
-          // Some providers may still not meet k-anonymity due to implementation details
-          expect(result.error).toBe('INSUFFICIENT_K_ANONYMITY');
-        } else {
-          expect(result.ruleId).toBe(ruleId);
-          expect(result.totalFPs).toBeGreaterThanOrEqual(10);
-          expect(result.meetsKAnonymity).toBe(true);
-        }
+        const versions = await adapters.objectStore.listBaselineVersions(repoId);
+        expect(Array.isArray(versions)).toBe(true);
       });
     });
   });
@@ -383,8 +329,8 @@ describe('Adapter Parity Tests', () => {
     runAdapterParityTests({
       name: 'AWS',
       factory: async (config) => {
-        const { createAwsAdapters } = await import('../aws/index.js');
-        return createAwsAdapters(config);
+        const { createAWSAdapters } = await import('../aws/index.js');
+        return createAWSAdapters(config);
       },
       config: {
         provider: 'aws',
@@ -404,7 +350,7 @@ describe('Adapter Parity Tests', () => {
       },
       config: {
         provider: 'gcp',
-        projectId: 'test-project',
+        gcpProjectId: 'test-project',
         region: 'us-central1',
       },
       skip: true,

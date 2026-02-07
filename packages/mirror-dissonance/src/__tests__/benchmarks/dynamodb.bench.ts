@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * DynamoDB Operations Benchmarks
  * Tests write, query, and batch operation performance

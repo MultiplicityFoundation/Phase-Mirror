@@ -7,13 +7,8 @@
 import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
-import { MemoryBlockCounter } from './block-counter/index.js';
-import { NoOpFPStore, IFPStore, EnhancedDynamoDBFPStore, FPStore } from './fp-store/index.js';
-import { DynamoDBBlockCounter } from './block-counter/dynamodb.js';
-import type { BlockCounter } from './block-counter/dynamodb.js';
-import { DynamoDBConsentStore, NoOpConsentStore, IConsentStore } from './consent-store/index.js';
-import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm';
-import { loadNonce } from './nonce/loader.js';
+import { createAdapters, loadCloudConfig } from './adapters/index.js';
+import type { CloudAdapters, FPStoreAdapter, BlockCounterAdapter, ConsentStoreAdapter, SecretStoreAdapter } from './adapters/types.js';
 import { createRedactor, Redactor } from './redaction/redactor.js';
 
 export interface OracleConfig {
@@ -26,92 +21,68 @@ export interface OracleConfig {
 }
 
 export interface OracleComponents {
-  fpStore?: IFPStore | FPStore;
-  consentStore?: IConsentStore;
+  fpStore: FPStoreAdapter;
+  consentStore: ConsentStoreAdapter;
+  blockCounter: BlockCounterAdapter;
+  secretStore: SecretStoreAdapter;
   redactor?: Redactor;
-  blockCounter?: BlockCounter | MemoryBlockCounter;
 }
 
 /**
- * Initialize Oracle with AWS services
- * Day 13: Wire Components Together
+ * Initialize Oracle via adapter factory.
+ *
+ * Replaces direct DynamoDB/SSM instantiation with createAdapters(loadCloudConfig()).
+ * CLOUD_PROVIDER=local for zero-cloud mode (no NoOpFPStore fallback).
  */
-export async function initializeOracle(config: OracleConfig): Promise<Oracle> {
-  const components: OracleComponents = {};
-  const region = config.region || 'us-east-1';
+export async function initializeOracle(config: OracleConfig = {}): Promise<Oracle> {
+  // Override CloudConfig env vars if explicit config values provided
+  if (config.region) process.env.AWS_REGION = config.region;
+  if (config.fpTableName) process.env.FP_TABLE_NAME = config.fpTableName;
+  if (config.consentTableName) process.env.CONSENT_TABLE_NAME = config.consentTableName;
+  if (config.blockCounterTableName) process.env.BLOCK_COUNTER_TABLE_NAME = config.blockCounterTableName;
+  if (config.nonceParameterName) process.env.NONCE_PARAMETER_NAME = config.nonceParameterName;
 
-  // Load nonce first (required for redaction) if SSM parameter name provided
-  if (config.nonceParameterName) {
-    try {
-      const clientConfig: SSMClientConfig = { region };
-      if (config.endpoint) {
-        clientConfig.endpoint = config.endpoint;
-      }
-      const ssmClient = new SSMClient(clientConfig);
-      const nonceConfig = await loadNonce(ssmClient, config.nonceParameterName);
-      components.redactor = createRedactor(nonceConfig);
-    } catch (error) {
-      console.warn('Failed to load nonce from SSM, redaction will be limited:', error);
-      // Fail-closed: throw error if nonce cannot be loaded
+  const cloudConfig = loadCloudConfig();
+  const adapters = await createAdapters(cloudConfig);
+
+  // Load nonce and create redactor
+  let redactor: Redactor | undefined;
+  try {
+    const nonce = await adapters.secretStore.getNonce();
+    if (nonce) {
+      redactor = createRedactor({
+        value: nonce,
+        loadedAt: new Date().toISOString(),
+        source: `adapters/${cloudConfig.provider}`,
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load nonce via adapter, redaction will be limited:', error);
+    // Fail-closed: throw if nonce loading fails for non-local providers
+    if (cloudConfig.provider !== 'local') {
       throw error;
     }
   }
 
-  // Initialize FP Store if table name provided
-  if (config.fpTableName) {
-    try {
-      components.fpStore = new EnhancedDynamoDBFPStore({
-        tableName: config.fpTableName,
-        region,
-        endpoint: config.endpoint,
-      });
-    } catch (error) {
-      console.warn('Failed to initialize FP Store:', error);
-      components.fpStore = new NoOpFPStore();
-    }
-  }
-
-  // Initialize Consent Store if table name provided
-  if (config.consentTableName) {
-    try {
-      components.consentStore = new DynamoDBConsentStore({
-        tableName: config.consentTableName,
-        region,
-        endpoint: config.endpoint,
-      });
-    } catch (error) {
-      console.warn('Failed to initialize Consent Store:', error);
-      components.consentStore = new NoOpConsentStore();
-    }
-  }
-
-  // Initialize Block Counter if table name provided
-  if (config.blockCounterTableName) {
-    try {
-      components.blockCounter = new DynamoDBBlockCounter(
-        config.blockCounterTableName,
-        region,
-        config.endpoint
-      );
-    } catch (error) {
-      console.warn('Failed to initialize Block Counter:', error);
-      components.blockCounter = new MemoryBlockCounter(24);
-    }
-  }
-
-  return new Oracle(components);
+  return new Oracle({
+    fpStore: adapters.fpStore,
+    consentStore: adapters.consentStore,
+    blockCounter: adapters.blockCounter,
+    secretStore: adapters.secretStore,
+    redactor,
+  });
 }
 
 export class Oracle {
-  private blockCounter: BlockCounter | MemoryBlockCounter;
-  private fpStore: IFPStore | FPStore;
-  private consentStore: IConsentStore;
+  private blockCounter: BlockCounterAdapter;
+  private fpStore: FPStoreAdapter;
+  private consentStore: ConsentStoreAdapter;
   private redactor?: Redactor;
 
-  constructor(components: OracleComponents = {}) {
-    this.blockCounter = components.blockCounter || new MemoryBlockCounter(24);
-    this.fpStore = components.fpStore || new NoOpFPStore();
-    this.consentStore = components.consentStore || new NoOpConsentStore();
+  constructor(components: OracleComponents) {
+    this.blockCounter = components.blockCounter;
+    this.fpStore = components.fpStore;
+    this.consentStore = components.consentStore;
     this.redactor = components.redactor;
   }
 
@@ -121,7 +92,7 @@ export class Oracle {
     // Evaluate all rules - now returns structured result with errors
     const evalResult = await evaluateAllRules(input);
 
-    // Filter out false positives (only if legacy store)
+    // Filter out false positives via adapter
     // Error-originated violations bypass FP filtering — they are never false positives
     const realViolations: RuleViolation[] = [];
     for (const violation of evalResult.violations) {
@@ -131,25 +102,19 @@ export class Oracle {
         continue;
       }
 
-      // Check if the store has the legacy isFalsePositive method
-      if ('isFalsePositive' in this.fpStore) {
-        const isFP = await (this.fpStore as IFPStore).isFalsePositive(violation.ruleId);
-        if (!isFP) {
-          realViolations.push(violation);
-        }
-      } else {
-        // Enhanced store doesn't have this method yet, keep all violations
+      // Use adapter's isFalsePositive method
+      const isFP = await this.fpStore.isFalsePositive(violation.ruleId, violation.ruleId);
+      if (!isFP) {
         realViolations.push(violation);
       }
     }
 
-    // Check circuit breaker
+    // Check circuit breaker via adapter
     let circuitBreakerTripped = false;
+    const orgId = input.context?.repositoryName || 'unknown';
     for (const violation of realViolations) {
-      const count = 'getCount' in this.blockCounter 
-        ? await this.blockCounter.getCount(violation.ruleId)
-        : await this.blockCounter.get(violation.ruleId);
-      if (count > 100) { // threshold
+      const broken = await this.blockCounter.isCircuitBroken(violation.ruleId, orgId, 100);
+      if (broken) {
         circuitBreakerTripped = true;
         break;
       }
@@ -167,13 +132,7 @@ export class Oracle {
     // Update block counter if blocking
     if (machineDecision.outcome === 'block') {
       for (const violation of realViolations) {
-        if ('getCount' in this.blockCounter) {
-          // MemoryBlockCounter
-          await this.blockCounter.increment(violation.ruleId);
-        } else {
-          // DynamoDBBlockCounter
-          await this.blockCounter.increment(violation.ruleId, 3600); // 1 hour TTL
-        }
+        await this.blockCounter.increment(violation.ruleId, orgId);
       }
     }
 
@@ -233,14 +192,14 @@ export class Oracle {
   }
 }
 
-// Export factory function
-export function createOracle(): Oracle {
-  return new Oracle();
+// Export factory function — uses adapter factory for provider-agnostic initialization
+export async function createOracle(): Promise<Oracle> {
+  return initializeOracle();
 }
 
 // Export main analyze function for convenience
 export async function analyze(input: OracleInput): Promise<OracleOutput> {
-  const oracle = createOracle();
+  const oracle = await createOracle();
   return oracle.analyze(input);
 }
 

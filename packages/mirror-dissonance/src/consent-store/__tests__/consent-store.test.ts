@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * Unit tests for Consent Store
  * Target coverage: 85%

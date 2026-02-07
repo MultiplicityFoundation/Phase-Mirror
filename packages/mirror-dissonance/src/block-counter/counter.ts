@@ -1,95 +1,16 @@
 /**
  * Block counter with TTL-based hourly buckets
+ *
+ * @deprecated The DynamoDB-backed BlockCounter class has moved to
+ *   `src/adapters/aws/block-counter.ts`. Use the adapter factory instead.
+ *
+ * Cloud-agnostic exports (BlockCounterConfig, MemoryBlockCounter) remain here.
  */
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { BlockCounterEntry } from '../../schemas/types.js';
 
 export interface BlockCounterConfig {
   tableName: string;
   region?: string;
   ttlHours?: number;
-}
-
-export class BlockCounter {
-  private client: DynamoDBDocumentClient;
-  private tableName: string;
-  private ttlHours: number;
-
-  constructor(config: BlockCounterConfig) {
-    const dynamoClient = new DynamoDBClient({ region: config.region || 'us-east-1' });
-    this.client = DynamoDBDocumentClient.from(dynamoClient);
-    this.tableName = config.tableName;
-    this.ttlHours = config.ttlHours || 24;
-  }
-
-  private getBucketKey(): string {
-    // Create hourly bucket key
-    const now = new Date();
-    const bucketHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0
-    );
-    return bucketHour.toISOString();
-  }
-
-  async increment(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-    const ttl = Math.floor(Date.now() / 1000) + this.ttlHours * 3600;
-
-    try {
-      const command = new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          bucketKey,
-          ruleId,
-        },
-        UpdateExpression: 'ADD #count :inc SET #ttl = :ttl, #timestamp = :timestamp',
-        ExpressionAttributeNames: {
-          '#count': 'count',
-          '#ttl': 'ttl',
-          '#timestamp': 'timestamp',
-        },
-        ExpressionAttributeValues: {
-          ':inc': 1,
-          ':ttl': ttl,
-          ':timestamp': Date.now(),
-        },
-        ReturnValues: 'UPDATED_NEW',
-      });
-
-      const response = await this.client.send(command);
-      return response.Attributes?.count || 1;
-    } catch (error) {
-      console.error('Failed to increment block counter:', error);
-      throw error;
-    }
-  }
-
-  async getCount(ruleId: string): Promise<number> {
-    const bucketKey = this.getBucketKey();
-
-    try {
-      const command = new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          bucketKey,
-          ruleId,
-        },
-      });
-
-      const response = await this.client.send(command);
-      return response.Item?.count || 0;
-    } catch (error) {
-      console.error('Failed to get block count:', error);
-      return 0;
-    }
-  }
 }
 
 export class MemoryBlockCounter {

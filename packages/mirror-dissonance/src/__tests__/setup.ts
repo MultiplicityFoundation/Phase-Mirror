@@ -27,51 +27,18 @@ declare global {
   namespace NodeJS {
     interface Global {
       testUtils: {
-        createMockSSMClient: () => any;
-        createMockDynamoClient: () => any;
+        createMockFetcher: () => jest.Mock;
       };
     }
   }
 }
 
-// Mock AWS SDK clients (prevents actual AWS calls)
-jest.mock('@aws-sdk/client-ssm', () => ({
-  SSMClient: jest.fn().mockImplementation(() => ({
-    send: jest.fn()
-  })),
-  GetParameterCommand: jest.fn(),
-  PutParameterCommand: jest.fn(),
-  DeleteParameterCommand: jest.fn()
-}));
-
-jest.mock('@aws-sdk/client-dynamodb', () => ({
-  DynamoDBClient: jest.fn().mockImplementation(() => ({
-    send: jest.fn()
-  })),
-  PutItemCommand: jest.fn(),
-  GetItemCommand: jest.fn(),
-  CreateTableCommand: jest.fn(),
-  QueryCommand: jest.fn(),
-  UpdateItemCommand: jest.fn(),
-  DeleteItemCommand: jest.fn(),
-  ScanCommand: jest.fn()
-}));
-
-// Utility helpers used by DynamoDB tests
-jest.mock('@aws-sdk/util-dynamodb', () => ({
-  marshall: jest.fn(),
-  unmarshall: jest.fn()
-}));
+// AWS SDK mocks removed — production code no longer imports cloud SDKs directly.
+// Tests for adapter-layer code live in src/adapters/__tests__/.
 
 // Global test utilities
 (global as any).testUtils = {
-  createMockSSMClient: () => ({
-    send: jest.fn()
-  }),
-  
-  createMockDynamoClient: () => ({
-    send: jest.fn()
-  })
+  createMockFetcher: () => jest.fn<() => Promise<string>>().mockResolvedValue('a'.repeat(64)),
 };
 
 // Clean up after each test

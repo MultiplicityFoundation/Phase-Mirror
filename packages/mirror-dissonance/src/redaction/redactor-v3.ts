@@ -1,9 +1,14 @@
 /**
  * Redactor v3 - Nonce-based redaction with rotation support
  * Supports multi-version nonce loading and grace periods
+ *
+ * @deprecated Direct SSM coupling removed. loadNonce() now accepts a
+ *   SecretFetcher function instead of an SSMClient.
  */
 import crypto from 'crypto';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+
+/** Cloud-agnostic secret fetcher. Replaces direct SSM coupling. */
+export type SecretFetcher = (parameterName: string) => Promise<string>;
 
 export interface RedactedText {
   __brand: 'RedactedText';
@@ -29,21 +34,16 @@ const nonceCache = new Map<string, NonceCache>();
 const CACHE_TTL_MS = 3600000; // 1 hour
 
 /**
- * Load nonce from SSM Parameter Store
+ * Load nonce from a secret store
  */
 export async function loadNonce(
-  client: SSMClient,
+  fetcher: SecretFetcher,
   parameterName: string
 ): Promise<void> {
   try {
-    const command = new GetParameterCommand({
-      Name: parameterName,
-      WithDecryption: true,
-    });
+    const value = await fetcher(parameterName);
 
-    const response = await client.send(command);
-    
-    if (!response.Parameter?.Value) {
+    if (!value) {
       throw new Error('Nonce parameter not found or empty');
     }
 
@@ -52,7 +52,7 @@ export async function loadNonce(
     const version = versionMatch ? `v${versionMatch[1]}` : 'v1';
 
     nonceCache.set(version, {
-      value: response.Parameter.Value,
+      value,
       loadedAt: Date.now(),
       version,
     });
@@ -62,7 +62,7 @@ export async function loadNonce(
     // If we have a valid cache, use degraded mode
     const cachedNonces = Array.from(nonceCache.values());
     if (cachedNonces.length > 0 && isCacheValid(cachedNonces[0])) {
-      console.warn('SSM unreachable, using cached nonce (degraded mode)');
+      console.warn('Secret store unreachable, using cached nonce (degraded mode)');
       return;
     }
     

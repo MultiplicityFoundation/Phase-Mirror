@@ -2,9 +2,13 @@
  * Multi-Version Nonce Loader
  * 
  * Supports loading multiple nonce versions simultaneously during grace periods.
+ *
+ * @deprecated Direct SSM coupling removed. loadNonce() now accepts a
+ *   SecretFetcher function instead of an SSMClient.
  */
 
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+/** Cloud-agnostic secret fetcher. Replaces direct SSM coupling. */
+export type SecretFetcher = (parameterName: string) => Promise<string>;
 
 export interface NonceRecord {
   nonce: string;
@@ -38,29 +42,22 @@ function extractVersion(parameterName: string): number {
 }
 
 /**
- * Load a nonce version from SSM and add to cache
+ * Load a nonce version from a secret store and add to cache
  */
 export async function loadNonce(
-  ssmClient: SSMClient,
+  fetchSecret: SecretFetcher,
   parameterName: string
 ): Promise<NonceRecord> {
   const version = extractVersion(parameterName);
 
   try {
-    const response = await ssmClient.send(
-      new GetParameterCommand({
-        Name: parameterName,
-        WithDecryption: true
-      })
-    );
+    const nonce = await fetchSecret(parameterName);
 
-    if (!response.Parameter?.Value) {
+    if (!nonce) {
       throw new Error(
         `Nonce parameter '${parameterName}' exists but has no value`
       );
     }
-
-    const nonce = response.Parameter.Value;
 
     // Validate nonce format (64 hex characters)
     if (!/^[0-9a-f]{64}$/i.test(nonce)) {
@@ -95,19 +92,6 @@ export async function loadNonce(
 
     return record;
   } catch (error: any) {
-    // Enrich error with context
-    if (error.name === 'ParameterNotFound') {
-      throw new Error(
-        `Nonce parameter not found: ${parameterName}. Ensure it exists in SSM.`
-      );
-    }
-
-    if (error.name === 'AccessDeniedException') {
-      throw new Error(
-        `Access denied to nonce parameter: ${parameterName}. Check IAM permissions for ssm:GetParameter.`
-      );
-    }
-
     throw new Error(
       `Failed to load nonce from ${parameterName}: ${error.message}`
     );

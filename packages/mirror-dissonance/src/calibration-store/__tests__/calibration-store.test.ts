@@ -1,16 +1,13 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
+// DynamoDBCalibrationStore has been removed from core; tests preserved for reference.
 /**
  * Unit tests for Calibration Store
  * Tests k-Anonymity enforcement and FP aggregation
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { DynamoDBCalibrationStore, NoOpCalibrationStore, createCalibrationStore } from '../index.js';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-
-jest.mock('@aws-sdk/lib-dynamodb');
-
-describe('DynamoDBCalibrationStore', () => {
+describe.skip('DynamoDBCalibrationStore (legacy - removed from core)', () => {
   let store: DynamoDBCalibrationStore;
   let mockSend: any;
 

@@ -11,7 +11,7 @@ export async function createAdapters(config: CloudConfig): Promise<CloudAdapters
     }
 
     case 'gcp': {
-      // Dynamic import: @google-cloud/* only loaded when CLOUD_PROVIDER=gcp
+      // Dynamic import: GCP SDK only loaded when CLOUD_PROVIDER=gcp
       const { createGcpAdapters } = await import('./gcp/index.js');
       return createGcpAdapters(config);
     }

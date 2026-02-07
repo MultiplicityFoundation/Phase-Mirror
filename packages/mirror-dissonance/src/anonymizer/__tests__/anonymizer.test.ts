@@ -3,24 +3,18 @@
  * Target coverage: 75%
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { Anonymizer, NoOpAnonymizer, createAnonymizer } from '../index.js';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-
-// AWS SDK clients are mocked globally via src/__tests__/setup.ts
+import { Anonymizer, NoOpAnonymizer, createAnonymizer, type SecretFetcher } from '../index.js';
 
 describe('Anonymizer', () => {
   let anonymizer: Anonymizer;
-  let mockSend: any;
+  let mockFetcher: jest.Mock<SecretFetcher>;
 
   beforeEach(() => {
-    mockSend = jest.fn();
-    (SSMClient as jest.MockedClass<typeof SSMClient>).mockImplementation(() => ({
-      send: mockSend,
-    } as any));
+    mockFetcher = jest.fn<SecretFetcher>();
 
     anonymizer = new Anonymizer({
       saltParameterName: '/test/salt',
-      region: 'us-east-1',
+      secretFetcher: mockFetcher,
     });
   });
 
@@ -29,45 +23,31 @@ describe('Anonymizer', () => {
   });
 
   describe('loadSalt', () => {
-    it('should load salt from SSM', async () => {
+    it('should load salt from fetcher', async () => {
       const validSalt = 'a'.repeat(64); // 64 hex chars
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
 
       await anonymizer.loadSalt();
 
-      expect(mockSend).toHaveBeenCalledWith(expect.any(GetParameterCommand));
+      expect(mockFetcher).toHaveBeenCalledWith('/test/salt');
       expect(anonymizer.isSaltLoaded()).toBe(true);
     });
 
     it('should throw error when salt parameter not found', async () => {
-      mockSend.mockResolvedValue({
-        Parameter: {},
-      });
+      mockFetcher.mockResolvedValue('');
 
       await expect(anonymizer.loadSalt()).rejects.toThrow('Salt parameter not found or empty');
     });
 
     it('should throw error for invalid salt format', async () => {
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: 'invalid-salt', // Not 64 hex chars
-        },
-      });
+      mockFetcher.mockResolvedValue('invalid-salt');
 
       await expect(anonymizer.loadSalt()).rejects.toThrow('Invalid salt format');
     });
 
     it('should store rotation month when loading salt', async () => {
       const validSalt = 'a'.repeat(64);
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
 
       await anonymizer.loadSalt();
 
@@ -75,8 +55,8 @@ describe('Anonymizer', () => {
       expect(rotationMonth).toMatch(/^\d{4}-\d{2}$/);
     });
 
-    it('should handle SSM errors', async () => {
-      mockSend.mockRejectedValue(new Error('SSM unavailable'));
+    it('should handle fetcher errors', async () => {
+      mockFetcher.mockRejectedValue(new Error('Secret store unavailable'));
 
       await expect(anonymizer.loadSalt()).rejects.toThrow();
     });
@@ -85,11 +65,7 @@ describe('Anonymizer', () => {
   describe('anonymizeOrgId', () => {
     beforeEach(async () => {
       const validSalt = 'a'.repeat(64);
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
       await anonymizer.loadSalt();
     });
 
@@ -131,15 +107,11 @@ describe('Anonymizer', () => {
     it('should auto-load salt if not loaded', async () => {
       const newAnonymizer = new Anonymizer({
         saltParameterName: '/test/salt',
-        region: 'us-east-1',
+        secretFetcher: mockFetcher,
       });
 
       const validSalt = 'b'.repeat(64);
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
 
       const result = await newAnonymizer.anonymizeOrgId('test-org');
       expect(result).toBeTruthy();
@@ -154,11 +126,7 @@ describe('Anonymizer', () => {
 
     it('should return rotation month after loading salt', async () => {
       const validSalt = 'c'.repeat(64);
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
 
       await anonymizer.loadSalt();
       const result = anonymizer.getSaltRotationMonth();
@@ -173,11 +141,7 @@ describe('Anonymizer', () => {
 
     it('should return true after loading salt', async () => {
       const validSalt = 'd'.repeat(64);
-      mockSend.mockResolvedValue({
-        Parameter: {
-          Value: validSalt,
-        },
-      });
+      mockFetcher.mockResolvedValue(validSalt);
 
       await anonymizer.loadSalt();
       expect(anonymizer.isSaltLoaded()).toBe(true);
@@ -237,7 +201,7 @@ describe('createAnonymizer', () => {
   it('should create Anonymizer with config', () => {
     const anonymizer = createAnonymizer({
       saltParameterName: '/test/salt',
-      region: 'us-east-1',
+      secretFetcher: jest.fn<() => Promise<string>>().mockResolvedValue('a'.repeat(64)),
     });
 
     expect(anonymizer).toBeInstanceOf(Anonymizer);
