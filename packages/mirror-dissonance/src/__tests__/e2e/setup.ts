@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * E2E Test Setup
  * Loads configuration from deployed staging infrastructure

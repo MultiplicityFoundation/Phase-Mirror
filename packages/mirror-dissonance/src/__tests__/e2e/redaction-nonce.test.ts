@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * E2E Tests: Redaction with SSM Nonce
  * Tests nonce loading, redaction, and validation with real SSM

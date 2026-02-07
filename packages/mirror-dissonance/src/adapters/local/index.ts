@@ -1,64 +1,56 @@
 /**
  * Local File-Based Adapters
- * 
- * Implements all cloud adapters using local JSON file storage.
+ *
+ * Implements all 5 cloud adapters using local JSON file storage.
  * Perfect for testing, development, and CI without cloud credentials.
- * 
+ *
  * Architecture:
- * - JsonFileStore<T>: Utility for atomic file writes
- * - All collections stored as JSON files in localDataDir
- * - UUID primary keys for consistency with cloud providers
- * - Hourly window keys for circuit breaker (automatic expiration)
+ * - JsonFileStore<T>: Utility for atomic JSON file reads/writes
+ * - All collections stored as JSON files in ${localDataDir}/<collection>.json
+ * - UUID primary keys via crypto.randomUUID() (matches DynamoDB/Firestore)
+ * - Hourly window keys for block counter (automatic TTL-like expiration)
+ * - Nonce read from ${localDataDir}/nonce.json, null if missing (fail-closed)
+ *
+ * Known limitations:
+ * - No concurrent-write safety across multiple processes
+ * - No real TTL expiration (hourly bucket keys simulate it)
+ * - No atomic increments (single-process read-modify-write only)
+ * - Fine for single-process tests, NOT for parallel runs
  */
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { createHash } from 'crypto';
 import {
   CloudConfig,
   CloudAdapters,
-  IFPStoreAdapter,
-  IConsentStoreAdapter,
-  IBlockCounterAdapter,
-  ISecretStoreAdapter,
-  IBaselineStorageAdapter,
-  ICalibrationStoreAdapter,
-  NonceConfig,
-  BaselineVersion,
-  CalibrationResult,
-  KAnonymityError,
+  FPStoreAdapter,
+  FPEvent,
+  FPWindow,
+  ConsentStoreAdapter,
+  BlockCounterAdapter,
+  SecretStoreAdapter,
+  ObjectStoreAdapter,
 } from '../types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
-import {
-  OrganizationConsent,
-  ConsentResource,
-  ConsentCheckResult,
-  MultiResourceConsentResult,
-  CURRENT_CONSENT_POLICY,
-  ConsentEvent,
-} from '../../consent-store/schema.js';
 
-/**
- * Utility class for atomic JSON file operations.
- * Uses an in-process mutex so concurrent read-modify-write cycles
- * within the same Node.js process are serialised correctly.
- */
+// ---------------------------------------------------------------------------
+// JsonFileStore<T> — atomic JSON file operations
+// ---------------------------------------------------------------------------
+
 class JsonFileStore<T> {
   private _lock: Promise<void> = Promise.resolve();
 
   constructor(
     private dataDir: string,
-    private filename: string
+    private filename: string,
   ) {}
 
-  /**
-   * Run `fn` while holding a per-store mutex.
-   * Guarantees that concurrent callers are serialised.
-   */
+  /** Serialise concurrent read-modify-write cycles within the same process. */
   async withLock<R>(fn: () => Promise<R>): Promise<R> {
     let release!: () => void;
-    const next = new Promise<void>((res) => { release = res; });
+    const next = new Promise<void>((res) => {
+      release = res;
+    });
     const prev = this._lock;
     this._lock = next;
     await prev;
@@ -84,15 +76,10 @@ class JsonFileStore<T> {
 
   async write(data: T[]): Promise<void> {
     const filePath = join(this.dataDir, this.filename);
-    // Use a unique temp file per call to avoid races under concurrency
     const tempPath = `${filePath}.${randomUUID()}.tmp`;
 
-    // Ensure directory exists
     await fs.mkdir(this.dataDir, { recursive: true });
-
-    // Write to temp file
     await fs.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-
     // Atomic rename (POSIX guarantee)
     await fs.rename(tempPath, filePath);
   }
@@ -106,635 +93,362 @@ class JsonFileStore<T> {
     await this.withLock(async () => {
       const items = await this.read();
       const id = idGetter(item);
-      const index = items.findIndex((i) => idGetter(i) === id);
-
-      if (index >= 0) {
-        items[index] = item;
+      const idx = items.findIndex((i) => idGetter(i) === id);
+      if (idx >= 0) {
+        items[idx] = item;
       } else {
         items.push(item);
       }
-
       await this.write(items);
     });
   }
 }
 
-/**
- * Local False Positive Store
- */
-class LocalFPStore implements IFPStoreAdapter {
-  private store: JsonFileStore<FalsePositiveEvent>;
+// ---------------------------------------------------------------------------
+// LocalFPStore
+// ---------------------------------------------------------------------------
+
+/** Stored FP event with serialisable timestamp. */
+interface StoredFPEvent extends Omit<FPEvent, 'timestamp'> {
+  timestamp: string;
+}
+
+class LocalFPStore implements FPStoreAdapter {
+  private store: JsonFileStore<StoredFPEvent>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'fp-events.json');
   }
 
-  async recordFalsePositive(event: FalsePositiveEvent): Promise<void> {
-    await this.store.writeOne(event, (e) => e.id);
+  async recordEvent(event: FPEvent): Promise<void> {
+    const stored: StoredFPEvent = {
+      ...event,
+      timestamp: event.timestamp.toISOString(),
+    };
+    await this.store.writeOne(stored, (e) => e.eventId);
   }
 
-  async isFalsePositive(findingId: string): Promise<boolean> {
-    const event = await this.store.readOne((e) => e.findingId === findingId);
+  async getWindowByCount(ruleId: string, count: number): Promise<FPWindow> {
+    const all = await this.store.read();
+    const matching = all
+      .filter((e) => e.ruleId === ruleId)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, count);
+    return this.computeWindow(ruleId, matching.map(this.toFPEvent));
+  }
+
+  async getWindowBySince(ruleId: string, since: Date): Promise<FPWindow> {
+    const all = await this.store.read();
+    const sinceMs = since.getTime();
+    const matching = all
+      .filter((e) => e.ruleId === ruleId && new Date(e.timestamp).getTime() >= sinceMs)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return this.computeWindow(ruleId, matching.map(this.toFPEvent));
+  }
+
+  async markFalsePositive(eventId: string, _reviewedBy: string): Promise<void> {
+    await this.store.withLock(async () => {
+      const items = await this.store.read();
+      const idx = items.findIndex((e) => e.eventId === eventId);
+      if (idx >= 0) {
+        items[idx].isFalsePositive = true;
+        await this.store.write(items);
+      }
+    });
+  }
+
+  async isFalsePositive(ruleId: string, findingId: string): Promise<boolean> {
+    const event = await this.store.readOne(
+      (e) => e.ruleId === ruleId && e.findingId === findingId && e.isFalsePositive,
+    );
     return event !== null;
   }
 
-  async getFalsePositivesByRule(ruleId: string): Promise<FalsePositiveEvent[]> {
-    const events = await this.store.read();
-    return events.filter((e) => e.ruleId === ruleId);
+  computeWindow(ruleId: string, events: FPEvent[]): FPWindow {
+    const falsePositives = events.filter((e) => e.isFalsePositive).length;
+    const total = events.length;
+    // Pending = not yet reviewed (not explicitly marked true or false)
+    // For local store all events are either FP or TP, so pending = 0
+    const pending = 0;
+    const truePositives = total - falsePositives - pending;
+    const denominator = total - pending;
+    const observedFPR = denominator > 0 ? falsePositives / denominator : 0;
+
+    const ruleVersion = events.length > 0 ? events[0].ruleVersion : 'unknown';
+
+    return {
+      ruleId,
+      ruleVersion,
+      windowSize: total,
+      events,
+      statistics: {
+        total,
+        falsePositives,
+        truePositives,
+        pending,
+        observedFPR,
+      },
+    };
+  }
+
+  private toFPEvent(stored: StoredFPEvent): FPEvent {
+    return {
+      ...stored,
+      timestamp: new Date(stored.timestamp),
+    };
   }
 }
 
-/**
- * Local Consent Store
- */
-class LocalConsentStore implements IConsentStoreAdapter {
-  private store: JsonFileStore<OrganizationConsent>;
+// ---------------------------------------------------------------------------
+// LocalConsentStore
+// ---------------------------------------------------------------------------
+
+interface ConsentRecord {
+  id: string;
+  orgId: string;
+  repoId?: string;
+  scope: string;
+  grantedBy: string;
+  grantedAt: string;
+  expiresAt?: string;
+  revoked: boolean;
+}
+
+class LocalConsentStore implements ConsentStoreAdapter {
+  private store: JsonFileStore<ConsentRecord>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'consent.json');
   }
 
-  private hashOrgId(orgId: string): string {
-    return createHash('sha256').update(orgId).digest('hex');
-  }
-
-  private hashAdminId(adminId: string): string {
-    return createHash('sha256').update(adminId).digest('hex');
-  }
-
-  async checkResourceConsent(orgId: string, resource: ConsentResource): Promise<ConsentCheckResult> {
-    const summary = await this.getConsentSummary(orgId);
-
-    if (!summary) {
-      return {
-        granted: false,
-        state: 'not_requested',
-        resource,
-        reason: 'No consent record found',
-      };
-    }
-
-    const resourceStatus = summary.resources[resource];
-
-    if (!resourceStatus) {
-      return {
-        granted: false,
-        state: 'not_requested',
-        resource,
-        reason: 'Resource not in consent record',
-      };
-    }
-
-    // Check if consent is expired
-    if (resourceStatus.expiresAt && new Date(resourceStatus.expiresAt) < new Date()) {
-      return {
-        granted: false,
-        state: 'expired',
-        resource,
-        grantedAt: resourceStatus.grantedAt,
-        expiresAt: resourceStatus.expiresAt,
-        version: resourceStatus.version,
-        reason: 'Consent has expired',
-      };
-    }
-
-    // Check consent version mismatch
-    if (
-      resourceStatus.version &&
-      resourceStatus.version !== CURRENT_CONSENT_POLICY.version
-    ) {
-      return {
-        granted: false,
-        state: resourceStatus.state,
-        resource,
-        grantedAt: resourceStatus.grantedAt,
-        expiresAt: resourceStatus.expiresAt,
-        version: resourceStatus.version,
-        reason: `Policy version mismatch (granted: ${resourceStatus.version}, current: ${CURRENT_CONSENT_POLICY.version})`,
-      };
-    }
-
-    const granted = resourceStatus.state === 'granted';
-
-    return {
-      granted,
-      state: resourceStatus.state,
-      resource,
-      grantedAt: resourceStatus.grantedAt,
-      expiresAt: resourceStatus.expiresAt,
-      version: resourceStatus.version,
-      reason: granted ? undefined : `Consent state is ${resourceStatus.state}`,
+  async recordConsent(consent: {
+    orgId: string;
+    repoId?: string;
+    scope: string;
+    grantedBy: string;
+    expiresAt?: Date;
+  }): Promise<void> {
+    const record: ConsentRecord = {
+      id: randomUUID(),
+      orgId: consent.orgId,
+      repoId: consent.repoId,
+      scope: consent.scope,
+      grantedBy: consent.grantedBy,
+      grantedAt: new Date().toISOString(),
+      expiresAt: consent.expiresAt?.toISOString(),
+      revoked: false,
     };
+    await this.store.writeOne(record, (r) => r.id);
   }
 
-  async checkMultipleResources(
-    orgId: string,
-    resources: ConsentResource[]
-  ): Promise<MultiResourceConsentResult> {
-    const results: Record<ConsentResource, ConsentCheckResult> = {} as any;
-    const missingConsent: ConsentResource[] = [];
-
-    for (const resource of resources) {
-      const result = await this.checkResourceConsent(orgId, resource);
-      results[resource] = result;
-
-      if (!result.granted) {
-        missingConsent.push(resource);
-      }
-    }
-
-    return {
-      allGranted: missingConsent.length === 0,
-      results,
-      missingConsent,
-    };
-  }
-
-  async getConsentSummary(orgId: string): Promise<OrganizationConsent | null> {
-    const consent = await this.store.readOne((c) => c.orgId === orgId);
-    
-    if (!consent) {
-      return null;
-    }
-
-    // Convert date strings back to Date objects
-    return {
-      ...consent,
-      createdAt: new Date(consent.createdAt),
-      updatedAt: new Date(consent.updatedAt),
-    };
-  }
-
-  async grantConsent(
-    orgId: string,
-    resource: ConsentResource,
-    grantedBy: string,
-    expiresAt?: Date
-  ): Promise<void> {
-    let summary = await this.getConsentSummary(orgId);
-
-    const now = new Date();
-
-    if (!summary) {
-      // Create new consent record
-      summary = {
-        orgId,
-        resources: {} as any,
-        grantedBy: this.hashAdminId(grantedBy),
-        consentVersion: CURRENT_CONSENT_POLICY.version,
-        history: [],
-        createdAt: now,
-        updatedAt: now,
-      };
-    }
-
-    // Update or create resource status
-    const previousState = summary.resources[resource]?.state;
-
-    summary.resources[resource] = {
-      resource,
-      state: 'granted',
-      grantedAt: now,
-      expiresAt,
-      version: CURRENT_CONSENT_POLICY.version,
-    };
-
-    // Add to history
-    const event: ConsentEvent = {
-      eventId: randomUUID(),
-      eventType: previousState ? 'renewed' : 'granted',
-      resource,
-      timestamp: now,
-      actor: this.hashAdminId(grantedBy),
-      previousState,
-      newState: 'granted',
-    };
-
-    summary.history.push(event);
-    summary.updatedAt = now;
-
-    // Save to store
-    await this.store.writeOne(summary, (s) => s.orgId);
-  }
-
-  async revokeConsent(orgId: string, resource: ConsentResource, revokedBy: string): Promise<void> {
-    const summary = await this.getConsentSummary(orgId);
-
-    if (!summary) {
-      throw new Error(`No consent record found for organization: ${orgId}`);
-    }
-
-    const previousState = summary.resources[resource]?.state;
-
-    if (!previousState || previousState === 'revoked') {
-      // Already revoked or never granted
-      return;
-    }
-
-    const now = new Date();
-
-    summary.resources[resource] = {
-      ...summary.resources[resource],
-      state: 'revoked',
-      revokedAt: now,
-    };
-
-    // Add to history
-    const event: ConsentEvent = {
-      eventId: randomUUID(),
-      eventType: 'revoked',
-      resource,
-      timestamp: now,
-      actor: this.hashAdminId(revokedBy),
-      previousState,
-      newState: 'revoked',
-    };
-
-    summary.history.push(event);
-    summary.updatedAt = now;
-
-    // Save to store
-    await this.store.writeOne(summary, (s) => s.orgId);
-  }
-
-  async checkConsent(orgId: string): Promise<'explicit' | 'implicit' | 'none'> {
-    const summary = await this.getConsentSummary(orgId);
-    if (!summary) {
-      return 'none';
-    }
-
-    // Check if any resource has granted consent
-    const hasAnyConsent = Object.values(summary.resources).some(
-      (status) => status.state === 'granted'
-    );
-
-    return hasAnyConsent ? 'explicit' : 'none';
-  }
-
-  async hasValidConsent(orgId: string): Promise<boolean> {
-    const consentType = await this.checkConsent(orgId);
-    return consentType === 'explicit' || consentType === 'implicit';
-  }
-}
-
-/**
- * Block counter entry
- */
-interface BlockCounterEntry {
-  bucketKey: string;
-  ruleId: string;
-  count: number;
-  timestamp: number;
-}
-
-/**
- * Local Block Counter
- */
-class LocalBlockCounter implements IBlockCounterAdapter {
-  private store: JsonFileStore<BlockCounterEntry>;
-  private ttlHours: number;
-
-  constructor(dataDir: string, ttlHours: number = 24) {
-    this.store = new JsonFileStore(dataDir, 'block-counter.json');
-    this.ttlHours = ttlHours;
-  }
-
-  private getBucketKey(): string {
-    // Create hourly bucket key
-    const now = new Date();
-    const bucketHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0
-    );
-    return bucketHour.toISOString();
-  }
-
-  /**
-   * Remove expired entries. Acquires the store lock.
-   * Use _cleanExpiredUnsafe when already holding the lock.
-   */
-  private async cleanExpired(): Promise<void> {
-    await this.store.withLock(async () => {
-      await this._cleanExpiredUnsafe();
-    });
-  }
-
-  /** Remove expired entries without acquiring the lock (caller must hold it). */
-  private async _cleanExpiredUnsafe(): Promise<void> {
-    const entries = await this.store.read();
+  async hasValidConsent(orgId: string, repoId: string, scope: string): Promise<boolean> {
+    const all = await this.store.read();
     const now = Date.now();
-    const ttlMs = this.ttlHours * 3600 * 1000;
-
-    const validEntries = entries.filter((entry) => now - entry.timestamp < ttlMs);
-
-    if (validEntries.length < entries.length) {
-      await this.store.write(validEntries);
-    }
+    return all.some(
+      (r) =>
+        r.orgId === orgId &&
+        (r.repoId === repoId || !r.repoId) &&
+        r.scope === scope &&
+        !r.revoked &&
+        (!r.expiresAt || new Date(r.expiresAt).getTime() > now),
+    );
   }
 
-  async increment(ruleId: string): Promise<number> {
-    return this.store.withLock(async () => {
-      await this._cleanExpiredUnsafe();
-
-      const bucketKey = this.getBucketKey();
-      const entries = await this.store.read();
-      const entryIndex = entries.findIndex(
-        (e) => e.bucketKey === bucketKey && e.ruleId === ruleId
-      );
-
-      if (entryIndex >= 0) {
-        entries[entryIndex].count += 1;
-        entries[entryIndex].timestamp = Date.now();
-      } else {
-        entries.push({
-          bucketKey,
-          ruleId,
-          count: 1,
-          timestamp: Date.now(),
-        });
+  async revokeConsent(orgId: string, scope: string): Promise<void> {
+    await this.store.withLock(async () => {
+      const items = await this.store.read();
+      let changed = false;
+      for (const item of items) {
+        if (item.orgId === orgId && item.scope === scope && !item.revoked) {
+          item.revoked = true;
+          changed = true;
+        }
       }
-
-      await this.store.write(entries);
-
-      return entries[entryIndex >= 0 ? entryIndex : entries.length - 1].count;
+      if (changed) {
+        await this.store.write(items);
+      }
     });
   }
 
-  async getCount(ruleId: string): Promise<number> {
-    await this.cleanExpired();
-
-    const bucketKey = this.getBucketKey();
-    const entry = await this.store.readOne(
-      (e) => e.bucketKey === bucketKey && e.ruleId === ruleId
-    );
-
-    return entry?.count || 0;
+  async getConsent(orgId: string): Promise<any> {
+    const all = await this.store.read();
+    return all.filter((r) => r.orgId === orgId);
   }
 }
 
-/**
- * Nonce storage entry
- */
+// ---------------------------------------------------------------------------
+// LocalBlockCounter
+// ---------------------------------------------------------------------------
+
+interface BlockCounterEntry {
+  bucketKey: string; // "${ruleId}:${orgId}:${YYYY-MM-DD-HH}"
+  count: number;
+  updatedAt: string;
+}
+
+class LocalBlockCounter implements BlockCounterAdapter {
+  private store: JsonFileStore<BlockCounterEntry>;
+
+  constructor(dataDir: string) {
+    this.store = new JsonFileStore(dataDir, 'block-counter.json');
+  }
+
+  private hourKey(): string {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(now.getUTCDate()).padStart(2, '0');
+    const h = String(now.getUTCHours()).padStart(2, '0');
+    return `${y}-${m}-${d}-${h}`;
+  }
+
+  private bucketKey(ruleId: string, orgId: string): string {
+    return `${ruleId}:${orgId}:${this.hourKey()}`;
+  }
+
+  async increment(ruleId: string, orgId: string): Promise<number> {
+    return this.store.withLock(async () => {
+      const key = this.bucketKey(ruleId, orgId);
+      const items = await this.store.read();
+      const idx = items.findIndex((e) => e.bucketKey === key);
+
+      if (idx >= 0) {
+        items[idx].count += 1;
+        items[idx].updatedAt = new Date().toISOString();
+        await this.store.write(items);
+        return items[idx].count;
+      }
+
+      const entry: BlockCounterEntry = {
+        bucketKey: key,
+        count: 1,
+        updatedAt: new Date().toISOString(),
+      };
+      items.push(entry);
+      await this.store.write(items);
+      return 1;
+    });
+  }
+
+  async getCount(ruleId: string, orgId: string): Promise<number> {
+    const key = this.bucketKey(ruleId, orgId);
+    const entry = await this.store.readOne((e) => e.bucketKey === key);
+    return entry?.count ?? 0;
+  }
+
+  async isCircuitBroken(ruleId: string, orgId: string, threshold: number): Promise<boolean> {
+    const count = await this.getCount(ruleId, orgId);
+    return count >= threshold;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// LocalSecretStore
+// ---------------------------------------------------------------------------
+
 interface NonceEntry {
   value: string;
   createdAt: string;
   version: number;
 }
 
-/**
- * Local Secret Store
- */
-class LocalSecretStore implements ISecretStoreAdapter {
+class LocalSecretStore implements SecretStoreAdapter {
   private store: JsonFileStore<NonceEntry>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'nonce.json');
   }
 
-  async getNonce(): Promise<NonceConfig | null> {
+  async getNonce(): Promise<string | null> {
     try {
       const entries = await this.store.read();
-      
       if (entries.length === 0) {
         return null;
       }
-
-      // Get the latest version
+      // Return the latest version
       const latest = entries.sort((a, b) => b.version - a.version)[0];
-
-      return {
-        value: latest.value,
-        loadedAt: new Date().toISOString(),
-        source: 'local-file',
-      };
-    } catch (error) {
-      console.error('Failed to load nonce:', error);
-      return null; // Fail-closed
+      return latest.value;
+    } catch {
+      // Fail-closed: return null on any error
+      return null;
     }
   }
 
-  async rotateNonce(newValue: string): Promise<void> {
-    await this.store.withLock(async () => {
+  async getNonces(): Promise<string[]> {
+    try {
       const entries = await this.store.read();
-      const maxVersion = entries.length > 0 ? Math.max(...entries.map((e) => e.version)) : 0;
-
-      entries.push({
-        value: newValue,
-        createdAt: new Date().toISOString(),
-        version: maxVersion + 1,
-      });
-
-      await this.store.write(entries);
-    });
+      return entries
+        .sort((a, b) => b.version - a.version)
+        .map((e) => e.value);
+    } catch {
+      return [];
+    }
   }
 }
 
-/**
- * Baseline file entry
- */
-interface BaselineEntry {
-  key: string;
+// ---------------------------------------------------------------------------
+// LocalObjectStore
+// ---------------------------------------------------------------------------
+
+interface ObjectEntry {
+  repoId: string;
   content: string;
-  uploadedAt: string;
-  size: number;
-  contentType?: string;
+  updatedAt: string;
+  versionId: string;
 }
 
-/**
- * Local Baseline Storage
- */
-class LocalBaselineStorage implements IBaselineStorageAdapter {
-  private store: JsonFileStore<BaselineEntry>;
+class LocalObjectStore implements ObjectStoreAdapter {
+  private store: JsonFileStore<ObjectEntry>;
 
   constructor(dataDir: string) {
     this.store = new JsonFileStore(dataDir, 'baselines.json');
   }
 
-  async storeBaseline(key: string, content: string | Buffer, contentType?: string): Promise<void> {
-    const contentStr = Buffer.isBuffer(content) ? content.toString('utf-8') : content;
-    
-    const entry: BaselineEntry = {
-      key,
-      content: contentStr,
-      uploadedAt: new Date().toISOString(),
-      size: Buffer.byteLength(contentStr, 'utf-8'),
-      contentType,
+  async getBaseline(repoId: string): Promise<any | null> {
+    const entry = await this.store.readOne((e) => e.repoId === repoId);
+    if (!entry) return null;
+    try {
+      return JSON.parse(entry.content);
+    } catch {
+      return entry.content;
+    }
+  }
+
+  async putBaseline(repoId: string, baseline: any): Promise<void> {
+    const entry: ObjectEntry = {
+      repoId,
+      content: JSON.stringify(baseline),
+      updatedAt: new Date().toISOString(),
+      versionId: randomUUID(),
     };
-
-    await this.store.writeOne(entry, (e) => e.key);
+    await this.store.writeOne(entry, (e) => e.repoId);
   }
 
-  async getBaseline(key: string): Promise<string | null> {
-    const entry = await this.store.readOne((e) => e.key === key);
-    return entry?.content || null;
-  }
-
-  async listBaselines(): Promise<BaselineVersion[]> {
-    const entries = await this.store.read();
-    
-    return entries
+  async listBaselineVersions(
+    repoId: string,
+  ): Promise<Array<{ versionId: string; lastModified: Date }>> {
+    const all = await this.store.read();
+    return all
+      .filter((e) => e.repoId === repoId)
       .map((e) => ({
-        version: e.key,
-        uploadedAt: new Date(e.uploadedAt),
-        size: e.size,
-        contentType: e.contentType,
+        versionId: e.versionId,
+        lastModified: new Date(e.updatedAt),
       }))
-      .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
-  }
-
-  async deleteBaseline(key: string): Promise<void> {
-    await this.store.withLock(async () => {
-      const entries = await this.store.read();
-      const filtered = entries.filter((e) => e.key !== key);
-      await this.store.write(filtered);
-    });
+      .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   }
 }
 
-/**
- * Local Calibration Store
- */
-class LocalCalibrationStore implements ICalibrationStoreAdapter {
-  private fpStore: LocalFPStore;
-  private kThreshold: number;
+// ---------------------------------------------------------------------------
+// Factory
+// ---------------------------------------------------------------------------
 
-  constructor(dataDir: string, kThreshold: number = 10) {
-    this.fpStore = new LocalFPStore(dataDir);
-    this.kThreshold = kThreshold;
-  }
-
-  async aggregateFPsByRule(ruleId: string): Promise<CalibrationResult | KAnonymityError> {
-    const events = await this.fpStore.getFalsePositivesByRule(ruleId);
-    
-    const uniqueOrgs = new Set(events.map((e) => e.orgIdHash || 'unknown'));
-    const orgCount = uniqueOrgs.size;
-
-    if (orgCount < this.kThreshold) {
-      return {
-        error: 'INSUFFICIENT_K_ANONYMITY',
-        message: `Insufficient data for privacy-preserving query. Requires at least ${this.kThreshold} organizations, found ${orgCount}.`,
-        requiredK: this.kThreshold,
-        actualK: orgCount,
-      };
-    }
-
-    const totalFPs = events.filter((e) => e.context?.isFalsePositive === true).length;
-
-    return {
-      ruleId,
-      totalFPs,
-      orgCount,
-      averageFPsPerOrg: orgCount > 0 ? totalFPs / orgCount : 0,
-      meetsKAnonymity: true,
-    };
-  }
-
-  async getRuleFPRate(
-    ruleId: string,
-    startDate?: string,
-    endDate?: string
-  ): Promise<CalibrationResult | KAnonymityError> {
-    let events = await this.fpStore.getFalsePositivesByRule(ruleId);
-
-    // Filter by date range
-    if (startDate) {
-      const start = new Date(startDate).getTime();
-      events = events.filter((e) => new Date(e.timestamp).getTime() >= start);
-    }
-
-    if (endDate) {
-      const end = new Date(endDate).getTime();
-      events = events.filter((e) => new Date(e.timestamp).getTime() <= end);
-    }
-
-    const uniqueOrgs = new Set(events.map((e) => e.orgIdHash || 'unknown'));
-    const orgCount = uniqueOrgs.size;
-
-    if (orgCount < this.kThreshold) {
-      return {
-        error: 'INSUFFICIENT_K_ANONYMITY',
-        message: `Insufficient data for privacy-preserving query. Requires at least ${this.kThreshold} organizations, found ${orgCount}.`,
-        requiredK: this.kThreshold,
-        actualK: orgCount,
-      };
-    }
-
-    const totalFPs = events.filter((e) => e.context?.isFalsePositive === true).length;
-
-    return {
-      ruleId,
-      totalFPs,
-      orgCount,
-      averageFPsPerOrg: orgCount > 0 ? totalFPs / orgCount : 0,
-      meetsKAnonymity: true,
-    };
-  }
-
-  async getAllRuleFPRates(): Promise<CalibrationResult[] | KAnonymityError> {
-    // Access the store's read method via the calibration store
-    const allEvents = await (this.fpStore as any)['store'].read() as FalsePositiveEvent[];
-    
-    const uniqueOrgs = new Set(allEvents.map((e: FalsePositiveEvent) => e.orgIdHash || 'unknown'));
-    const orgCount = uniqueOrgs.size;
-
-    if (orgCount < this.kThreshold) {
-      return {
-        error: 'INSUFFICIENT_K_ANONYMITY',
-        message: `Insufficient data for privacy-preserving query. Requires at least ${this.kThreshold} organizations, found ${orgCount}.`,
-        requiredK: this.kThreshold,
-        actualK: orgCount,
-      };
-    }
-
-    const ruleMap = new Map<string, { totalFPs: number; orgs: Set<string> }>();
-
-    for (const event of allEvents) {
-      if (!ruleMap.has(event.ruleId)) {
-        ruleMap.set(event.ruleId, { totalFPs: 0, orgs: new Set() });
-      }
-
-      const ruleData = ruleMap.get(event.ruleId)!;
-      if (event.context?.isFalsePositive === true) {
-        ruleData.totalFPs++;
-      }
-      ruleData.orgs.add(event.orgIdHash || 'unknown');
-    }
-
-    const results: CalibrationResult[] = [];
-
-    for (const [ruleId, data] of ruleMap.entries()) {
-      if (data.orgs.size >= this.kThreshold) {
-        results.push({
-          ruleId,
-          totalFPs: data.totalFPs,
-          orgCount: data.orgs.size,
-          averageFPsPerOrg: data.totalFPs / data.orgs.size,
-          meetsKAnonymity: true,
-        });
-      }
-    }
-
-    return results;
-  }
-}
-
-/**
- * Create local adapters
- */
 export function createLocalAdapters(config: CloudConfig): CloudAdapters {
-  const dataDir = config.localDataDir || '.test-data';
-
+  const dataDir = config.localDataDir || '.phase-mirror-data';
   return {
     fpStore: new LocalFPStore(dataDir),
     consentStore: new LocalConsentStore(dataDir),
     blockCounter: new LocalBlockCounter(dataDir),
     secretStore: new LocalSecretStore(dataDir),
-    baselineStorage: new LocalBaselineStorage(dataDir),
-    calibrationStore: new LocalCalibrationStore(dataDir),
+    objectStore: new LocalObjectStore(dataDir),
   };
 }

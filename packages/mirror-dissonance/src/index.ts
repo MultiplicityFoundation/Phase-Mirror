@@ -34,7 +34,6 @@ export {
   NoOpFPStore,
   FPStoreQuery,
   createFPStoreQuery,
-  LegacyDynamoDBFPStore as DynamoDBFPStore,
 } from "./fp-store/index.js";
 
 export type {
@@ -48,7 +47,6 @@ export type {
 // Consent Store
 export {
   createConsentStore,
-  DynamoDBConsentStore,
   NoOpConsentStore,
 } from "./consent-store/index.js";
 
@@ -63,7 +61,6 @@ export type { FalsePositiveEvent } from "../schemas/types.js";
 // Calibration Store
 export {
   createCalibrationStore,
-  DynamoDBCalibrationStore,
   NoOpCalibrationStore,
   ByzantineCalibrationStore as CalibrationStore,
   InMemoryCalibrationStoreAdapter,

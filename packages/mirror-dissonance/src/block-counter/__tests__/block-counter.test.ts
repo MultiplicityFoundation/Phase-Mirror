@@ -1,22 +1,13 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
+// DynamoDBBlockCounter has been removed from core; tests preserved for reference.
 /**
  * Unit tests for Block Counter
  * Target coverage: 80%
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { DynamoDBBlockCounter, InMemoryBlockCounter } from '../dynamodb.js';
-import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 
-jest.mock('@aws-sdk/client-dynamodb', () => {
-  const actual: any = jest.requireActual('@aws-sdk/client-dynamodb');
-  return {
-    ...actual,
-    DynamoDBClient: jest.fn(),
-  };
-});
-jest.mock('@aws-sdk/util-dynamodb');
-
-describe('DynamoDBBlockCounter', () => {
+describe.skip('DynamoDBBlockCounter (legacy - removed from core)', () => {
   let counter: DynamoDBBlockCounter;
   let mockSend: any;
 

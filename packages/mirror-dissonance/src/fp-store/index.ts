@@ -1,9 +1,9 @@
 // Legacy exports from store.ts (Phase 1)
-export { IFPStore, DynamoDBFPStore as LegacyDynamoDBFPStore, NoOpFPStore, createFPStore, FPStoreConfig as LegacyFPStoreConfig } from './store.js';
+export { IFPStore, NoOpFPStore, createFPStore, FPStoreConfig as LegacyFPStoreConfig } from './store.js';
 
 // Enhanced exports for Phase 2 FP Calibration Service
 export { FPEvent, FPWindow, FPStoreConfig, FPStore } from './types.js';
-export { DynamoDBFPStore as EnhancedDynamoDBFPStore, FPStoreError } from './dynamodb-store.js';
+export { FPStoreError } from './dynamodb-store.js';
 
 // FP Store Query exports
 export {

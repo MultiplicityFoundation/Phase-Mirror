@@ -1,13 +1,20 @@
 /**
  * Anonymizer Service for Phase 2 FP Calibration Service
  * Implements HMAC-SHA256 anonymization per ADR-004
+ *
+ * @deprecated Direct SSM coupling removed. Anonymizer now accepts a
+ *   SecretFetcher function for cloud-agnostic salt retrieval.
  */
 import { createHmac } from 'crypto';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+
+/** Cloud-agnostic secret fetcher. Replaces direct SSM coupling. */
+export type SecretFetcher = (parameterName: string) => Promise<string>;
 
 export interface AnonymizerConfig {
   saltParameterName: string;
   region?: string;
+  /** Cloud-agnostic secret fetcher. If omitted, loadSalt() will throw. */
+  secretFetcher?: SecretFetcher;
 }
 
 export interface SaltConfig {
@@ -18,29 +25,24 @@ export interface SaltConfig {
 
 export class Anonymizer {
   private saltConfig: SaltConfig | null = null;
-  private ssmClient: SSMClient;
+  private fetcher: SecretFetcher;
   private saltParameterName: string;
 
   constructor(config: AnonymizerConfig) {
-    this.ssmClient = new SSMClient({ region: config.region || 'us-east-1' });
     this.saltParameterName = config.saltParameterName;
+    this.fetcher = config.secretFetcher ?? (() => Promise.reject(new Error(
+      'No SecretFetcher provided. Supply secretFetcher in config or use the adapter factory.'
+    )));
   }
 
   async loadSalt(): Promise<void> {
     try {
-      const command = new GetParameterCommand({
-        Name: this.saltParameterName,
-        WithDecryption: true,
-      });
+      const salt = await this.fetcher(this.saltParameterName);
 
-      const response = await this.ssmClient.send(command);
-      
-      if (!response.Parameter?.Value) {
+      if (!salt) {
         throw new Error('Salt parameter not found or empty');
       }
 
-      const salt = response.Parameter.Value;
-      
       if (!this.isValidSalt(salt)) {
         throw new Error('Invalid salt format: must be 64-character hex string');
       }
@@ -52,7 +54,7 @@ export class Anonymizer {
         rotationMonth: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
       };
     } catch (error) {
-      console.error('Failed to load salt from SSM:', error);
+      console.error('Failed to load salt:', error);
       throw error;
     }
   }
@@ -95,11 +97,11 @@ export class Anonymizer {
 /**
  * NoOp Anonymizer for development/testing only.
  * WARNING: This implementation uses a hardcoded test salt and is NOT secure.
- * NEVER use this in production. Always use the full Anonymizer with AWS Secrets Manager.
+ * NEVER use this in production. Always use the full Anonymizer with a SecretFetcher.
  */
 export class NoOpAnonymizer {
   async loadSalt(): Promise<void> {
-    console.log('NoOp: Would load salt from SSM');
+    console.log('NoOp: Would load salt from secret store');
   }
 
   async anonymizeOrgId(orgId: string): Promise<string> {

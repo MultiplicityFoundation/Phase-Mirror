@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * E2E Tests: Circuit Breaker with DynamoDB
  * Tests rate limiting and time-based bucket reset

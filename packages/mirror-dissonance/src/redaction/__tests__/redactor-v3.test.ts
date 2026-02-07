@@ -12,21 +12,16 @@ import {
   clearNonceCache,
   getCacheStatus,
   type RedactedText,
-  type RedactionRule
+  type RedactionRule,
+  type SecretFetcher
 } from '../redactor-v3.js';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-
-// AWS SDK clients are mocked globally via src/__tests__/setup.ts
 
 describe('Redactor v3 - MAC Validation', () => {
-  let mockSend: any;
-  let ssmClient: SSMClient;
+  let mockFetcher: jest.Mock<SecretFetcher>;
 
   beforeEach(() => {
     clearNonceCache();
-    mockSend = jest.fn();
-    ssmClient = new SSMClient({ region: 'us-east-1' });
-    (ssmClient.send as jest.Mock) = mockSend;
+    mockFetcher = jest.fn<SecretFetcher>();
   });
 
   afterEach(() => {
@@ -35,16 +30,12 @@ describe('Redactor v3 - MAC Validation', () => {
   });
 
   describe('loadNonce', () => {
-    it('should load nonce from SSM and cache it', async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
+    it('should load nonce from fetcher and cache it', async () => {
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
 
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
 
-      expect(mockSend).toHaveBeenCalledWith(expect.any(GetParameterCommand));
+      expect(mockFetcher).toHaveBeenCalledWith('/test/nonce_v1');
       
       const cacheStatus = getCacheStatus();
       expect(cacheStatus).toHaveLength(1);
@@ -53,42 +44,30 @@ describe('Redactor v3 - MAC Validation', () => {
     });
 
     it('should throw error if parameter is not found', async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: undefined,
-        },
-      });
+      mockFetcher.mockResolvedValueOnce('');
 
-      await expect(loadNonce(ssmClient, '/test/nonce_v1')).rejects.toThrow(
+      await expect(loadNonce(mockFetcher, '/test/nonce_v1')).rejects.toThrow(
         'Nonce parameter not found or empty'
       );
     });
 
-    it('should use cached nonce in degraded mode when SSM fails', async () => {
+    it('should use cached nonce in degraded mode when fetcher fails', async () => {
       // First, load a nonce successfully
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
 
-      // Then simulate SSM failure
-      mockSend.mockRejectedValueOnce(new Error('SSM unavailable'));
+      // Then simulate fetcher failure
+      mockFetcher.mockRejectedValueOnce(new Error('Secret store unavailable'));
 
       // Should not throw, use cached version
-      await expect(loadNonce(ssmClient, '/test/nonce_v2')).resolves.not.toThrow();
+      await expect(loadNonce(mockFetcher, '/test/nonce_v2')).resolves.not.toThrow();
     });
   });
 
   describe('redact', () => {
     beforeEach(async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
     });
 
     it('should redact text and generate HMAC-SHA256 MAC', () => {
@@ -117,12 +96,8 @@ describe('Redactor v3 - MAC Validation', () => {
 
   describe('isValidRedactedText', () => {
     beforeEach(async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
     });
 
     it('should validate RedactedText structure', () => {
@@ -177,12 +152,8 @@ describe('Redactor v3 - MAC Validation', () => {
 
   describe('verifyRedactedText - timingSafeEqual', () => {
     beforeEach(async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
     });
 
     it('should verify valid RedactedText with correct MAC', () => {
@@ -243,12 +214,8 @@ describe('Redactor v3 - MAC Validation', () => {
       const redacted1 = redact(originalText, rules);
 
       // Load second nonce
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-456',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v2');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-456');
+      await loadNonce(mockFetcher, '/test/nonce_v2');
 
       // Should still be able to verify with first nonce (grace period)
       expect(verifyRedactedText(redacted1, originalText)).toBe(true);
@@ -275,12 +242,8 @@ describe('Redactor v3 - MAC Validation', () => {
 
   describe('Cache expiration', () => {
     it('should report cache as expired after TTL', async () => {
-      mockSend.mockResolvedValueOnce({
-        Parameter: {
-          Value: 'test-nonce-secret-123',
-        },
-      });
-      await loadNonce(ssmClient, '/test/nonce_v1');
+      mockFetcher.mockResolvedValueOnce('test-nonce-secret-123');
+      await loadNonce(mockFetcher, '/test/nonce_v1');
 
       const cacheStatus = getCacheStatus();
       expect(cacheStatus[0].valid).toBe(true);

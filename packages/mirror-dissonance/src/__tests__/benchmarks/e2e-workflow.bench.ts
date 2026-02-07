@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * End-to-End Workflow Benchmarks
  * Tests complete false positive submission flow

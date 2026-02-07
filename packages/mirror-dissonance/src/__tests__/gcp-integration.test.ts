@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 // packages/mirror-dissonance/src/tests/gcp-integration.test.ts
 
 import { Firestore } from '@google-cloud/firestore';

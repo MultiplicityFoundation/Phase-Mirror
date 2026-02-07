@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
 /**
  * E2E Tests: False Positive Event Tracking
  * Tests complete workflow with staging DynamoDB

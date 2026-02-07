@@ -6,7 +6,7 @@
  * 
  * Key features:
  * - File artifact processing (read, categorize, hash)
- * - Component initialization (Oracle, FP store, consent store, block counter)
+ * - Component initialization via adapter factory (Oracle, FP store, consent store, block counter)
  * - ADR reference extraction (future enhancement)
  * - Reusable by multiple interfaces
  */
@@ -15,9 +15,8 @@ import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { createHash } from 'crypto';
 import { Oracle } from '../oracle.js';
-import { IFPStore, NoOpFPStore } from '../fp-store/index.js';
-import { IConsentStore, NoOpConsentStore } from '../consent-store/index.js';
-import { MemoryBlockCounter } from '../block-counter/counter.js';
+import { createAdapters, loadCloudConfig } from '../adapters/index.js';
+import type { CloudAdapters } from '../adapters/types.js';
 import { OracleInput, OracleOutput } from '../../schemas/types.js';
 
 /**
@@ -110,9 +109,7 @@ export interface AnalysisOutput extends OracleOutput {
  */
 export class AnalysisOrchestrator {
   private oracle!: Oracle;
-  private fpStore!: IFPStore;
-  private consentStore!: IConsentStore;
-  private blockCounter!: MemoryBlockCounter;
+  private adapters!: CloudAdapters;
   private config: AnalysisOrchestratorConfig;
   private initialized: boolean = false;
 
@@ -121,7 +118,7 @@ export class AnalysisOrchestrator {
   }
 
   /**
-   * Initialize all components
+   * Initialize all components via adapter factory
    * Must be called before analyze()
    */
   async initialize(): Promise<void> {
@@ -129,21 +126,16 @@ export class AnalysisOrchestrator {
       return;
     }
 
-    // Initialize FP Store (NoOp for now, can be enhanced with DynamoDB)
-    this.fpStore = new NoOpFPStore();
+    // Initialize adapters via factory (provider-agnostic)
+    const cloudConfig = loadCloudConfig();
+    this.adapters = await createAdapters(cloudConfig);
 
-    // Initialize Consent Store (NoOp for now, can be enhanced with DynamoDB)
-    this.consentStore = new NoOpConsentStore();
-
-    // Initialize Block Counter (in-memory for now, can be enhanced with DynamoDB)
-    this.blockCounter = new MemoryBlockCounter(24);
-
-    // Initialize Oracle with components
+    // Initialize Oracle with adapter-backed components
     this.oracle = new Oracle({
-      fpStore: this.fpStore,
-      blockCounter: this.blockCounter,
-      // Note: Oracle constructor doesn't currently accept redactor or consentStore
-      // This is preserved for future enhancement
+      fpStore: this.adapters.fpStore,
+      consentStore: this.adapters.consentStore,
+      blockCounter: this.adapters.blockCounter,
+      secretStore: this.adapters.secretStore,
     });
 
     this.initialized = true;
