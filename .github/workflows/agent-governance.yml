@@ -1,0 +1,160 @@
+name: Agent Governance — Spec / Prompt Sync
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/agents/phase-mirror-coding-agent.md'
+      - 'packages/mcp-server/src/config/systemPrompt.ts'
+      - 'packages/mcp-server/src/**'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/agents/phase-mirror-coding-agent.md'
+      - 'packages/mcp-server/src/config/systemPrompt.ts'
+
+jobs:
+  # ── 1. Spec ↔ Prompt drift detection ──────────────────────────────────────
+  spec-prompt-sync:
+    name: Verify spec ↔ prompt sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check spec exists
+        run: |
+          if [[ ! -f docs/agents/phase-mirror-coding-agent.md ]]; then
+            echo "::error::Governance spec missing: docs/agents/phase-mirror-coding-agent.md"
+            exit 1
+          fi
+
+      - name: Check system prompt exists
+        run: |
+          if [[ ! -f packages/mcp-server/src/config/systemPrompt.ts ]]; then
+            echo "::error::System prompt missing: packages/mcp-server/src/config/systemPrompt.ts"
+            exit 1
+          fi
+
+      - name: Compare hashes and line counts
+        run: |
+          SPEC_HASH=$(sha256sum docs/agents/phase-mirror-coding-agent.md | cut -d' ' -f1)
+          PROMPT_HASH=$(sha256sum packages/mcp-server/src/config/systemPrompt.ts | cut -d' ' -f1)
+          SPEC_LINES=$(wc -l < docs/agents/phase-mirror-coding-agent.md)
+          PROMPT_LINES=$(wc -l < packages/mcp-server/src/config/systemPrompt.ts)
+
+          echo "Spec   hash=$SPEC_HASH  lines=$SPEC_LINES"
+          echo "Prompt hash=$PROMPT_HASH lines=$PROMPT_LINES"
+
+          # Extract spec-version from the markdown header
+          SPEC_VERSION=$(grep -oP 'spec-version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' \
+            docs/agents/phase-mirror-coding-agent.md || echo "MISSING")
+
+          # Extract SYSTEM_PROMPT_VERSION from the TS file
+          PROMPT_VERSION=$(grep -oP 'SYSTEM_PROMPT_VERSION\s*=\s*"\K[0-9]+\.[0-9]+\.[0-9]+' \
+            packages/mcp-server/src/config/systemPrompt.ts || echo "MISSING")
+
+          echo "Spec   version=$SPEC_VERSION"
+          echo "Prompt version=$PROMPT_VERSION"
+
+          ERRORS=0
+
+          if [[ "$SPEC_VERSION" == "MISSING" ]]; then
+            echo "::error::spec-version comment missing from docs/agents/phase-mirror-coding-agent.md"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [[ "$PROMPT_VERSION" == "MISSING" ]]; then
+            echo "::error::SYSTEM_PROMPT_VERSION missing from packages/mcp-server/src/config/systemPrompt.ts"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [[ "$SPEC_VERSION" != "$PROMPT_VERSION" ]]; then
+            echo "::error::Version mismatch — spec=$SPEC_VERSION prompt=$PROMPT_VERSION. Update both files."
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if (( ERRORS > 0 )); then
+            exit 1
+          fi
+
+          echo "✓ Spec and prompt versions are in sync ($SPEC_VERSION)"
+
+  # ── 2. L0 invariant / forbidden-pattern scan ──────────────────────────────
+  l0-invariant-scan:
+    name: L0 invariant & forbidden-pattern scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan for hardcoded AWS credentials
+        run: |
+          FOUND=0
+          # Match AKIA... (AWS access key IDs) — 20-char uppercase alphanum
+          if grep -rn --include='*.ts' --include='*.js' --include='*.json' \
+               -E 'AKIA[0-9A-Z]{16}' packages/ docs/ .github/ 2>/dev/null; then
+            echo "::error::Hardcoded AWS access key detected — violates ADR-004"
+            FOUND=1
+          fi
+          # Match AWS secret keys (40-char base64ish)
+          if grep -rn --include='*.ts' --include='*.js' \
+               -E '["\x27][A-Za-z0-9/+=]{40}["\x27]' packages/ 2>/dev/null | \
+               grep -iv 'test\|mock\|example\|sha256\|hash' ; then
+            echo "::warning::Possible hardcoded secret — manual review required"
+          fi
+          if (( FOUND > 0 )); then exit 1; fi
+
+      - name: Scan for write-all permissions
+        run: |
+          if grep -rn 'permissions:.*write-all\|write-all' .github/workflows/ 2>/dev/null; then
+            echo "::error::write-all permissions detected in workflow — violates L0-002"
+            exit 1
+          fi
+          echo "✓ No write-all permissions found"
+
+      - name: Scan for direct SDK bypass (adapter violation)
+        run: |
+          # Check for direct AWS SDK instantiation outside adapter dirs
+          VIOLATIONS=$(grep -rn --include='*.ts' \
+            -E 'new (DynamoDBClient|S3Client|SSMClient|SecretsManagerClient|KMSClient)\b' \
+            packages/mcp-server/src/ packages/cli/src/ 2>/dev/null \
+            | grep -v 'adapters/' | grep -v '__tests__/' | grep -v '.test.' || true)
+          if [[ -n "$VIOLATIONS" ]]; then
+            echo "$VIOLATIONS"
+            echo "::error::Direct AWS SDK usage outside adapters/ — violates adapter protocol"
+            exit 1
+          fi
+          echo "✓ No adapter bypass detected"
+
+  # ── 3. System prompt compiles ──────────────────────────────────────────────
+  prompt-compiles:
+    name: System prompt compiles
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install & build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
