@@ -3,18 +3,22 @@
  * Provides a simplified interface to the @mirror-dissonance/core oracle
  */
 import type { Config } from '../types/cli.js';
+import { resolveSchemaPath, resolveRulesDir } from '../paths.js';
 
-// Mock interface for now - this would be replaced with actual oracle integration
 export class PhaseOracle {
   private config: Config;
+  private schemaPath: string | undefined;
+  private rulesDir: string | undefined;
 
   constructor(config?: Config) {
     this.config = config || this.getDefaultConfig();
   }
 
   async initialize(): Promise<void> {
-    // Initialize oracle connection
-    // In real implementation, this would initialize @mirror-dissonance/core
+    // Resolve paths relative to package root, not CWD.
+    // Works for monorepo dev, global install, and npx.
+    this.schemaPath = resolveSchemaPath();
+    this.rulesDir = resolveRulesDir();
   }
 
   async analyze(params: {

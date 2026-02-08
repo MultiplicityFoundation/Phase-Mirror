@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { analyzeCommand } from './commands/analyze.js';
@@ -14,6 +16,16 @@ import { verifyCommand } from './commands/verify.js';
 import { reputationCommand } from './commands/reputation.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
+
+/**
+ * Package-relative path anchor.
+ * Works for local dev, global npm install, and npx execution.
+ */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/** Schema path resolved relative to compiled output, not CWD. */
+export const schemaPath = join(__dirname, 'schemas', 'dissonance-report.schema.json');
 
 const program = new Command();
 
