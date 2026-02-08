@@ -8,6 +8,7 @@ import { checkMD003 } from './md-003.js';
 import { checkMD004 } from './md-004.js';
 import { checkMD005 } from './md-005.js';
 import { RuleEvaluationError, EvaluationResult } from './rule-error.js';
+export { RuleEvaluationError, EvaluationResult } from './rule-error.js';
 
 export type RuleChecker = (input: OracleInput) => Promise<RuleViolation[]>;
 

@@ -9,5 +9,5 @@ alert_email                  = "" # Set via environment variable or after deploy
 enable_circuit_breaker_alarm = true
 
 # GitHub OIDC Configuration
-github_org  = "PhaseMirror"
+github_org  = "MultiplicityFoundation"
 github_repo = "Phase-Mirror"

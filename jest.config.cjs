@@ -11,23 +11,41 @@ module.exports = {
   ],
   
   // Global coverage thresholds (enforced across all packages)
+  // See ADR-007 for tier definitions and module-specific rationale
   coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
       lines: 80,
       statements: 80
+    },
+    // Trust-critical modules: higher bar per ADR-007
+    './packages/mirror-dissonance/src/l0-invariants/': {
+      branches: 85,
+      functions: 90,
+      lines: 85,
+      statements: 85
+    },
+    './packages/mirror-dissonance/src/redaction/': {
+      branches: 80,
+      functions: 85,
+      lines: 80,
+      statements: 80
     }
   },
   
   // Collect coverage from all packages
+  // Integration and E2E tests excluded per ADR-006 — they exercise
+  // infrastructure adapters, not unit-testable logic.
   collectCoverageFrom: [
     'packages/*/src/**/*.{ts,tsx}',
     '!packages/*/src/**/*.d.ts',
     '!packages/*/src/**/__tests__/**',
     '!packages/*/src/**/*.test.{ts,tsx}',
     '!packages/*/src/**/*.spec.{ts,tsx}',
-    '!packages/*/src/**/index.ts'  // Exclude barrel exports
+    '!packages/*/src/**/index.ts',  // Exclude barrel exports
+    '!packages/*/src/**/*.integration.{ts,tsx}',
+    '!packages/*/src/**/*.e2e.{ts,tsx}'
   ],
   
   // Coverage reporters
@@ -84,12 +102,13 @@ module.exports = {
   resetMocks: true,
   restoreMocks: true,
   
-  // Ignore patterns
+  // Ignore patterns — e2e tests run only via explicit --testPathPattern
   testPathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
     '/build/',
-    '/.next/'
+    '/.next/',
+    '<rootDir>/e2e/'
   ],
   
   // Module file extensions

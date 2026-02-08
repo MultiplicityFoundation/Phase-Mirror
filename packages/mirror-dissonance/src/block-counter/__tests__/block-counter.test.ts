@@ -6,6 +6,7 @@
  * Target coverage: 80%
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { InMemoryBlockCounter } from '../index.js';
 
 describe.skip('DynamoDBBlockCounter (legacy - removed from core)', () => {
   let counter: DynamoDBBlockCounter;

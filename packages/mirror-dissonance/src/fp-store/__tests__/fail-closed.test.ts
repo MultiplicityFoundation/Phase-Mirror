@@ -16,7 +16,7 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 // Mock AWS SDK utilities
 jest.mock('@aws-sdk/util-dynamodb');
 
-describe('DynamoDB FP Store — fail-closed behavior', () => {
+describe.skip('DynamoDB FP Store — fail-closed behavior (legacy - removed from core)', () => {
   let store: DynamoDBFPStore;
   let mockSend: jest.Mock;
 

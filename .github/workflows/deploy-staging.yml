@@ -73,15 +73,40 @@ jobs:
           AWS_REGION: us-east-1
           FP_TABLE: mirror-dissonance-staging-fp-events
           CONSENT_TABLE: mirror-dissonance-staging-consent
+          BLOCK_COUNTER_TABLE: mirror-dissonance-staging-block-counter
           NONCE_PARAM: /guardian/staging/redaction_nonce_v1
         run: |
-          # Check if integration tests exist
+          # Integration tests against real staging infra (not coverage-gated)
           if find packages -name "*integration*.test.ts" -o -name "*integration*.spec.ts" | grep -q .; then
             echo "Running integration tests..."
-            pnpm test -- --testPathPattern=integration
+            pnpm test -- --testPathPattern=integration --no-coverage
           else
             echo "No integration tests found, skipping"
           fi
+
+      - name: Verify staging resources
+        run: |
+          echo "Verifying staging DynamoDB tables..."
+          aws dynamodb list-tables --region us-east-1 \
+            --query "TableNames[?contains(@, 'mirror-dissonance-staging')]" \
+            --output table
+
+          echo "Verifying SSM nonce..."
+          aws ssm get-parameter \
+            --name /guardian/staging/redaction_nonce_v1 \
+            --region us-east-1 \
+            --query 'Parameter.{Name:Name,Type:Type,Version:Version}' \
+            --output table || echo "⚠ Nonce not yet bootstrapped"
+
+          echo "Verifying PITR..."
+          for TABLE in fp-events consent block-counter; do
+            PITR=$(aws dynamodb describe-continuous-backups \
+              --table-name "mirror-dissonance-staging-${TABLE}" \
+              --region us-east-1 \
+              --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus' \
+              --output text 2>/dev/null || echo "UNKNOWN")
+            echo "  ${TABLE}: PITR=${PITR}"
+          done
 
       - name: Deploy notification
         if: success()

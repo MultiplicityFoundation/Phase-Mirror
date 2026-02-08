@@ -6,7 +6,7 @@
 set -euo pipefail
 
 BUCKET_NAME="mirror-dissonance-terraform-state-prod"
-TABLE_NAME="terraform-state-lock"
+TABLE_NAME="mirror-dissonance-terraform-lock-prod"
 REGION="us-east-1"
 
 echo "🚀 Creating Terraform backend resources..."

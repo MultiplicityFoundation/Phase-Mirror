@@ -1,10 +1,11 @@
 // @ts-nocheck
 // TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
+// ConsentStore class removed from core — entire test suite skipped.
 /**
  * Unit tests for ConsentStore (store.ts)
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { ConsentStore } from '../store.js';
+// import { ConsentStore } from '../store.js'; // removed from core
 import { CURRENT_CONSENT_POLICY } from '../schema.js';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -20,7 +21,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
   };
 });
 
-describe('ConsentStore', () => {
+describe.skip('ConsentStore (legacy - removed from core)', () => {
   let store: ConsentStore;
   let mockSend: any;
 

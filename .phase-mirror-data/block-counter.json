@@ -1,0 +1,12 @@
+[
+  {
+    "bucketKey": "MD-004:test/repo:2026-02-08-00",
+    "count": 3,
+    "updatedAt": "2026-02-08T00:59:38.409Z"
+  },
+  {
+    "bucketKey": "MD-004:test/repo:2026-02-08-01",
+    "count": 1,
+    "updatedAt": "2026-02-08T01:00:37.906Z"
+  }
+]

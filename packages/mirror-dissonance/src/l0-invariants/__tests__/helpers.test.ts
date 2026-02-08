@@ -55,17 +55,15 @@ describe('createValidState Helper', () => {
     expect(state).toEqual(customState);
   });
 
-  it('should create unique states on each call', () => {
+  it('should create unique states on each call', async () => {
     const state1 = createValidState();
     
     // Add a small delay to ensure timestamps differ
-    const delay = () => new Promise(resolve => setTimeout(resolve, 1));
+    await new Promise(resolve => setTimeout(resolve, 10));
     
-    return delay().then(() => {
-      const state2 = createValidState();
-      
-      // Timestamps should differ
-      expect(state1.nonce.issuedAt).toBeLessThan(state2.nonce.issuedAt);
-    });
+    const state2 = createValidState();
+    
+    // Timestamps should differ
+    expect(state1.nonce.issuedAt).toBeLessThan(state2.nonce.issuedAt);
   });
 });
