@@ -10,7 +10,7 @@
  */
 
 import { SSMClient, GetParameterCommand, GetParametersByPathCommand, PutParameterCommand } from '@aws-sdk/client-ssm';
-import type { NonceConfig } from '../../../schemas/types.js';
+import type { NonceConfig } from '../../schemas/types.js';
 import { SecretStoreAdapter, CloudConfig } from '../types.js';
 import { SecretStoreError } from '../errors.js';
 

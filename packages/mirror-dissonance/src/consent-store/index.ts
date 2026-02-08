@@ -7,7 +7,7 @@
  *
  * Cloud-agnostic exports (IConsentStore, NoOpConsentStore) remain here.
  */
-import { ConsentRecord, ConsentType } from '../../schemas/types.js';
+import { ConsentRecord, ConsentType } from '../schemas/types.js';
 
 // Re-export schema types
 export * from './schema.js';

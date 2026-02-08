@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import { RuleEvaluationError } from '../rule-error.js';
-import type { OracleInput, RuleViolation } from '../../../schemas/types.js';
+import type { OracleInput, RuleViolation } from '../../schemas/types.js';
 
 describe('RuleEvaluationError', () => {
   describe('constructor', () => {

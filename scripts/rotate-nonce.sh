@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
-# Automated nonce rotation with grace period
+# scripts/rotate-nonce.sh
+# Automated nonce rotation with grace period.
+# Implements the pattern from docs/ops/nonce-rotation.md:
+#   Create v(N+1) → load both for 1 hour → manually delete vN
+#
+# Usage: ./scripts/rotate-nonce.sh <environment> <current-version>
+#
+# Exit codes:
+#   0 - new nonce created successfully
+#   1 - unrecoverable error
+
 set -euo pipefail
 
-ENVIRONMENT="${1:-staging}"
-CURRENT_VERSION="${2:-1}"
+# ── args ────────────────────────────────────────────────────────────
+ENVIRONMENT="${1:?Usage: rotate-nonce.sh <environment> <current-version>}"
+CURRENT_VERSION="${2:?Usage: rotate-nonce.sh <environment> <current-version>}"
 NEW_VERSION=$((CURRENT_VERSION + 1))
+REGION="${AWS_REGION:-us-east-1}"
 
-# Validate environment
-if [[ "${ENVIRONMENT}" != "staging" && "${ENVIRONMENT}" != "production" ]]; then
-  echo "❌ ERROR: Invalid environment '${ENVIRONMENT}'"
-  echo "   Valid environments: staging, production"
-  exit 1
-fi
+CURRENT_PARAM="guardian/${ENVIRONMENT}/redaction/nonce/v${CURRENT_VERSION}"
+NEW_PARAM="guardian/${ENVIRONMENT}/redaction/nonce/v${NEW_VERSION}"
 
-CURRENT_PARAM="/guardian/${ENVIRONMENT}/redaction_nonce_v${CURRENT_VERSION}"
-NEW_PARAM="/guardian/${ENVIRONMENT}/redaction_nonce_v${NEW_VERSION}"
+# ── logging ─────────────────────────────────────────────────────────
+log()  { echo "[rotate-nonce] $(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+err()  { log "ERROR: $*" >&2; }
+die()  { err "$*"; exit 1; }
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Mirror Dissonance Nonce Rotation"
@@ -22,69 +32,49 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Environment:     ${ENVIRONMENT}"
 echo "Current Version: v${CURRENT_VERSION}"
 echo "New Version:     v${NEW_VERSION}"
+echo "Current Param:   ${CURRENT_PARAM}"
+echo "New Param:       ${NEW_PARAM}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Check if AWS CLI is available
-if ! command -v aws &> /dev/null; then
-  echo "❌ ERROR: AWS CLI is not installed"
-  exit 1
-fi
+# ── preflight ───────────────────────────────────────────────────────
+command -v aws     >/dev/null 2>&1 || die "aws CLI not found in PATH"
+command -v openssl >/dev/null 2>&1 || die "openssl not found in PATH"
 
-# Verify current nonce exists
-echo ""
-echo "[0/4] Verifying current nonce exists..."
-if ! aws ssm get-parameter --name "${CURRENT_PARAM}" --region us-east-1 &> /dev/null; then
-  echo "❌ ERROR: Current nonce ${CURRENT_PARAM} not found"
-  echo "   Please verify the version number and environment"
-  exit 1
+# ── verify current nonce ────────────────────────────────────────────
+log "Verifying current nonce exists..."
+if ! aws ssm get-parameter --name "${CURRENT_PARAM}" --region "${REGION}" >/dev/null 2>&1; then
+  die "Current nonce ${CURRENT_PARAM} not found in SSM"
 fi
-echo "      ✓ Current nonce verified: ${CURRENT_PARAM}"
+log "✓ Current nonce verified: ${CURRENT_PARAM}"
 
-# Generate new nonce (64-char hex = 32 bytes)
-echo ""
-echo "[1/4] Generating new nonce..."
+# ── generate new nonce ──────────────────────────────────────────────
+log "Generating new nonce..."
 NEW_NONCE=$(openssl rand -hex 32)
-echo "      Generated: ${NEW_NONCE:0:16}... (truncated)"
+log "Generated: ${NEW_NONCE:0:16}... (truncated for security)"
 
-# Create new nonce parameter
-echo ""
-echo "[2/4] Creating new nonce v${NEW_VERSION} in SSM..."
+# ── create new parameter ────────────────────────────────────────────
+log "Creating new nonce v${NEW_VERSION} in SSM..."
 if ! aws ssm put-parameter \
   --name "${NEW_PARAM}" \
   --value "${NEW_NONCE}" \
   --type SecureString \
-  --region us-east-1 \
-  --tags Key=Project,Value=MirrorDissonance Key=Version,Value=${NEW_VERSION} \
+  --region "${REGION}" \
+  --tags Key=Project,Value=MirrorDissonance Key=Version,Value="${NEW_VERSION}" \
   --overwrite; then
-  echo "❌ ERROR: Failed to create new nonce parameter"
-  echo "   Common causes:"
-  echo "   - Insufficient IAM permissions (ssm:PutParameter)"
-  echo "   - KMS key access issues"
-  echo "   - Network connectivity problems"
-  exit 1
+  die "Failed to create new nonce parameter ${NEW_PARAM}"
 fi
+log "✓ Created: ${NEW_PARAM}"
 
-echo "      ✓ Created: ${NEW_PARAM}"
-
-# Grace period instructions
+# ── grace period instructions ───────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "GRACE PERIOD (1-2 hours)"
+echo "GRACE PERIOD — DO NOT DELETE v${CURRENT_VERSION} YET"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "[3/4] Both v${CURRENT_VERSION} and v${NEW_VERSION} are now valid."
+echo "Both v${CURRENT_VERSION} and v${NEW_VERSION} are now valid."
+echo "After 1 hour, run:"
 echo ""
-echo "Update your services to load both nonces:"
-echo ""
-echo "  await loadNonce(ssmClient, '${CURRENT_PARAM}');"
-echo "  await loadNonce(ssmClient, '${NEW_PARAM}');"
-echo ""
-echo "Monitor logs for validation errors. If none after 1-2 hours:"
-echo ""
-echo "[4/4] Remove old nonce:"
-echo ""
-echo "  aws ssm delete-parameter --name '${CURRENT_PARAM}' --region us-east-1"
+echo "  aws ssm delete-parameter --name '${CURRENT_PARAM}' --region ${REGION}"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "✅ Nonce rotation initiated successfully!"
+log "✅ Nonce rotation initiated successfully"

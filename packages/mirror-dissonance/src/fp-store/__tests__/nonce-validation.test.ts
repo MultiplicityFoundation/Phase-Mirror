@@ -16,7 +16,7 @@ import { NoOpFPStore, IFPStore } from '../store.js';
 import { NonceBindingService } from '../../trust/identity/nonce-binding.js';
 import { createLocalTrustAdapters } from '../../trust/adapters/local/index.js';
 import { OrganizationIdentity } from '../../trust/identity/types.js';
-import { FalsePositiveEvent } from '../../../schemas/types.js';
+import { FalsePositiveEvent } from '../../schemas/types.js';
 
 describe('FPStoreWithNonceValidation', () => {
   const testDataDir = '.test-data-fp-nonce';

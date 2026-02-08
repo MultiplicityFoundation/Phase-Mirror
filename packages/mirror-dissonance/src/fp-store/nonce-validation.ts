@@ -8,7 +8,7 @@
 
 import { NonceBindingService } from '../trust/identity/nonce-binding.js';
 import { IFPStore } from './store.js';
-import { FalsePositiveEvent } from '../../schemas/types.js';
+import { FalsePositiveEvent } from '../schemas/types.js';
 
 /**
  * Extended FP submission with nonce and organization metadata

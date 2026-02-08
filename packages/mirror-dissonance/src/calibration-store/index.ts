@@ -6,7 +6,7 @@
  *
  * Cloud-agnostic exports (ICalibrationStore, NoOpCalibrationStore) remain here.
  */
-import { CalibrationResult, KAnonymityError } from '../../schemas/types.js';
+import { CalibrationResult, KAnonymityError } from '../schemas/types.js';
 
 export interface CalibrationStoreConfig {
   tableName: string;

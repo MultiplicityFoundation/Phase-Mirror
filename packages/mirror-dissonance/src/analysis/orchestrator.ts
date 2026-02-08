@@ -17,7 +17,7 @@ import { createHash } from 'crypto';
 import { Oracle } from '../oracle.js';
 import { createAdapters, loadCloudConfig } from '../adapters/index.js';
 import type { CloudAdapters } from '../adapters/types.js';
-import { OracleInput, OracleOutput } from '../../schemas/types.js';
+import { OracleInput, OracleOutput } from '../schemas/types.js';
 
 /**
  * Configuration for analysis orchestrator

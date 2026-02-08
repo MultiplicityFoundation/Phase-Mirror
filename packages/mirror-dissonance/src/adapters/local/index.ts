@@ -21,7 +21,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import type { NonceConfig, FalsePositiveEvent, CalibrationResult, KAnonymityError, ConsentType } from '../../../schemas/types.js';
+import type { NonceConfig, FalsePositiveEvent, CalibrationResult, KAnonymityError, ConsentType } from '../../schemas/types.js';
 import {
   CloudConfig,
   CloudAdapters,

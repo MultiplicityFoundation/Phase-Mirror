@@ -3,7 +3,7 @@
  * Redacts sensitive information based on capability markers
  */
 import crypto from 'crypto';
-import { NonceConfig } from '../../schemas/types.js';
+import { NonceConfig } from '../schemas/types.js';
 
 export interface RedactionRule {
   capability: string;

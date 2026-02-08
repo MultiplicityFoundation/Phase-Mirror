@@ -12,7 +12,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { createHash, randomUUID } from 'crypto';
 import { ConsentStoreAdapter, CloudConfig } from '../types.js';
-import type { ConsentType } from '../../../schemas/types.js';
+import type { ConsentType } from '../../schemas/types.js';
 
 interface ConsentRecord {
   orgId: string;

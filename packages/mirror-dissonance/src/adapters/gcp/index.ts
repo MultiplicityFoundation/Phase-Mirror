@@ -15,7 +15,7 @@ import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { Storage } from '@google-cloud/storage';
 import { createHash, randomUUID } from 'crypto';
 
-import type { NonceConfig, FalsePositiveEvent, ConsentType } from '../../../schemas/types.js';
+import type { NonceConfig, FalsePositiveEvent, ConsentType } from '../../schemas/types.js';
 import {
   CloudConfig,
   CloudAdapters,

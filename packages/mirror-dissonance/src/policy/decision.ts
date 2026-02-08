@@ -1,7 +1,7 @@
 /**
  * Decision logic for Mirror Dissonance Protocol
  */
-import { RuleViolation, MachineDecision } from '../../schemas/types.js';
+import { RuleViolation, MachineDecision } from '../schemas/types.js';
 import { getThresholds, shouldBlock, Thresholds } from './thresholds.js';
 
 export interface DecisionContext {

@@ -33,7 +33,7 @@ import {
   ContributionWeight,
 } from '../trust/reputation/types.js';
 import { ICalibrationStoreAdapter } from './adapter-types.js';
-import { FalsePositiveEvent } from '../../schemas/types.js';
+import { FalsePositiveEvent } from '../schemas/types.js';
 
 export interface ICalibrationStore {
   aggregateFPsByRule(ruleId: string): Promise<CalibrationResultExtended>;
