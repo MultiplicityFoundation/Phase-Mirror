@@ -37,6 +37,9 @@ LABELS=(
   "runtime-enforcement|1d76db|Nonce, HMAC, or validation issues"
 )
 
+# ── fetch existing labels once ───────────────────────────────────────
+EXISTING_LABELS=$(gh label list --repo "${REPO}" --json name --jq '.[].name' --limit 200 2>/dev/null || true)
+
 # ── create or update each label ─────────────────────────────────────
 CREATED=0
 UPDATED=0
@@ -46,17 +49,17 @@ for ENTRY in "${LABELS[@]}"; do
   IFS='|' read -r NAME COLOR DESCRIPTION <<< "${ENTRY}"
 
   # Check if label already exists
-  if gh label list --repo "${REPO}" --json name --jq '.[].name' 2>/dev/null | grep -qx "${NAME}"; then
+  if echo "${EXISTING_LABELS}" | grep -qx "${NAME}"; then
     # Update existing label to ensure color/description match
     if gh label edit "${NAME}" \
       --repo "${REPO}" \
       --color "${COLOR}" \
       --description "${DESCRIPTION}" >/dev/null 2>&1; then
       log "✓ Updated: ${NAME}"
-      ((UPDATED++))
+      UPDATED=$((UPDATED + 1))
     else
       err "✗ Failed to update: ${NAME}"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
     fi
   else
     # Create new label
@@ -65,10 +68,10 @@ for ENTRY in "${LABELS[@]}"; do
       --color "${COLOR}" \
       --description "${DESCRIPTION}" >/dev/null 2>&1; then
       log "✓ Created: ${NAME}"
-      ((CREATED++))
+      CREATED=$((CREATED + 1))
     else
       err "✗ Failed to create: ${NAME}"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
     fi
   fi
 done
