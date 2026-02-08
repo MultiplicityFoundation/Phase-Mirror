@@ -52,6 +52,12 @@ variable "enable_circuit_breaker_alarm" {
   default     = true
 }
 
+variable "circuit_breaker_threshold" {
+  description = "Circuit breaker alarm threshold (count per period)"
+  type        = number
+  default     = 0
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

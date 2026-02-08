@@ -71,6 +71,16 @@ output "dashboard_url" {
   value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${module.cloudwatch.dashboard_name}"
 }
 
+output "infrastructure_dashboard_name" {
+  description = "Infrastructure CloudWatch dashboard name"
+  value       = aws_cloudwatch_dashboard.infrastructure.dashboard_name
+}
+
+output "infrastructure_dashboard_url" {
+  description = "Infrastructure CloudWatch dashboard URL"
+  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.infrastructure.dashboard_name}"
+}
+
 # S3 Outputs
 output "baselines_bucket_name" {
   description = "Drift baselines S3 bucket name"

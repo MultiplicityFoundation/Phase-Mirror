@@ -73,6 +73,7 @@ module "cloudwatch" {
   consent_table_name           = module.dynamodb.consent_table_name
   block_counter_table_name     = module.dynamodb.block_counter_table_name
   enable_circuit_breaker_alarm = var.enable_circuit_breaker_alarm
+  circuit_breaker_threshold    = var.circuit_breaker_threshold
 
   tags = local.common_tags
 

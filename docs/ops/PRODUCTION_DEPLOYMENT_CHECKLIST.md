@@ -138,6 +138,9 @@ terraform show production.tfplan > production-plan-$(date +%Y%m%d).txt
 # Apply the plan
 terraform apply production.tfplan
 
+# Or run the guarded deploy script
+./scripts/deploy-production.sh us-east-1
+
 # Monitor output for errors
 # Expected: "Apply complete! Resources: X added, 0 changed, 0 destroyed."
 ```
@@ -193,6 +196,9 @@ for table in fp-events consent block-counter; do
     --region us-east-1 \
     --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus'
 done
+
+# Or run the automated PITR check
+./scripts/verify-pitr.sh production us-east-1
 
 # SSM parameter
 aws ssm get-parameter \

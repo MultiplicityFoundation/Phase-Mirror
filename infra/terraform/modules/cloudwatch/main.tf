@@ -119,7 +119,7 @@ resource "aws_cloudwatch_metric_alarm" "circuit_breaker_triggers" {
   namespace           = local.alarm_namespace
   period              = 300
   statistic           = "Sum"
-  threshold           = 0
+  threshold           = var.circuit_breaker_threshold
   alarm_description   = "Circuit breaker has been triggered"
   alarm_actions       = [aws_sns_topic.ops_alerts.arn]
   treat_missing_data  = "notBreaching"

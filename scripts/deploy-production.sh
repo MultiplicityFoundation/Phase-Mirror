@@ -22,7 +22,7 @@ echo ""
 cd "${REPO_ROOT}/infra/terraform"
 
 # Step 1: Verify backend
-echo "[1/7] Verifying Terraform backend..."
+echo "[1/8] Verifying Terraform backend..."
 if ! "${REPO_ROOT}/scripts/verify-backend.sh" > /dev/null 2>&1; then
   echo "      ✗ Backend verification failed"
   exit 1
@@ -31,24 +31,24 @@ echo "      ✓ Backend verified"
 
 # Step 2: Initialize Terraform
 echo ""
-echo "[2/7] Initializing Terraform..."
+echo "[2/8] Initializing Terraform..."
 terraform init -reconfigure
 
 # Step 3: Create/select production workspace
 echo ""
-echo "[3/7] Selecting production workspace..."
+echo "[3/8] Selecting production workspace..."
 terraform workspace select production 2>/dev/null || terraform workspace new production
 echo "      ✓ Workspace: $(terraform workspace show)"
 
 # Step 4: Validate configuration
 echo ""
-echo "[4/7] Validating configuration..."
+echo "[4/8] Validating configuration..."
 terraform validate
 echo "      ✓ Configuration valid"
 
 # Step 5: Generate plan
 echo ""
-echo "[5/7] Generating deployment plan..."
+echo "[5/8] Generating deployment plan..."
 terraform plan -var-file=production.tfvars -out=production.tfplan
 
 # Step 6: Manual review gate
@@ -61,7 +61,7 @@ echo "     - Resource counts match staging"
 echo "     - Tags and naming correct"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "[6/7] Apply? (yes/no)"
+echo "[6/8] Apply? (yes/no)"
 read -r APPLY
 
 if [ "$APPLY" != "yes" ]; then
@@ -72,6 +72,11 @@ fi
 
 # Step 7: Apply
 terraform apply production.tfplan
+
+# Step 8: Verify PITR
+echo ""
+echo "[8/8] Verifying PITR status..."
+"${REPO_ROOT}/scripts/verify-pitr.sh" production "${REGION}"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
