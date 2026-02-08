@@ -49,7 +49,7 @@ export async function evaluateAllRules(input: OracleInput): Promise<EvaluationRe
           ? error
           : new RuleEvaluationError({
               ruleId,
-              ruleVersion: 'unknown', // Could be extracted from rule metadata
+              ruleVersion: 'unknown',
               phase: 'evaluate',
               message:
                 error instanceof Error
@@ -58,24 +58,14 @@ export async function evaluateAllRules(input: OracleInput): Promise<EvaluationRe
               cause: error,
             });
 
-      // Enhanced error context for troubleshooting
-      const errorType = error instanceof Error ? error.name : 'UnknownError';
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      
-      // Log — but this is no longer the ONLY thing we do
+      // Log for observability, but the violation is what makes the Oracle block
       console.error(
         `[rule-error] ${ruleError.ruleId}@${ruleError.ruleVersion} ` +
-          `failed during ${ruleError.phase}: ${ruleError.message}`,
-        `\n  Error Type: ${errorType}`,
-        `\n  Mode: ${input.mode}`,
-        `\n  Repository: ${input.context?.repositoryName || 'unknown'}`,
-        errorStack ? `\n  Stack: ${errorStack}` : ''
+          `failed during ${ruleError.phase}: ${ruleError.message}`
       );
 
-      // Convert to a synthetic violation — this is the critical fix.
-      // The error now appears in the violations array as a critical
-      // severity item, which makeDecision will see and block on.
+      // Convert to a critical-severity violation so makeDecision blocks.
+      // A failing rule must NEVER produce a silent pass.
       violations.push(ruleError.toViolation());
       errors.push(ruleError);
     }
