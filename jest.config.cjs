@@ -11,10 +11,24 @@ module.exports = {
   ],
   
   // Global coverage thresholds (enforced across all packages)
+  // See ADR-007 for tier definitions and module-specific rationale
   coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
+      lines: 80,
+      statements: 80
+    },
+    // Trust-critical modules: higher bar per ADR-007
+    './packages/mirror-dissonance/src/l0-invariants/': {
+      branches: 85,
+      functions: 90,
+      lines: 85,
+      statements: 85
+    },
+    './packages/mirror-dissonance/src/redaction/': {
+      branches: 80,
+      functions: 85,
       lines: 80,
       statements: 80
     }
