@@ -23,7 +23,7 @@
 ### Security Checklist
 
 - [ ] IAM roles follow least-privilege principle
-- [ ] GitHub OIDC trust policy restricts to `PhaseMirror/Phase-Mirror` repo
+- [ ] GitHub OIDC trust policy restricts to `MultiplicityFoundation/Phase-Mirror` repo
 - [ ] SSM parameters encrypted (SecureString type)
 - [ ] S3 buckets block all public access
 - [ ] Production nonce generated and stored securely (password manager)
@@ -37,7 +37,7 @@
 - [ ] Unit tests passing (>80% coverage)
 - [ ] Integration tests passing (all)
 - [ ] CLI commands tested with real AWS resources in staging
-- [ ] Nonce rotation runbook reviewed (`docs/ops/nonce-rotation.md`)
+- [ ] Nonce rotation runbook reviewed (`docs/ops/NONCE_ROTATION_RUNBOOK.md`)
 - [ ] Incident response procedures documented (`docs/ops/runbook.md`)
 - [ ] Performance benchmarks met in staging
 
@@ -221,13 +221,13 @@ aws s3 ls | grep mirror-dissonance-production-baselines
 
 ### 8. Configure GitHub Secrets
 
-Navigate to: https://github.com/PhaseMirror/Phase-Mirror/settings/secrets/actions
+Navigate to: https://github.com/MultiplicityFoundation/Phase-Mirror/settings/secrets/actions
 
 Add/Update these secrets:
 
 | Secret Name | Value (from Terraform outputs) |
 |-------------|-------------------------------|
-| `AWS_ROLE_ARN_PRODUCTION` | arn:aws:iam::ACCOUNT_ID:role/mirror-dissonance-github-actions-deploy-production |
+| `AWS_ROLE_ARN_PRODUCTION` | arn:aws:iam::ACCOUNT_ID:role/mirror-dissonance-production-github-deploy |
 | `OPS_SNS_TOPIC_ARN_PRODUCTION` | arn:aws:sns:us-east-1:ACCOUNT_ID:mirror-dissonance-production-ops-alerts |
 
 - [ ] `AWS_ROLE_ARN_PRODUCTION` secret added

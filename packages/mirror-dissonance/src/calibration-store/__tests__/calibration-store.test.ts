@@ -6,6 +6,7 @@
  * Tests k-Anonymity enforcement and FP aggregation
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { NoOpCalibrationStore, createCalibrationStore } from '../index.js';
 
 describe.skip('DynamoDBCalibrationStore (legacy - removed from core)', () => {
   let store: DynamoDBCalibrationStore;
@@ -261,13 +262,14 @@ describe('NoOpCalibrationStore', () => {
 });
 
 describe('createCalibrationStore', () => {
-  it('should create DynamoDBCalibrationStore with config', () => {
+  it('should create NoOpCalibrationStore with config (DynamoDB removed from core)', () => {
     const store = createCalibrationStore({
       tableName: 'test-table',
       region: 'us-east-1',
     });
 
-    expect(store).toBeInstanceOf(DynamoDBCalibrationStore);
+    // DynamoDBCalibrationStore removed from core; factory always returns NoOp
+    expect(store).toBeInstanceOf(NoOpCalibrationStore);
   });
 
   it('should create NoOpCalibrationStore without config', () => {

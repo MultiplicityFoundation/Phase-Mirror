@@ -8,7 +8,7 @@
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-import { ConsentStore } from '../store.js';
+// import { ConsentStore } from '../store.js'; // removed from core
 import { EnhancedNoOpConsentStore } from '../enhanced-store.js';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
@@ -26,7 +26,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
   };
 });
 
-describe('ConsentStore - Comprehensive', () => {
+describe.skip('ConsentStore - Comprehensive (legacy - removed from core)', () => {
   let store: ConsentStore;
   let mockSend: any;
 

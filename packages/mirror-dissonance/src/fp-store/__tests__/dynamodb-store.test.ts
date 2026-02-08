@@ -16,7 +16,7 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 // Mock AWS SDK utilities (module-level constructors are mocked by global setup)
 jest.mock('@aws-sdk/util-dynamodb');
 
-describe('DynamoDBFPStore', () => {
+describe.skip('DynamoDBFPStore (legacy - removed from core)', () => {
   let store: DynamoDBFPStore;
   let mockSend: any;
 

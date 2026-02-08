@@ -6,7 +6,9 @@ locals {
   github_org  = var.github_org
   github_repo = var.github_repo
   account_id  = data.aws_caller_identity.current.account_id
-  oidc_provider_arn = "arn:aws:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
+  # Reference the actual OIDC provider; fall back to constructed ARN for
+  # accounts where the provider was imported outside Terraform.
+  oidc_provider_arn = var.oidc_provider_arn != "" ? var.oidc_provider_arn : "arn:aws:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
 # GitHub Actions Role - Terraform Operations

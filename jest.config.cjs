@@ -35,13 +35,17 @@ module.exports = {
   },
   
   // Collect coverage from all packages
+  // Integration and E2E tests excluded per ADR-006 — they exercise
+  // infrastructure adapters, not unit-testable logic.
   collectCoverageFrom: [
     'packages/*/src/**/*.{ts,tsx}',
     '!packages/*/src/**/*.d.ts',
     '!packages/*/src/**/__tests__/**',
     '!packages/*/src/**/*.test.{ts,tsx}',
     '!packages/*/src/**/*.spec.{ts,tsx}',
-    '!packages/*/src/**/index.ts'  // Exclude barrel exports
+    '!packages/*/src/**/index.ts',  // Exclude barrel exports
+    '!packages/*/src/**/*.integration.{ts,tsx}',
+    '!packages/*/src/**/*.e2e.{ts,tsx}'
   ],
   
   // Coverage reporters
@@ -98,12 +102,13 @@ module.exports = {
   resetMocks: true,
   restoreMocks: true,
   
-  // Ignore patterns
+  // Ignore patterns — e2e tests run only via explicit --testPathPattern
   testPathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
     '/build/',
-    '/.next/'
+    '/.next/',
+    '<rootDir>/e2e/'
   ],
   
   // Module file extensions

@@ -9,28 +9,32 @@
 - [x] RedactedText HMAC validation complete
 - [x] Report schema v2 published
 - [x] All integration tests passing in staging
+- [x] Adapter error propagation contract formalised (ADR-006)
+- [x] CLI path resolution fixed for all deployment contexts
 
 ### AWS Account Setup
-- [ ] Production AWS account identified
-- [ ] IAM roles created for GitHub Actions
-  - [ ] `MirrorDissonanceDeploy` (Terraform apply permissions)
-  - [ ] `MirrorDissonanceRuntime` (DynamoDB, SSM read permissions)
+- [x] Production AWS account identified
+- [x] IAM roles created for GitHub Actions
+  - [x] `mirror-dissonance-{env}-github-terraform` (Terraform apply permissions)
+  - [x] `mirror-dissonance-{env}-github-deploy` (DynamoDB, SSM read permissions)
 - [ ] Cost allocation tags configured
 - [ ] Billing alarms set (threshold: $100/month initially)
 
 ### Secrets & Parameters
-- [ ] SSM parameter namespace decided: `/guardian/prod/` vs `/guardian/`
+- [x] SSM parameter namespace decided: `/guardian/{env}/`
 - [ ] GitHub secrets configured:
-  - [ ] `AWS_ROLE_ARN_PROD` (for OIDC)
-  - [ ] `TERRAFORM_STATE_BUCKET`
-  - [ ] `TERRAFORM_LOCK_TABLE`
-- [ ] Initial nonce generated and stored in SSM manually (bootstrap)
+  - [ ] `AWS_ROLE_ARN_STAGING` (for OIDC — set after first `terraform apply`)
+  - [ ] `AWS_ROLE_ARN_PRODUCTION` (for OIDC — set after production deploy)
+  - [x] Terraform state bucket name in `backend.tf` (hard-coded, no secret needed)
+  - [x] Terraform lock table name in `backend.tf` (hard-coded, no secret needed)
+- [ ] Initial nonce generated and stored in SSM manually (`scripts/bootstrap-nonce.sh`)
 
 ### Terraform State Backend
-- [ ] S3 bucket created: `mirror-dissonance-terraform-state-prod`
-- [ ] Versioning enabled on bucket
-- [ ] DynamoDB lock table created: `terraform-state-lock`
-- [ ] Backend configuration updated in `infra/terraform/backend.tf`
+- [x] S3 bucket created: `mirror-dissonance-terraform-state-prod`
+- [x] Versioning enabled on bucket
+- [x] DynamoDB lock table created: `mirror-dissonance-terraform-lock-prod`
+- [x] Backend configuration updated in `infra/terraform/backend.tf`
+- [x] GitHub OIDC provider resource added (`infra/terraform/github-oidc.tf`)
 
 ### Monitoring Prerequisites
 - [ ] SNS topic for ops alerts created

@@ -2,11 +2,10 @@ name: E2E Integration Tests
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
+    branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '0 6 * * *' # Daily at 6 AM UTC
+    - cron: '0 6 * * 1' # Weekly Monday at 6 AM UTC
 
 permissions:
   id-token: write
@@ -19,27 +18,29 @@ env:
 
 jobs:
   e2e-tests:
-    name: Run E2E Tests
+    name: Run E2E Tests (Staging)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       
-      - name: Install pnpm
-        run: npm install -g pnpm
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-E2ETests
       
@@ -49,28 +50,56 @@ jobs:
           echo "✓ Authenticated to AWS via OIDC"
       
       - name: Install dependencies
-        run: pnpm install
-        working-directory: packages/mirror-dissonance
+        run: pnpm install --frozen-lockfile
       
-      - name: Build package
-        run: pnpm run build
-        working-directory: packages/mirror-dissonance
+      - name: Build packages
+        run: pnpm build
       
-      - name: Verify infrastructure
+      - name: Verify staging infrastructure
         run: |
-          pnpm test -- src/__tests__/e2e/setup.test.ts
+          echo "Checking staging DynamoDB tables..."
+          TABLES=$(aws dynamodb list-tables --region ${{ env.AWS_REGION }} \
+            --query "TableNames[?contains(@, 'mirror-dissonance-staging')]" \
+            --output text)
+          if [ -z "$TABLES" ]; then
+            echo "::error::No staging tables found — deploy staging first"
+            exit 1
+          fi
+          echo "✓ Staging tables: $TABLES"
+
+          echo "Checking SSM nonce..."
+          aws ssm get-parameter \
+            --name /guardian/staging/redaction_nonce_v1 \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Parameter.Version' --output text || {
+              echo "::error::SSM nonce not found"
+              exit 1
+            }
+          echo "✓ SSM nonce accessible"
+      
+      - name: Run package E2E tests
+        run: |
+          pnpm test -- src/__tests__/e2e/ --testTimeout=30000 --verbose --no-coverage
         working-directory: packages/mirror-dissonance
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           ENVIRONMENT: ${{ env.ENVIRONMENT }}
-      
-      - name: Run E2E tests
+          FP_TABLE: mirror-dissonance-staging-fp-events
+          CONSENT_TABLE: mirror-dissonance-staging-consent
+          BLOCK_COUNTER_TABLE: mirror-dissonance-staging-block-counter
+          NONCE_PARAM: /guardian/staging/redaction_nonce_v1
+
+      - name: Run full-cycle E2E test
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
-          pnpm test -- src/__tests__/e2e/ --testTimeout=30000 --verbose
-        working-directory: packages/mirror-dissonance
+          cd e2e
+          pnpm install --frozen-lockfile
+          pnpm test -- full-cycle.test.ts --testTimeout=600000 --verbose
         env:
+          GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          E2E_TEST_OWNER: MultiplicityFoundation
+          E2E_TEST_REPO: Phase-Mirror-Test
           AWS_REGION: ${{ env.AWS_REGION }}
-          ENVIRONMENT: ${{ env.ENVIRONMENT }}
       
       - name: Upload test results
         if: always()

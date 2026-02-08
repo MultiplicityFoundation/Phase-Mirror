@@ -179,19 +179,52 @@ This document tracks known issues, limitations, and areas for improvement in the
 **Recommendation:** Monitor usage and consider provisioned capacity if costs grow
 
 ### 28. Backup and Recovery
-**Status:** DynamoDB provides point-in-time recovery capability
-**Priority:** Medium
-**Recommendation:** Enable PITR for production DynamoDB tables
+**Status:** ✅ PITR enabled in Terraform for all environments
+**Priority:** Resolved
+**Implementation:** `infra/terraform/modules/dynamodb/` enables PITR by default; `scripts/verify-pitr.sh` validates
+
+## Phase 3 Infrastructure Status
+
+### 29. Terraform Backend Lock Table Name
+**Status:** ✅ RESOLVED
+**Previous Issue:** `bootstrap-terraform-backend.sh` created `terraform-state-lock` but `backend.tf` expected `mirror-dissonance-terraform-lock-prod`
+**Fix:** Script updated to match `backend.tf`
+
+### 30. GitHub OIDC Provider Terraform Resource
+**Status:** ✅ RESOLVED
+**Previous Issue:** OIDC provider only existed as a script (`scripts/oidc/create-oidc-provider.sh`), not managed by Terraform
+**Fix:** `infra/terraform/github-oidc.tf` added; IAM module updated to accept provider ARN
+
+### 31. GitHub Org Name Mismatch
+**Status:** ✅ RESOLVED
+**Previous Issue:** tfvars and variables.tf referenced `PhaseMirror` instead of `MultiplicityFoundation`
+**Fix:** All references updated to `MultiplicityFoundation`
+
+### 32. Production Deploy Script
+**Status:** ✅ RESOLVED
+**Previous Issue:** `scripts/deploy-production.sh` used `-var=` instead of `-var-file=production.tfvars` and didn't use workspaces
+**Fix:** Script rewritten to follow same pattern as `deploy-staging.sh`
+
+### 33. L0 Invariants in Staging/Production
+**Status:** ✅ Governance constraint satisfied
+**Requirement:** No env flag or configuration may bypass L0 invariants in any environment
+**Verification:** L0 checks are unconditionally enforced in `packages/mirror-dissonance/src/l0-invariants/` — no environment-conditional logic exists
+**Risk:** Phase 3 infra work does not introduce new bypasses; all Terraform modules create resources, not runtime flags
+
+### 34. Staging-Only AWS Dependency
+**Status:** ✅ Design decision documented
+**Decision:** Real AWS is required only in staging (`deploy-staging.yml`, `e2e-tests.yml`). PR checks and unit tests remain fully runnable on a laptop with no AWS credentials. LocalStack integration tests run in CI on `main` pushes only.
 
 ## Summary
 
-- **Critical**: 3 items requiring attention before production
-- **Important**: 7 items for near-term improvement (1 resolved)
+- **Critical**: 3 items requiring attention before production (unchanged)
+- **Important**: 7 items for near-term improvement (2 resolved)
+- **Phase 3**: 6 items tracked and resolved
 - **Future**: 7 enhancement ideas
 - **Documentation**: 3 gaps to fill
 - **Testing**: 3 coverage areas
-- **Operational**: 3 deployment considerations
+- **Operational**: 3 deployment considerations (1 resolved)
 
-Total: 23 tracked items (1 resolved)
+Total: 29 tracked items (9 resolved)
 
-Last Updated: 2026-02-06
+Last Updated: 2026-02-08

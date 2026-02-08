@@ -1,11 +1,12 @@
 // @ts-nocheck
 // TODO: Migrate to adapter-layer tests (see src/adapters/__tests__/)
+// DynamoDBConsentStore removed from core — legacy tests skipped.
 /**
  * Unit tests for Consent Store
  * Target coverage: 85%
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { DynamoDBConsentStore, NoOpConsentStore, createConsentStore } from '../index.js';
+import { NoOpConsentStore, createConsentStore } from '../index.js';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -20,7 +21,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
   };
 });
 
-describe('DynamoDBConsentStore', () => {
+describe.skip('DynamoDBConsentStore (legacy - removed from core)', () => {
   let store: DynamoDBConsentStore;
   let mockSend: any;
 
@@ -235,13 +236,14 @@ describe('NoOpConsentStore', () => {
 });
 
 describe('createConsentStore', () => {
-  it('should create DynamoDBConsentStore with config', () => {
+  it('should create NoOpConsentStore with config (DynamoDB removed from core)', () => {
     const store = createConsentStore({
       tableName: 'test-table',
       region: 'us-east-1',
     });
 
-    expect(store).toBeInstanceOf(DynamoDBConsentStore);
+    // DynamoDBConsentStore removed from core; factory always returns NoOp
+    expect(store).toBeInstanceOf(NoOpConsentStore);
   });
 
   it('should create NoOpConsentStore without config', () => {
