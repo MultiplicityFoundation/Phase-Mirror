@@ -6,7 +6,7 @@
 # Usage: ./scripts/load-baseline.sh <environment> [output-path]
 #
 # Exit codes:
-#   0 - baseline downloaded (or created + uploaded on first run)
+#   0 - baseline downloaded and validated
 #   1 - unrecoverable error (missing args, AWS failure, upload failure)
 #   2 - baseline created for the first time (signals "skip drift check")
 
