@@ -243,8 +243,14 @@ export class AwsFPStore implements FPStoreAdapter {
       if (!result.Items || result.Items.length === 0) return false;
       const item = unmarshall(result.Items[0]);
       return item.isFalsePositive === true;
-    } catch {
-      return false; // Fail-closed: treat as not FP
+    } catch (error: any) {
+      throw new FPStoreError({
+        message: `Failed to check isFalsePositive for finding ${actualFindingId}${ruleId ? ` (rule ${ruleId})` : ''}: ${error.message}`,
+        operation: 'isFalsePositive',
+        findingId: actualFindingId,
+        ruleId,
+        cause: error,
+      });
     }
   }
 
