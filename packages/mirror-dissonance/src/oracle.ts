@@ -4,7 +4,7 @@
  * The Oracle analyzes agentic domain-specific reasoning tensions and provides
  * machine decisions on whether to allow, block, or warn on changes.
  */
-import { OracleInput, OracleOutput, RuleViolation } from '../schemas/types.js';
+import { OracleInput, OracleOutput, RuleViolation } from './schemas/types.js';
 import { evaluateAllRules } from './rules/index.js';
 import { makeDecision } from './policy/index.js';
 import { createAdapters, loadCloudConfig, BlockCounterError } from './adapters/index.js';

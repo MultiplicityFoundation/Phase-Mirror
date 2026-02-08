@@ -1,6 +1,6 @@
 // packages/mirror-dissonance/src/adapters/types.ts
 
-import type { NonceConfig, FalsePositiveEvent, CalibrationResult, KAnonymityError, ConsentType } from '../../schemas/types.js';
+import type { NonceConfig, FalsePositiveEvent, CalibrationResult, KAnonymityError, ConsentType } from '../schemas/types.js';
 
 export type { NonceConfig };
 

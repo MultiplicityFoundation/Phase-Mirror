@@ -8,7 +8,7 @@
  *
  * Cloud-agnostic exports (IFPStore, NoOpFPStore, createFPStore) remain here.
  */
-import { FalsePositiveEvent } from '../../schemas/types.js';
+import { FalsePositiveEvent } from '../schemas/types.js';
 
 export interface FPStoreConfig {
   tableName: string;

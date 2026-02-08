@@ -56,7 +56,7 @@ export type {
 } from "./consent-store/index.js";
 
 // Re-export commonly used types
-export type { FalsePositiveEvent } from "../schemas/types.js";
+export type { FalsePositiveEvent } from "./schemas/types.js";
 
 // Calibration Store
 export {

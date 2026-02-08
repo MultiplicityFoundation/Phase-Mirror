@@ -11,7 +11,7 @@ import { AwsConsentStore } from './consent-store.js';
 import { AwsBlockCounter } from './block-counter.js';
 import { AwsSecretStore } from './secret-store.js';
 import { AwsObjectStore } from './object-store.js';
-import type { CalibrationResult, KAnonymityError } from '../../../schemas/types.js';
+import type { CalibrationResult, KAnonymityError } from '../../schemas/types.js';
 
 const notImplemented = (name: string) => () => {
   throw new Error(`${name} not yet implemented for AWS adapter`);

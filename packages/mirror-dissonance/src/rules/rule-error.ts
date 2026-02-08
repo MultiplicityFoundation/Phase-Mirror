@@ -4,7 +4,7 @@
  * that the Oracle can include in the report.
  */
 
-import { RuleViolation } from '../../schemas/types.js';
+import { RuleViolation } from '../schemas/types.js';
 
 export class RuleEvaluationError extends Error {
   public readonly ruleId: string;

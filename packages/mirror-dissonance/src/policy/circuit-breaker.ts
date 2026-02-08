@@ -4,7 +4,7 @@
  */
 
 import type { BlockCounter } from '../block-counter/dynamodb.js';
-import type { MachineDecisionV2, DegradedMode } from '../../schemas/types.js';
+import type { MachineDecisionV2, DegradedMode } from '../schemas/types.js';
 
 export interface CircuitBreakerConfig {
   maxBlocksPerHour: number;

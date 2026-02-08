@@ -2,7 +2,7 @@
  * MD-004: Liability and Accountability Framework
  * Ensures proper liability management and audit trails
  */
-import { RuleViolation, OracleInput } from '../../schemas/types.js';
+import { RuleViolation, OracleInput } from '../schemas/types.js';
 
 export async function checkMD004(input: OracleInput): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];

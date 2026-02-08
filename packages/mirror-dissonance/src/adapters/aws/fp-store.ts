@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { FPStoreAdapter, FPEvent, FPWindow, CloudConfig } from '../types.js';
-import type { FalsePositiveEvent } from '../../../schemas/types.js';
+import type { FalsePositiveEvent } from '../../schemas/types.js';
 
 export class FPStoreError extends Error {
   public readonly ruleId?: string;

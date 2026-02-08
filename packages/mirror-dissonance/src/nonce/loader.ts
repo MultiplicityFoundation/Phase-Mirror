@@ -8,7 +8,7 @@
  *     const adapters = await createAdapters(config);
  *     const nonce = await adapters.secretStore.getSecret('guardian/redaction_nonce');
  */
-import { NonceConfig } from '../../schemas/types.js';
+import { NonceConfig } from '../schemas/types.js';
 
 /** Cloud-agnostic secret fetcher. Replaces direct SSM coupling. */
 export type SecretFetcher = (parameterName: string) => Promise<string>;

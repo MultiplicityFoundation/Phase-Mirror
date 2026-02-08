@@ -6,7 +6,7 @@
 import { IConsentStore } from '../consent-store/index.js';
 import { Anonymizer, NoOpAnonymizer } from '../anonymizer/index.js';
 import { IFPStore } from '../fp-store/index.js';
-import { IngestEvent, AnonymizedIngestEvent, FalsePositiveEvent } from '../../schemas/types.js';
+import { IngestEvent, AnonymizedIngestEvent, FalsePositiveEvent } from '../schemas/types.js';
 
 export interface IngestHandlerConfig {
   consentStore: IConsentStore;
