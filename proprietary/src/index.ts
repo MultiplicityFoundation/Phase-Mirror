@@ -42,6 +42,23 @@ export type {
   RepoGovernanceState,
 } from './rules/tier-b/MD-101.js';
 
+// Federation — org governance scanning
+export type {
+  OrgAggregatorConfig,
+  OrgAggregator,
+  GovernanceCacheAdapter,
+} from './federation/org-aggregator.js';
+export {
+  GitHubClient,
+  DynamoDBGovernanceCache,
+  NotFoundError,
+  RateLimitError,
+  fetchLiveOrgState,
+  persistOrgState,
+  loadCachedOrgState,
+  buildOrgContext,
+} from './federation/org-aggregator.js';
+
 // Production infrastructure (uncomment as implemented)
 // export { DynamoDBFPStore } from './infra/fp-store/dynamodb';
 // export { RedisFPStore } from './infra/fp-store/redis';

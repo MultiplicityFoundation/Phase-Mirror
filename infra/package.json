@@ -1,19 +1,16 @@
 {
-  "name": "@phase-mirror/pro",
+  "name": "@phase-mirror/infra-lambda",
   "version": "0.1.0",
   "private": true,
-  "description": "Phase Mirror Pro — proprietary extensions for enterprise governance",
+  "description": "Phase Mirror infrastructure — Lambda functions",
   "license": "SEE LICENSE IN LICENSE",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest --config jest.config.cjs",
-    "test:coverage": "jest --coverage",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint src/"
+    "test:coverage": "jest --config jest.config.cjs --coverage"
   },
   "dependencies": {
+    "@phase-mirror/pro": "workspace:*",
     "@mirror-dissonance/core": "workspace:*"
   },
   "optionalDependencies": {

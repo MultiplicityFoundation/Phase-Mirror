@@ -136,6 +136,24 @@ module "iam" {
   tags = local.common_tags
 }
 
+# Lambda: Org Governance Scan
+module "lambda_org_scan" {
+  source = "./modules/lambda/org-scan"
+
+  project_name                = var.project_name
+  environment                 = var.environment
+  github_orgs                 = var.github_org
+  governance_cache_table_name = module.dynamodb.governance_cache_table_name
+  governance_cache_table_arn  = module.dynamodb.governance_cache_table_arn
+  kms_key_arn                 = module.kms.key_arn
+  lambda_zip_path             = var.org_scan_lambda_zip_path
+  alert_sns_topic_arn         = module.cloudwatch.sns_topic_arn
+
+  tags = local.common_tags
+
+  depends_on = [module.dynamodb, module.kms]
+}
+
 # Audit Module (CloudTrail)
 module "audit" {
   source = "./modules/audit"
@@ -149,7 +167,8 @@ module "audit" {
   dynamodb_table_arns = [
     module.dynamodb.fp_events_table_arn,
     module.dynamodb.consent_table_arn,
-    module.dynamodb.block_counter_table_arn
+    module.dynamodb.block_counter_table_arn,
+    module.dynamodb.governance_cache_table_arn,
   ]
 
   s3_bucket_arns = [
@@ -176,7 +195,8 @@ module "backup" {
   dynamodb_table_arns = [
     module.dynamodb.fp_events_table_arn,
     module.dynamodb.consent_table_arn,
-    module.dynamodb.block_counter_table_arn
+    module.dynamodb.block_counter_table_arn,
+    module.dynamodb.governance_cache_table_arn,
   ]
 
   tags = local.common_tags
