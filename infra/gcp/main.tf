@@ -5,16 +5,22 @@
  * - Firestore collections (fp_events, consent, block_counter)
  * - Secret Manager (HMAC nonce with quarterly rotation)
  * - Cloud Storage bucket (drift baselines with versioning)
- */raform {e  = "hashicorp/google"
+ * - Cloud KMS keyring and encryption key
+ * - Workload Identity Federation for GitHub Actions OIDC
+ */
+
+terraform {
   required_version = ">= 1.5"
-} ba}kend "gcs" {
-  required_providers {rror-tfstate"  # Set via -backend-config during init
-variable "project_id" {
-  description = "GCP project ID"
-  type        = string
-}
+
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+
   backend "gcs" {
-variable "region" {-mirror-tfstate"  # Set via -backend-config during init
+    bucket = "phase-mirror-tfstate" # Set via -backend-config during init
     prefix = "terraform/state"
   }
 }
@@ -28,6 +34,8 @@ variable "region" {
   description = "GCP region for resources"
   type        = string
   default     = "us-central1"
+}
+
 variable "environment" {
   description = "Environment name (staging, production)"
   type        = string
@@ -38,17 +46,17 @@ variable "hmac_nonce_secret" {
   description = "HMAC nonce secret for anonymization (must be a secure 64-character hex string)"
   type        = string
   sensitive   = true
-  
+
   validation {
     condition     = length(var.hmac_nonce_secret) == 64 && can(regex("^[0-9a-fA-F]{64}$", var.hmac_nonce_secret))
     error_message = "The hmac_nonce_secret must be a 64-character hexadecimal string. Generate with: openssl rand -hex 32"
   }
-  
+
   validation {
     condition     = var.hmac_nonce_secret != "0000000000000000000000000000000000000000000000000000000000000000"
     error_message = "The hmac_nonce_secret cannot be the placeholder value. Generate a secure nonce with: openssl rand -hex 32"
   }
-  
+
   validation {
     condition     = var.hmac_nonce_secret != "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     error_message = "The hmac_nonce_secret cannot be the example placeholder. Generate a secure nonce with: openssl rand -hex 32"
@@ -225,14 +233,6 @@ resource "google_iam_workload_identity_pool" "github" {
   depends_on = [google_project_service.iam]
 }
 
-# Workload Identity Pool for GitHub Actions
-resource "google_iam_workload_identity_pool" "github" {
-  workload_identity_pool_id = "${local.app_name}-github-pool"
-  display_name              = "GitHub Actions Pool"
-  description               = "Workload Identity Pool for GitHub Actions OIDC"
-  # depends_on = [google_project_service.iam] # Uncomment if you need explicit dependency
-}
-
 resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-provider"
@@ -245,13 +245,13 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   attribute_condition = "attribute.repository == \"${var.github_repo}\""
 
   attribute_mapping = {
-    "google.subject" = "assertion.sub"
-    "google.actor"   = "assertion.actor"
-    "google.aud"     = "assertion.aud"
+    "google.subject"    = "assertion.sub"
+    "google.actor"      = "assertion.actor"
+    "google.aud"        = "assertion.aud"
     "google.repository" = "assertion.repository"
-    "google.ref"     = "assertion.ref"
-    "google.head_ref" = "assertion.head_ref"
-    "google.base_ref" = "assertion.base_ref"
+    "google.ref"        = "assertion.ref"
+    "google.head_ref"   = "assertion.head_ref"
+    "google.base_ref"   = "assertion.base_ref"
   }
 
   oidc {
@@ -264,30 +264,43 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 # IAM binding: Allow GitHub Actions to impersonate service account
 resource "google_service_account_iam_member" "github_sa_user" {
   service_account_id = google_service_account.phase_mirror.name
-# roleuts            = "roles/iam.workloadIdentityUser"
-oumemberfirestore_dat= "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.reposi>
-} description = "Firestore database name"
-  service_account_id = google_service_account.phase_mirror.name
-# roleets     = googl= "roles/iam.workloadIdentityUser"
-# Outputsirestore_dat= "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.reposi>
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
+}
+
+# ── Outputs ────────────────────────────────────────────────────────
+
 output "firestore_database" {
   description = "Firestore database name"
-output "secret_id" {le_firestore_database.default.name
-} description = "Secret Manager secret ID for HMAC nonce"
+  value       = google_firestore_database.default.name
+}
+
+output "secret_id" {
+  description = "Secret Manager secret ID for HMAC nonce"
   value       = google_secret_manager_secret.hmac_nonce.secret_id
 }
 
 output "baselines_bucket" {
   description = "Cloud Storage bucket for baselines"
   value       = google_storage_bucket.baselines.name
+}
+
 output "service_account_email" {
   description = "Service account email for application runtime"
   value       = google_service_account.phase_mirror.email
+}
+
 output "workload_identity_provider" {
   description = "Workload Identity Provider for GitHub Actions"
-  value       = var.project_idkload_identity_pool_provider.github.name
-}utput "project_id" {
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "project_id" {
   description = "GCP project ID"
+  value       = var.project_id
+}
+
 output "region" {
-} description = "GCP region"
+  description = "GCP region"
   value       = var.region
+}

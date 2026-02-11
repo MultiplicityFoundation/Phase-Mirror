@@ -19,6 +19,10 @@ output "alarm_arns" {
     [
       aws_cloudwatch_metric_alarm.fp_events_read_throttle.arn,
       aws_cloudwatch_metric_alarm.fp_events_write_throttle.arn,
+      aws_cloudwatch_metric_alarm.consent_read_throttle.arn,
+      aws_cloudwatch_metric_alarm.consent_write_throttle.arn,
+      aws_cloudwatch_metric_alarm.block_counter_read_throttle.arn,
+      aws_cloudwatch_metric_alarm.block_counter_write_throttle.arn,
       aws_cloudwatch_metric_alarm.ssm_parameter_failures.arn
     ],
     var.enable_circuit_breaker_alarm ? [aws_cloudwatch_metric_alarm.circuit_breaker_triggers[0].arn] : []

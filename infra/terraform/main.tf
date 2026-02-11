@@ -126,11 +126,11 @@ resource "aws_s3_bucket_public_access_block" "baselines" {
 module "iam" {
   source = "./modules/iam"
 
-  project_name     = var.project_name
-  environment      = var.environment
-  aws_region       = var.aws_region
-  github_org       = var.github_org
-  github_repo      = var.github_repo
+  project_name      = var.project_name
+  environment       = var.environment
+  aws_region        = var.aws_region
+  github_org        = var.github_org
+  github_repo       = var.github_repo
   oidc_provider_arn = aws_iam_openid_connect_provider.github.arn
 
   tags = local.common_tags

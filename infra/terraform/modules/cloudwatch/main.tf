@@ -65,6 +65,86 @@ resource "aws_cloudwatch_metric_alarm" "fp_events_write_throttle" {
   tags = var.tags
 }
 
+# DynamoDB Alarms - Consent Table
+
+resource "aws_cloudwatch_metric_alarm" "consent_read_throttle" {
+  alarm_name          = "${var.project_name}-${var.environment}-consent-read-throttle"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "ReadThrottleEvents"
+  namespace           = "AWS/DynamoDB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "Consent table experiencing read throttling"
+  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
+
+  dimensions = {
+    TableName = var.consent_table_name
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "consent_write_throttle" {
+  alarm_name          = "${var.project_name}-${var.environment}-consent-write-throttle"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "WriteThrottleEvents"
+  namespace           = "AWS/DynamoDB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "Consent table experiencing write throttling"
+  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
+
+  dimensions = {
+    TableName = var.consent_table_name
+  }
+
+  tags = var.tags
+}
+
+# DynamoDB Alarms - Block Counter Table
+
+resource "aws_cloudwatch_metric_alarm" "block_counter_read_throttle" {
+  alarm_name          = "${var.project_name}-${var.environment}-block-counter-read-throttle"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "ReadThrottleEvents"
+  namespace           = "AWS/DynamoDB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "Block Counter table experiencing read throttling"
+  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
+
+  dimensions = {
+    TableName = var.block_counter_table_name
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "block_counter_write_throttle" {
+  alarm_name          = "${var.project_name}-${var.environment}-block-counter-write-throttle"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "WriteThrottleEvents"
+  namespace           = "AWS/DynamoDB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "Block Counter table experiencing write throttling"
+  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
+
+  dimensions = {
+    TableName = var.block_counter_table_name
+  }
+
+  tags = var.tags
+}
+
 # SSM Parameter Access Alarm
 
 resource "aws_cloudwatch_log_metric_filter" "ssm_parameter_failures" {

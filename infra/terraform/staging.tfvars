@@ -7,6 +7,7 @@ enable_pitr                  = true
 kms_deletion_window_days     = 7
 alert_email                  = "" # Set via environment variable or after deployment
 enable_circuit_breaker_alarm = true
+circuit_breaker_threshold    = 0
 
 # GitHub OIDC Configuration
 github_org  = "MultiplicityFoundation"

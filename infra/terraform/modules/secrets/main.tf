@@ -15,7 +15,7 @@ resource "aws_kms_key" "phase_mirror_secrets" {
   description             = "KMS key for Phase Mirror FP Calibration secrets encryption"
   deletion_window_in_days = 30
   enable_key_rotation     = true
-  
+
   tags = merge(
     var.tags,
     {
@@ -44,7 +44,7 @@ resource "aws_secretsmanager_secret" "hmac_salt" {
   name        = "/phase-mirror/fp-calibration/hmac-salt-${var.environment}"
   description = "HMAC salt for organization ID anonymization (rotates monthly)"
   kms_key_id  = aws_kms_key.phase_mirror_secrets.arn
-  
+
   tags = merge(
     var.tags,
     {
@@ -60,11 +60,11 @@ resource "aws_secretsmanager_secret" "hmac_salt" {
 resource "aws_secretsmanager_secret_version" "hmac_salt_initial" {
   secret_id = aws_secretsmanager_secret.hmac_salt.id
   secret_string = jsonencode({
-    salt           = random_password.hmac_salt.result
-    rotationMonth  = formatdate("YYYY-MM", timestamp())
-    rotatedAt      = timestamp()
+    salt          = random_password.hmac_salt.result
+    rotationMonth = formatdate("YYYY-MM", timestamp())
+    rotatedAt     = timestamp()
   })
-  
+
   lifecycle {
     ignore_changes = [secret_string]
   }

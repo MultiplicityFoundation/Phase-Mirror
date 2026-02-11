@@ -4,7 +4,7 @@
 # SNS Topics for Alerts
 resource "aws_sns_topic" "critical_alerts" {
   name = "phase-mirror-critical-alerts-${var.environment}"
-  
+
   tags = merge(
     var.tags,
     {
@@ -18,7 +18,7 @@ resource "aws_sns_topic" "critical_alerts" {
 
 resource "aws_sns_topic" "warning_alerts" {
   name = "phase-mirror-warning-alerts-${var.environment}"
-  
+
   tags = merge(
     var.tags,
     {
@@ -42,13 +42,13 @@ resource "aws_cloudwatch_metric_alarm" "consent_check_failures" {
   threshold           = 10
   alarm_description   = "Consent store failures prevent FP data collection (fail-closed)"
   treat_missing_data  = "notBreaching"
-  
+
   alarm_actions = [aws_sns_topic.critical_alerts.arn]
-  
+
   dimensions = {
     Environment = var.environment
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -72,9 +72,9 @@ resource "aws_cloudwatch_metric_alarm" "salt_loading_failures" {
   threshold           = 5
   alarm_description   = "Cannot load HMAC salt from Secrets Manager"
   treat_missing_data  = "notBreaching"
-  
+
   alarm_actions = [aws_sns_topic.critical_alerts.arn]
-  
+
   tags = merge(
     var.tags,
     {
@@ -98,13 +98,13 @@ resource "aws_cloudwatch_metric_alarm" "calibration_store_throttling" {
   threshold           = 5
   alarm_description   = "DynamoDB throttling on calibration store"
   treat_missing_data  = "notBreaching"
-  
+
   alarm_actions = [aws_sns_topic.critical_alerts.arn]
-  
+
   dimensions = {
     TableName = var.calibration_store_table_name
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -128,9 +128,9 @@ resource "aws_cloudwatch_metric_alarm" "high_ingestion_latency" {
   threshold           = 1000
   alarm_description   = "FP ingestion latency exceeds 1 second"
   treat_missing_data  = "notBreaching"
-  
+
   alarm_actions = [aws_sns_topic.warning_alerts.arn]
-  
+
   tags = merge(
     var.tags,
     {
@@ -145,7 +145,7 @@ resource "aws_cloudwatch_metric_alarm" "high_ingestion_latency" {
 # Warning Alarm: Lambda Errors
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   count = var.fp_ingestion_lambda_name != "" ? 1 : 0
-  
+
   alarm_name          = "phase-mirror-fp-ingestion-lambda-errors-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
@@ -156,13 +156,13 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   threshold           = 10
   alarm_description   = "Lambda function errors"
   treat_missing_data  = "notBreaching"
-  
+
   alarm_actions = [aws_sns_topic.warning_alerts.arn]
-  
+
   dimensions = {
     FunctionName = var.fp_ingestion_lambda_name
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -177,7 +177,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 # CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "fp_calibration" {
   dashboard_name = "PhaseMirror-FPCalibration-${var.environment}"
-  
+
   dashboard_body = jsonencode({
     widgets = [
       {

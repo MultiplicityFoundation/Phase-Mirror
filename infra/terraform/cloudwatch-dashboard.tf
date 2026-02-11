@@ -10,10 +10,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type  = "metric"
-        x     = 0
-        y     = 0
-        width = 24
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 24
         height = 6
         properties = {
           metrics = [
@@ -31,10 +31,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
         }
       },
       {
-        type  = "metric"
-        x     = 0
-        y     = 6
-        width = 12
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
         height = 6
         properties = {
           metrics = [
@@ -49,10 +49,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
         }
       },
       {
-        type  = "metric"
-        x     = 12
-        y     = 6
-        width = 12
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
         height = 6
         properties = {
           metrics = [
@@ -67,10 +67,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
         }
       },
       {
-        type  = "metric"
-        x     = 0
-        y     = 12
-        width = 12
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
         height = 6
         properties = {
           metrics = [
@@ -83,10 +83,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
         }
       },
       {
-        type  = "metric"
-        x     = 12
-        y     = 12
-        width = 12
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
         height = 6
         properties = {
           metrics = [
@@ -99,10 +99,10 @@ resource "aws_cloudwatch_dashboard" "infrastructure" {
         }
       },
       {
-        type  = "alarm"
-        x     = 0
-        y     = 18
-        width = 24
+        type   = "alarm"
+        x      = 0
+        y      = 18
+        width  = 24
         height = 6
         properties = {
           title  = "Active Alarms"
