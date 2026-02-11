@@ -7,6 +7,7 @@ import { checkMD002 } from './md-002.js';
 import { checkMD003 } from './md-003.js';
 import { checkMD004 } from './md-004.js';
 import { checkMD005 } from './md-005.js';
+import { checkMD102 } from './md-102.js';
 import { RuleEvaluationError, EvaluationResult } from './rule-error.js';
 export { RuleEvaluationError, EvaluationResult } from './rule-error.js';
 
@@ -18,6 +19,7 @@ export const RULES: Record<string, RuleChecker> = {
   'MD-003': checkMD003,
   'MD-004': checkMD004,
   'MD-005': checkMD005,
+  'MD-102': checkMD102,
 };
 
 /**

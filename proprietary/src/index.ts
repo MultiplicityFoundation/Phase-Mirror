@@ -21,12 +21,14 @@ export type {
 // Tier B rules
 export { rule as semanticJobDrift } from './rules/tier-b/MD-100.js';
 export { rule as crossRepoProtectionGap } from './rules/tier-b/MD-101.js';
-export { MD100, MD101, tierBRules } from './rules/tier-b/index.js';
-// export { runnerTrustChainBreak } from './rules/tier-b/MD-102';
+export { rule as mergeQueueTrustChainBreak } from './rules/tier-b/MD-102.js';
+export { MD100, MD101, MD102, tierBRules } from './rules/tier-b/index.js';
+export { evaluateMD102Federated } from './rules/tier-b/MD-102-federated.js';
 
 // Policy manifest types + utilities
 export type {
   OrgPolicyManifest,
+  OrgMergeQueuePolicy,
   PolicyExpectation,
   PolicyExemption,
   RepoClassification,

@@ -75,12 +75,19 @@ export interface RepoGovernanceState {
     visibility: 'public' | 'private' | 'internal';
     archived: boolean;
     defaultBranch: string;
+    /** Governance tags (e.g., 'critical', 'pci', 'internal-only'). Used by MD-102 federation. */
+    tags?: string[];
   };
   branchProtection: BranchProtectionState | null;
   workflows: WorkflowEntry[];
   defaultPermissions: 'read' | 'write';
   codeowners: CodeownersState;
   scannedAt: string;
+  /** Merge queue configuration. Used by MD-102 federation. */
+  mergeQueue?: {
+    enabled: boolean;
+    method?: 'merge' | 'squash' | 'rebase';
+  };
 }
 
 export interface OrgContext {

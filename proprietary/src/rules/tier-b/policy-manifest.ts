@@ -134,6 +134,27 @@ export interface OrgPolicyManifest {
 
   /** Explicit exemptions — repos that intentionally skip certain expectations */
   exemptions: PolicyExemption[];
+
+  /**
+   * Org-wide merge queue policy (consumed by MD-102 federation).
+   * When present, MD-102-federated checks every repo against these expectations.
+   */
+  mergeQueue?: OrgMergeQueuePolicy;
+}
+
+/**
+ * Org-level merge queue governance expectations.
+ * Used by MD-102-federated to detect trust-chain breaks across repositories.
+ */
+export interface OrgMergeQueuePolicy {
+  /** Whether the default branch requires a merge queue for all repos */
+  requiredForDefaultBranch: boolean;
+  /** Whether administrators are allowed to bypass merge queue protections */
+  allowBypassForAdmins: boolean;
+  /** Whether linear history (rebase / squash only) is required */
+  requireLinearHistory: boolean;
+  /** Whether direct pushes to the protected branch are allowed */
+  allowDirectPushes: boolean;
 }
 
 export interface PolicyExemption {
