@@ -30,12 +30,17 @@ export type {
   PolicyExpectation,
   PolicyExemption,
   RepoClassification,
-  RepoGovernanceState,
 } from './rules/tier-b/policy-manifest.js';
 export {
   resolveExpectationsForRepo,
   validateManifest,
 } from './rules/tier-b/policy-manifest.js';
+
+// Cross-repo types (MD-101)
+export type {
+  OrgContext,
+  RepoGovernanceState,
+} from './rules/tier-b/MD-101.js';
 
 // Production infrastructure (uncomment as implemented)
 // export { DynamoDBFPStore } from './infra/fp-store/dynamodb';

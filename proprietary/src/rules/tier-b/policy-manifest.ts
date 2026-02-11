@@ -156,50 +156,6 @@ export interface PolicyExemption {
   ticket?: string;
 }
 
-// ─── Repo Governance State (actual observed state) ───────────────────
-
-/**
- * Observed governance state of a single repository.
- * Collected via GitHub API or federation scan.
- */
-export interface RepoGovernanceState {
-  /** Repository name (org/repo or just repo) */
-  name: string;
-
-  /** Whether the repo is archived */
-  archived?: boolean;
-
-  /** GitHub topics */
-  topics?: string[];
-
-  /** Primary language */
-  language?: string;
-
-  /** Visibility */
-  visibility?: 'public' | 'private' | 'internal';
-
-  /** Branch protection rules currently configured */
-  branchProtection?: {
-    branch: string;
-    requirePullRequest: boolean;
-    requiredReviewers: number;
-    dismissStaleReviews: boolean;
-    requireCodeOwnerReviews: boolean;
-    enforceAdmins: boolean;
-    requiredStatusChecks: string[];
-    strictStatusChecks: boolean;
-  }[];
-
-  /** Workflow files present in the repo */
-  workflowFiles?: string[];
-
-  /** Default workflow permissions */
-  defaultPermissions?: 'read' | 'write';
-
-  /** CODEOWNERS paths covered */
-  codeownersPaths?: string[];
-}
-
 // ─── Manifest Utilities ──────────────────────────────────────────────
 
 /**

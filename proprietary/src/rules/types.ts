@@ -43,7 +43,7 @@ export interface Finding {
   id: string;
   ruleId: string;
   ruleName: string;
-  severity: 'block' | 'high' | 'warn' | 'pass';
+  severity: 'block' | 'critical' | 'high' | 'medium' | 'warn' | 'low' | 'pass';
   title: string;
   description: string;
   evidence: FindingEvidence[];
@@ -72,7 +72,7 @@ export interface RuleDefinition {
   description: string;
   version: string;
   tier: 'A' | 'B';
-  severity: 'block' | 'high' | 'warn' | 'pass';
+  severity: 'block' | 'critical' | 'high' | 'medium' | 'warn' | 'low' | 'pass';
   category: string;
   fpTolerance: FPToleranceConfig;
   promotionCriteria: PromotionCriteria;

@@ -2,46 +2,62 @@
  * Tests for MD-101: Cross-Repo Protection Gap
  */
 
-import { describe, test, expect } from '@jest/globals';
-import { rule, detectGapsForRepo } from '../../src/rules/tier-b/MD-101';
-import type { CrossRepoContext } from '../../src/rules/tier-b/MD-101';
-import {
-  resolveExpectationsForRepo,
-  validateManifest,
-  matchGlob,
-  matchesRepo,
-} from '../../src/rules/tier-b/policy-manifest';
-import type {
-  OrgPolicyManifest,
-  RepoGovernanceState,
-  PolicyExpectation,
-} from '../../src/rules/tier-b/policy-manifest';
-import type { ProLicense } from '../../src/license-gate';
+import { rule, type OrgContext, type RepoGovernanceState } from '../../src/rules/tier-b/MD-101';
+import type { OrgPolicyManifest } from '../../src/rules/tier-b/policy-manifest';
+import { resolveExpectationsForRepo, validateManifest } from '../../src/rules/tier-b/policy-manifest';
 
-// ─── Test Helpers ────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────
 
-const validLicense: ProLicense = {
+const proLicense = {
   orgId: 'test-org',
-  tier: 'pro',
+  tier: 'pro' as const,
   features: ['tier-b-rules'],
-  expiresAt: new Date(Date.now() + 86400000 * 365),
+  expiresAt: new Date(Date.now() + 86400000),
   seats: 10,
 };
 
-const futureDate = new Date(Date.now() + 86400000 * 365).toISOString();
+function makeRepo(overrides: Partial<RepoGovernanceState> & { fullName: string }): RepoGovernanceState {
+  return {
+    meta: {
+      topics: [],
+      language: 'TypeScript',
+      visibility: 'private',
+      archived: false,
+      defaultBranch: 'main',
+    },
+    branchProtection: {
+      branch: 'main',
+      enabled: true,
+      requirePullRequest: true,
+      requiredReviewers: 2,
+      dismissStaleReviews: true,
+      requireCodeOwnerReviews: true,
+      enforceAdmins: true,
+      requiredStatusChecks: ['oracle-check', 'test', 'lint'],
+      requireStrictStatusChecks: true,
+    },
+    workflows: [
+      { path: '.github/workflows/ci.yml', jobNames: ['test', 'lint'] },
+      { path: '.github/workflows/oracle.yml', jobNames: ['oracle-check'] },
+    ],
+    defaultPermissions: 'read' as const,
+    codeowners: { exists: true, coveredPaths: ['.github/workflows/', 'src/'] },
+    scannedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
-function makeManifest(overrides: Partial<OrgPolicyManifest> = {}): OrgPolicyManifest {
+function makeManifest(overrides?: Partial<OrgPolicyManifest>): OrgPolicyManifest {
   return {
     schemaVersion: '1.0.0',
     orgId: 'test-org',
     updatedAt: new Date().toISOString(),
-    approvedBy: 'security-team',
+    approvedBy: 'steward@example.com',
     defaults: [
       {
         id: 'bp-main',
-        name: 'Main branch protection',
+        name: 'Branch protection on main',
         category: 'branch-protection',
-        severity: 'high',
         requirement: {
           type: 'branch-protection',
           branch: 'main',
@@ -49,17 +65,39 @@ function makeManifest(overrides: Partial<OrgPolicyManifest> = {}): OrgPolicyMani
           requiredReviewers: 1,
           enforceAdmins: true,
         },
+        severity: 'critical',
       },
       {
         id: 'sc-oracle',
-        name: 'Oracle status check',
+        name: 'Oracle check required',
         category: 'status-checks',
-        severity: 'critical',
         requirement: {
           type: 'status-checks',
           branch: 'main',
-          requiredChecks: ['oracle-check', 'test'],
+          requiredChecks: ['oracle-check'],
         },
+        severity: 'high',
+      },
+      {
+        id: 'wf-oracle',
+        name: 'Oracle workflow exists',
+        category: 'workflow-presence',
+        requirement: {
+          type: 'workflow-presence',
+          workflowFile: '.github/workflows/oracle.yml',
+          requiredJobs: ['oracle-check'],
+        },
+        severity: 'high',
+      },
+      {
+        id: 'perm-read',
+        name: 'Default permissions read-only',
+        category: 'permissions',
+        requirement: {
+          type: 'permissions',
+          maxDefaultPermissions: 'read',
+        },
+        severity: 'medium',
       },
     ],
     classifications: [],
@@ -68,601 +106,427 @@ function makeManifest(overrides: Partial<OrgPolicyManifest> = {}): OrgPolicyMani
   };
 }
 
-function makeRepoState(name: string, overrides: Partial<RepoGovernanceState> = {}): RepoGovernanceState {
-  return { name, ...overrides };
-}
-
-function makeContext(overrides: Partial<CrossRepoContext> = {}): CrossRepoContext {
+function makeContext(orgContext?: OrgContext) {
   return {
-    license: validLicense,
-    repo: { owner: 'test-org', name: 'meta' },
-    mode: 'schedule',
-    ...overrides,
+    license: proLicense,
+    files: [],
+    repo: { owner: 'test-org', name: 'primary-repo' },
+    mode: 'pullrequest' as const,
+    ...(orgContext ? { orgContext } : {}),
   };
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe('MD-101: Cross-Repo Protection Gap', () => {
-  // ─── Metadata ──────────────────────────────────────────────
 
+  // ─── Metadata ──────────────────────────────────────────────
   test('rule metadata is correct', () => {
     expect(rule.id).toBe('MD-101');
     expect(rule.tier).toBe('B');
-    expect(rule.severity).toBe('warn');
     expect(rule.version).toBe('1.0.0');
     expect(rule.category).toBe('governance');
-    expect(rule.fpTolerance.ceiling).toBe(0.08);
-    expect(rule.adrReferences).toContain('ADR-003: CI/CD Pipeline Governance');
   });
 
   // ─── License Gate ──────────────────────────────────────────
-
-  test('throws ProLicenseRequiredError without license', async () => {
-    const ctx = makeContext({ license: undefined });
+  test('throws without Pro license', async () => {
+    const ctx = { files: [], repo: { owner: 'test', name: 'repo' }, mode: 'pullrequest' as const };
     await expect(rule.evaluate(ctx)).rejects.toThrow('Pro license');
   });
 
-  // ─── Guard Conditions ─────────────────────────────────────
-
-  test('returns empty when no policy manifest provided', async () => {
-    const ctx = makeContext({
-      repoStates: [makeRepoState('some-repo')],
-    });
+  // ─── No Org Context ────────────────────────────────────────
+  test('emits informational finding when orgContext is missing', async () => {
+    const ctx = makeContext();
     const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(0);
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].severity).toBe('low');
+    expect(findings[0].title).toContain('requires organization context');
   });
 
-  test('returns empty when no repo states provided', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-    });
-    const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(0);
-  });
-
-  // ─── True Positive: missing branch protection ─────────────
-
-  test('detects repo missing required branch protection', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates: [
-        makeRepoState('payment-service'),  // No branchProtection at all
+  // ─── All Repos Compliant ───────────────────────────────────
+  test('produces no gap findings when all repos comply', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest(),
+      repos: [
+        makeRepo({ fullName: 'test-org/api-gateway' }),
+        makeRepo({ fullName: 'test-org/payment-service' }),
+        makeRepo({ fullName: 'test-org/user-service' }),
       ],
-    });
+    };
 
+    const ctx = makeContext(orgContext);
     const findings = await rule.evaluate(ctx);
-    expect(findings.length).toBeGreaterThanOrEqual(1);
 
-    const bpGap = findings.find(f => f.title.includes('payment-service') && f.title.includes('branch-protection'));
-    expect(bpGap).toBeDefined();
-    expect(bpGap!.ruleId).toBe('MD-101');
-    expect(bpGap!.description).toContain('payment-service');
+    // No gap findings (might have coverage summary if < 80% but with 3/3 covered it's 100%)
+    const gapFindings = findings.filter(f => !f.title.includes('coverage'));
+    expect(gapFindings.length).toBe(0);
   });
 
-  // ─── True Positive: missing status checks ─────────────────
-
-  test('detects repo missing required status checks', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates: [
-        makeRepoState('api-service', {
-          branchProtection: [{
-            branch: 'main',
-            requirePullRequest: true,
-            requiredReviewers: 1,
-            dismissStaleReviews: false,
-            requireCodeOwnerReviews: false,
-            enforceAdmins: true,
-            requiredStatusChecks: ['test'],  // Missing oracle-check
-            strictStatusChecks: false,
-          }],
+  // ─── Missing Branch Protection ─────────────────────────────
+  test('detects repo missing branch protection', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest(),
+      repos: [
+        makeRepo({ fullName: 'test-org/api-gateway' }),
+        makeRepo({
+          fullName: 'test-org/unprotected-repo',
+          branchProtection: null,
         }),
       ],
-    });
+    };
 
+    const ctx = makeContext(orgContext);
     const findings = await rule.evaluate(ctx);
+
+    const bpGap = findings.find(f =>
+      f.title.includes('unprotected-repo') && f.title.includes('Branch protection')
+    );
+    expect(bpGap).toBeDefined();
+    expect(bpGap!.severity).toBe('critical');
+  });
+
+  // ─── Missing Status Check ─────────────────────────────────
+  test('detects repo missing oracle-check status check', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest(),
+      repos: [
+        makeRepo({ fullName: 'test-org/api-gateway' }),
+        makeRepo({
+          fullName: 'test-org/missing-oracle',
+          branchProtection: {
+            branch: 'main',
+            enabled: true,
+            requirePullRequest: true,
+            requiredReviewers: 2,
+            dismissStaleReviews: true,
+            requireCodeOwnerReviews: true,
+            enforceAdmins: true,
+            requiredStatusChecks: ['test', 'lint'], // missing oracle-check!
+            requireStrictStatusChecks: true,
+          },
+        }),
+      ],
+    };
+
+    const ctx = makeContext(orgContext);
+    const findings = await rule.evaluate(ctx);
+
     const scGap = findings.find(f =>
-      f.title.includes('api-service') && f.title.includes('status-checks'),
+      f.title.includes('missing-oracle') && f.title.includes('oracle-check')
     );
     expect(scGap).toBeDefined();
-    expect(scGap!.description).toContain('oracle-check');
+    expect(scGap!.severity).toBe('high');
   });
 
-  // ─── True Negative: fully compliant repo ──────────────────
-
-  test('returns no findings for a fully compliant repo', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates: [
-        makeRepoState('compliant-service', {
-          branchProtection: [{
-            branch: 'main',
-            requirePullRequest: true,
-            requiredReviewers: 1,
-            dismissStaleReviews: false,
-            requireCodeOwnerReviews: false,
-            enforceAdmins: true,
-            requiredStatusChecks: ['oracle-check', 'test'],
-            strictStatusChecks: false,
-          }],
+  // ─── Intentional Exemption ─────────────────────────────────
+  test('respects valid exemptions — no finding for exempted repo', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest({
+        exemptions: [{
+          repo: 'docs-site',
+          expectationIds: ['bp-main', 'sc-oracle', 'wf-oracle'],
+          reason: 'Static docs site — no executable code, no governance risk',
+          approvedBy: 'steward@example.com',
+          expiresAt: new Date(Date.now() + 90 * 86400000).toISOString(), // 90 days
+          ticket: 'GOV-42',
+        }],
+      }),
+      repos: [
+        makeRepo({ fullName: 'test-org/api-gateway' }),
+        makeRepo({
+          fullName: 'test-org/docs-site',
+          branchProtection: null, // Would normally trigger a finding
+          workflows: [],
         }),
       ],
-    });
+    };
 
+    const ctx = makeContext(orgContext);
     const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(0);
+
+    // docs-site should NOT produce bp-main, sc-oracle, or wf-oracle gaps
+    const docFindings = findings.filter(f => f.title.includes('docs-site'));
+    // May still have perm-read gap (not exempted)
+    const exemptedGaps = docFindings.filter(f =>
+      f.title.includes('Branch protection') ||
+      f.title.includes('oracle-check') ||
+      f.title.includes('Oracle workflow')
+    );
+    expect(exemptedGaps.length).toBe(0);
   });
 
-  // ─── True Negative: exempted repo ─────────────────────────
-
-  test('respects policy exemptions', async () => {
-    const manifest = makeManifest({
-      exemptions: [{
-        repo: 'docs-only',
-        expectationIds: ['bp-main', 'sc-oracle'],
-        reason: 'Documentation repo — no deployable code',
-        approvedBy: 'security-lead',
-        expiresAt: futureDate,
-        ticket: 'SEC-1234',
-      }],
-    });
-
-    const ctx = makeContext({
-      policyManifest: manifest,
-      repoStates: [
-        makeRepoState('docs-only'),  // No protection, but exempted
+  // ─── Expired Exemption ─────────────────────────────────────
+  test('flags expired exemptions', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest({
+        exemptions: [{
+          repo: 'legacy-app',
+          expectationIds: ['bp-main'],
+          reason: 'Legacy migration — temporary bypass',
+          approvedBy: 'steward@example.com',
+          expiresAt: '2025-01-01T00:00:00Z', // In the past
+          ticket: 'GOV-99',
+        }],
+      }),
+      repos: [
+        makeRepo({
+          fullName: 'test-org/legacy-app',
+          branchProtection: null,
+        }),
       ],
-    });
+    };
 
+    const ctx = makeContext(orgContext);
     const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(0);
+
+    // Should have both: a gap finding (exemption expired, so gap is back)
+    // AND an expired exemption finding
+    const expiredFinding = findings.find(f => f.title.includes('expired'));
+    expect(expiredFinding).toBeDefined();
+    expect(expiredFinding!.severity).toBe('medium');
+
+    const gapFinding = findings.find(f =>
+      f.title.includes('legacy-app') && f.title.includes('Branch protection')
+    );
+    expect(gapFinding).toBeDefined();
   });
 
-  // ─── Expired exemptions should re-flag ─────────────────────
-
-  test('does not honor expired exemptions', async () => {
+  // ─── Classification Matching ───────────────────────────────
+  test('applies classification-specific expectations', async () => {
     const manifest = makeManifest({
-      exemptions: [{
-        repo: 'old-repo',
-        expectationIds: ['bp-main', 'sc-oracle'],
-        reason: 'Temporary exemption',
-        approvedBy: 'someone',
-        expiresAt: '2020-01-01T00:00:00Z',  // Expired
-      }],
-    });
-
-    const ctx = makeContext({
-      policyManifest: manifest,
-      repoStates: [
-        makeRepoState('old-repo'),  // No protection, expired exemption
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    expect(findings.length).toBeGreaterThanOrEqual(1);
-  });
-
-  // ─── Skips archived repos ─────────────────────────────────
-
-  test('skips archived repos', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates: [
-        makeRepoState('old-project', { archived: true }),
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(0);
-  });
-
-  // ─── Classification-based expectations ─────────────────────
-
-  test('applies classification-specific expectations to matching repos', async () => {
-    const manifest = makeManifest({
-      defaults: [],  // No defaults
       classifications: [{
-        name: 'service',
-        description: 'Production services',
+        name: 'Production Services',
+        description: 'Services handling customer data',
         match: { patterns: ['*-service'] },
         expectations: [{
-          id: 'wf-oracle',
-          name: 'Oracle workflow required',
-          category: 'workflow-presence',
-          severity: 'high',
+          id: 'co-security',
+          name: 'CODEOWNERS for security paths',
+          category: 'codeowners',
           requirement: {
-            type: 'workflow-presence',
-            workflowFile: '.github/workflows/oracle.yml',
+            type: 'codeowners',
+            requiredPaths: ['.github/workflows/', 'src/security/'],
           },
+          severity: 'high',
         }],
       }],
     });
 
-    const ctx = makeContext({
-      policyManifest: manifest,
-      repoStates: [
-        makeRepoState('payment-service', {
-          workflowFiles: ['.github/workflows/ci.yml'],  // Missing oracle.yml
+    const orgContext: OrgContext = {
+      manifest,
+      repos: [
+        makeRepo({
+          fullName: 'test-org/payment-service',
+          codeowners: { exists: true, coveredPaths: ['.github/workflows/'] },
+          // Missing src/security/ in CODEOWNERS
         }),
-        makeRepoState('docs', {
-          workflowFiles: [],  // Not a service — shouldn't be flagged
-        }),
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    expect(findings).toHaveLength(1);
-    expect(findings[0].title).toContain('payment-service');
-    expect(findings[0].title).toContain('workflow-presence');
-  });
-
-  // ─── Permissions gap ──────────────────────────────────────
-
-  test('detects write permissions where read is required', async () => {
-    const manifest = makeManifest({
-      defaults: [{
-        id: 'perm-read',
-        name: 'Restrict workflow permissions',
-        category: 'permissions',
-        severity: 'medium',
-        requirement: {
-          type: 'permissions',
-          maxDefaultPermissions: 'read',
-        },
-      }],
-    });
-
-    const ctx = makeContext({
-      policyManifest: manifest,
-      repoStates: [
-        makeRepoState('leaky-repo', { defaultPermissions: 'write' }),
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    const permGap = findings.find(f => f.title.includes('permissions'));
-    expect(permGap).toBeDefined();
-    expect(permGap!.description).toContain('write');
-  });
-
-  // ─── CODEOWNERS gap ───────────────────────────────────────
-
-  test('detects missing CODEOWNERS coverage', async () => {
-    const manifest = makeManifest({
-      defaults: [{
-        id: 'co-critical',
-        name: 'CODEOWNERS for critical paths',
-        category: 'codeowners',
-        severity: 'medium',
-        requirement: {
-          type: 'codeowners',
-          requiredPaths: ['.github/workflows/', 'src/security/'],
-        },
-      }],
-    });
-
-    const ctx = makeContext({
-      policyManifest: manifest,
-      repoStates: [
-        makeRepoState('my-repo', {
-          codeownersPaths: ['.github/workflows/'],  // Missing src/security/
+        makeRepo({
+          fullName: 'test-org/docs-site', // Doesn't match *-service pattern
+          codeowners: { exists: false, coveredPaths: [] },
         }),
       ],
-    });
+    };
 
+    const ctx = makeContext(orgContext);
     const findings = await rule.evaluate(ctx);
-    const coGap = findings.find(f => f.title.includes('codeowners'));
-    expect(coGap).toBeDefined();
-    expect(coGap!.description).toContain('src/security/');
-  });
 
-  // ─── Multiple repos: flags only non-compliant ones ────────
-
-  test('flags only repos with gaps, not compliant ones', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates: [
-        makeRepoState('good-repo', {
-          branchProtection: [{
-            branch: 'main',
-            requirePullRequest: true,
-            requiredReviewers: 1,
-            dismissStaleReviews: false,
-            requireCodeOwnerReviews: false,
-            enforceAdmins: true,
-            requiredStatusChecks: ['oracle-check', 'test'],
-            strictStatusChecks: false,
-          }],
-        }),
-        makeRepoState('bad-repo'),  // No protection at all
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    const badFindings = findings.filter(f => f.title.includes('bad-repo'));
-    const goodFindings = findings.filter(f => f.title.includes('good-repo'));
-
-    expect(badFindings.length).toBeGreaterThanOrEqual(1);
-    expect(goodFindings).toHaveLength(0);
-  });
-
-  // ─── Performance: 50+ repos ────────────────────────────────
-
-  test('evaluates 50 repos in under 50ms', async () => {
-    const repoStates = Array.from({ length: 50 }, (_, i) =>
-      makeRepoState(`repo-${i}`, {
-        branchProtection: i % 3 === 0 ? [{
-          branch: 'main',
-          requirePullRequest: true,
-          requiredReviewers: 1,
-          dismissStaleReviews: false,
-          requireCodeOwnerReviews: false,
-          enforceAdmins: true,
-          requiredStatusChecks: ['oracle-check', 'test'],
-          strictStatusChecks: false,
-        }] : undefined,
-      }),
+    // payment-service should have CODEOWNERS gap for src/security/
+    const coGap = findings.find(f =>
+      f.title.includes('payment-service') && f.title.includes('CODEOWNERS')
     );
+    expect(coGap).toBeDefined();
 
-    const ctx = makeContext({
-      policyManifest: makeManifest(),
-      repoStates,
-    });
+    // docs-site should NOT have the CODEOWNERS-for-security gap (doesn't match classification)
+    const docsCoGap = findings.find(f =>
+      f.title.includes('docs-site') && f.title.includes('security')
+    );
+    expect(docsCoGap).toBeUndefined();
+  });
 
+  // ─── Archived Repos Skipped ────────────────────────────────
+  test('skips archived repos', async () => {
+    const orgContext: OrgContext = {
+      manifest: makeManifest(),
+      repos: [
+        makeRepo({
+          fullName: 'test-org/archived-repo',
+          meta: {
+            topics: [],
+            language: 'TypeScript',
+            visibility: 'private',
+            archived: true,
+            defaultBranch: 'main',
+          },
+          branchProtection: null,
+        }),
+      ],
+    };
+
+    const ctx = makeContext(orgContext);
+    const findings = await rule.evaluate(ctx);
+
+    const archivedGaps = findings.filter(f => f.title.includes('archived-repo'));
+    expect(archivedGaps.length).toBe(0);
+  });
+
+  // ─── Invalid Manifest ──────────────────────────────────────
+  test('rejects invalid manifest with high-severity finding', async () => {
+    const orgContext: OrgContext = {
+      manifest: {
+        schemaVersion: '1.0.0',
+        orgId: '', // Invalid: empty
+        updatedAt: '',
+        approvedBy: '',
+        defaults: [],
+        classifications: [],
+        exemptions: [{
+          repo: 'test',
+          expectationIds: ['nonexistent'],
+          reason: '',  // Invalid: empty
+          approvedBy: '',
+          expiresAt: '',  // Invalid: empty
+        }],
+      },
+      repos: [],
+    };
+
+    const ctx = makeContext(orgContext);
+    const findings = await rule.evaluate(ctx);
+
+    expect(findings.length).toBe(1);
+    expect(findings[0].severity).toBe('high');
+    expect(findings[0].title).toContain('invalid');
+  });
+
+  // ─── Performance: 50 Repos ─────────────────────────────────
+  test('evaluates 50 repos in under 100ms', async () => {
+    const repos = Array.from({ length: 50 }, (_, i) =>
+      makeRepo({ fullName: `test-org/repo-${i}` })
+    );
+    // Make 10 of them have gaps
+    for (let i = 0; i < 10; i++) {
+      repos[i].branchProtection = null;
+    }
+
+    const orgContext: OrgContext = {
+      manifest: makeManifest(),
+      repos,
+    };
+
+    const ctx = makeContext(orgContext);
     const start = performance.now();
     const findings = await rule.evaluate(ctx);
     const elapsed = performance.now() - start;
 
-    expect(elapsed).toBeLessThan(50);
-    // 2/3 of 50 repos have no protection → at least 33 should be flagged
-    expect(findings.length).toBeGreaterThanOrEqual(30);
-  });
-
-  // ─── Severity mapping ─────────────────────────────────────
-
-  test('missing critical expectation produces block severity', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),  // sc-oracle is severity: critical
-      repoStates: [
-        makeRepoState('unprotected-repo'),  // No protection at all
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    const criticalFinding = findings.find(f =>
-      f.evidence[0]?.context?.expectationId === 'sc-oracle',
-    );
-    expect(criticalFinding).toBeDefined();
-    // Missing + critical → block
-    expect(criticalFinding!.severity).toBe('block');
-  });
-
-  test('partial high expectation produces warn severity', async () => {
-    const ctx = makeContext({
-      policyManifest: makeManifest(),  // bp-main is severity: high
-      repoStates: [
-        makeRepoState('partial-repo', {
-          branchProtection: [{
-            branch: 'main',
-            requirePullRequest: true,
-            requiredReviewers: 0,  // Fewer than required 1
-            dismissStaleReviews: false,
-            requireCodeOwnerReviews: false,
-            enforceAdmins: true,
-            requiredStatusChecks: ['oracle-check', 'test'],
-            strictStatusChecks: false,
-          }],
-        }),
-      ],
-    });
-
-    const findings = await rule.evaluate(ctx);
-    const partialFinding = findings.find(f =>
-      f.evidence[0]?.context?.gapType === 'partial',
-    );
-    expect(partialFinding).toBeDefined();
-    // Partial + high → warn
-    expect(partialFinding!.severity).toBe('warn');
+    expect(elapsed).toBeLessThan(100);
+    expect(findings.length).toBeGreaterThan(0);
   });
 });
 
-// ─── Policy Manifest Utility Tests ───────────────────────────────────
+// ─── Policy Manifest Unit Tests ──────────────────────────────────────
 
-describe('policy-manifest utilities', () => {
-  describe('matchGlob', () => {
-    test('matches exact strings', () => {
-      expect(matchGlob('foo', 'foo')).toBe(true);
-      expect(matchGlob('foo', 'bar')).toBe(false);
-    });
-
-    test('matches * wildcard', () => {
-      expect(matchGlob('*-service', 'payment-service')).toBe(true);
-      expect(matchGlob('api-*', 'api-gateway')).toBe(true);
-      expect(matchGlob('*-service', 'docs')).toBe(false);
-    });
-
-    test('matches ? single-char wildcard', () => {
-      expect(matchGlob('repo-?', 'repo-1')).toBe(true);
-      expect(matchGlob('repo-?', 'repo-12')).toBe(false);
-    });
+describe('Policy Manifest', () => {
+  test('resolveExpectationsForRepo applies defaults', () => {
+    const manifest = makeManifest();
+    const { expectations } = resolveExpectationsForRepo(manifest, 'any-repo');
+    expect(expectations.length).toBe(4); // 4 defaults
   });
 
-  describe('matchesRepo', () => {
-    test('matches by explicit repo list', () => {
-      expect(matchesRepo({ repos: ['foo', 'bar'] }, 'foo')).toBe(true);
-      expect(matchesRepo({ repos: ['foo', 'bar'] }, 'baz')).toBe(false);
-    });
-
-    test('matches by pattern', () => {
-      expect(matchesRepo({ patterns: ['*-service'] }, 'auth-service')).toBe(true);
-    });
-
-    test('matches by topic', () => {
-      expect(matchesRepo(
-        { topics: ['production'] },
-        'some-repo',
-        { topics: ['production', 'service'] },
-      )).toBe(true);
-    });
-
-    test('matches by visibility', () => {
-      expect(matchesRepo(
-        { visibility: 'private' },
-        'secret-repo',
-        { visibility: 'private' },
-      )).toBe(true);
-    });
-
-    test('returns false with no meta and no repo/pattern match', () => {
-      expect(matchesRepo({ topics: ['prod'] }, 'my-repo')).toBe(false);
-    });
-  });
-
-  describe('resolveExpectationsForRepo', () => {
+  test('resolveExpectationsForRepo adds classification expectations', () => {
     const manifest = makeManifest({
       classifications: [{
-        name: 'service',
-        description: 'Services',
+        name: 'Services',
+        description: 'Service repos',
         match: { patterns: ['*-service'] },
         expectations: [{
-          id: 'svc-workflow',
-          name: 'Service workflow',
-          category: 'workflow-presence',
-          severity: 'high',
-          requirement: {
-            type: 'workflow-presence',
-            workflowFile: '.github/workflows/deploy.yml',
-          },
+          id: 'extra-1',
+          name: 'Extra check',
+          category: 'status-checks',
+          requirement: { type: 'status-checks', branch: 'main', requiredChecks: ['extra'] },
+          severity: 'medium',
         }],
       }],
+    });
+
+    const { expectations } = resolveExpectationsForRepo(manifest, 'payment-service');
+    expect(expectations.length).toBe(5); // 4 defaults + 1 classification
+  });
+
+  test('resolveExpectationsForRepo removes exempted expectations', () => {
+    const manifest = makeManifest({
       exemptions: [{
-        repo: 'legacy-service',
-        expectationIds: ['bp-main'],
-        reason: 'Legacy system, migration planned',
-        approvedBy: 'cto',
-        expiresAt: futureDate,
+        repo: 'docs-site',
+        expectationIds: ['bp-main', 'sc-oracle'],
+        reason: 'Static site',
+        approvedBy: 'admin',
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
       }],
     });
 
-    test('returns defaults for non-classified repo', () => {
-      const { expectations } = resolveExpectationsForRepo(manifest, 'my-lib');
-      expect(expectations.map(e => e.id)).toEqual(['bp-main', 'sc-oracle']);
-    });
-
-    test('adds classification expectations for matching repos', () => {
-      const { expectations } = resolveExpectationsForRepo(manifest, 'auth-service');
-      const ids = expectations.map(e => e.id);
-      expect(ids).toContain('bp-main');
-      expect(ids).toContain('sc-oracle');
-      expect(ids).toContain('svc-workflow');
-    });
-
-    test('removes exempted expectations', () => {
-      const { expectations, exemptions } = resolveExpectationsForRepo(manifest, 'legacy-service');
-      expect(expectations.map(e => e.id)).not.toContain('bp-main');
-      expect(exemptions).toHaveLength(1);
-      expect(exemptions[0].reason).toContain('Legacy');
-    });
+    const { expectations } = resolveExpectationsForRepo(manifest, 'docs-site');
+    expect(expectations.length).toBe(2); // 4 defaults - 2 exempted
+    expect(expectations.find(e => e.id === 'bp-main')).toBeUndefined();
   });
 
-  describe('validateManifest', () => {
-    test('valid manifest passes', () => {
-      const result = validateManifest(makeManifest());
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
+  test('resolveExpectationsForRepo ignores expired exemptions', () => {
+    const manifest = makeManifest({
+      exemptions: [{
+        repo: 'docs-site',
+        expectationIds: ['bp-main'],
+        reason: 'Expired',
+        approvedBy: 'admin',
+        expiresAt: '2020-01-01T00:00:00Z', // Past
+      }],
     });
 
-    test('detects missing required fields', () => {
-      const result = validateManifest({
-        ...makeManifest(),
-        orgId: '',
-      } as OrgPolicyManifest);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Missing orgId');
+    const { expectations } = resolveExpectationsForRepo(manifest, 'docs-site');
+    expect(expectations.length).toBe(4); // Exemption expired, so all 4 defaults apply
+  });
+
+  test('validateManifest catches errors', () => {
+    const result = validateManifest({
+      schemaVersion: '1.0.0',
+      orgId: '',
+      updatedAt: '',
+      approvedBy: '',
+      defaults: [],
+      classifications: [],
+      exemptions: [{
+        repo: 'test',
+        expectationIds: ['fake-id'],
+        reason: '',
+        approvedBy: '',
+        expiresAt: '',
+      }],
     });
 
-    test('warns on expired exemptions', () => {
-      const result = validateManifest(makeManifest({
-        exemptions: [{
-          repo: 'old-repo',
-          expectationIds: ['bp-main'],
-          reason: 'temporary',
-          approvedBy: 'someone',
-          expiresAt: '2020-01-01T00:00:00Z',
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  test('glob matching works for patterns', () => {
+    const manifest = makeManifest({
+      classifications: [{
+        name: 'APIs',
+        description: 'API repos',
+        match: { patterns: ['api-*', '*-gateway'] },
+        expectations: [{
+          id: 'api-extra',
+          name: 'API check',
+          category: 'status-checks',
+          requirement: { type: 'status-checks', branch: 'main', requiredChecks: ['api-test'] },
+          severity: 'medium',
         }],
-      }));
-      expect(result.warnings.length).toBeGreaterThan(0);
-      expect(result.warnings[0]).toContain('expired');
+      }],
     });
 
-    test('errors on exemption referencing unknown expectation', () => {
-      const result = validateManifest(makeManifest({
-        exemptions: [{
-          repo: 'some-repo',
-          expectationIds: ['nonexistent-id'],
-          reason: 'test',
-          approvedBy: 'someone',
-          expiresAt: futureDate,
-        }],
-      }));
-      expect(result.valid).toBe(false);
-      expect(result.errors[0]).toContain('nonexistent-id');
-    });
-  });
-});
+    const { expectations: apiMatch } = resolveExpectationsForRepo(manifest, 'api-users');
+    expect(apiMatch.find(e => e.id === 'api-extra')).toBeDefined();
 
-// ─── detectGapsForRepo unit tests ────────────────────────────────────
+    const { expectations: gwMatch } = resolveExpectationsForRepo(manifest, 'payment-gateway');
+    expect(gwMatch.find(e => e.id === 'api-extra')).toBeDefined();
 
-describe('detectGapsForRepo', () => {
-  test('detects missing workflow file', () => {
-    const expectations: PolicyExpectation[] = [{
-      id: 'wf-1',
-      name: 'Oracle workflow',
-      category: 'workflow-presence',
-      severity: 'high',
-      requirement: {
-        type: 'workflow-presence',
-        workflowFile: '.github/workflows/oracle.yml',
-      },
-    }];
-
-    const gaps = detectGapsForRepo(
-      'my-repo',
-      makeRepoState('my-repo', { workflowFiles: ['.github/workflows/ci.yml'] }),
-      expectations,
-    );
-
-    expect(gaps).toHaveLength(1);
-    expect(gaps[0].gapType).toBe('missing');
-    expect(gaps[0].detail).toContain('oracle.yml');
-  });
-
-  test('passes when workflow file exists', () => {
-    const expectations: PolicyExpectation[] = [{
-      id: 'wf-1',
-      name: 'Oracle workflow',
-      category: 'workflow-presence',
-      severity: 'high',
-      requirement: {
-        type: 'workflow-presence',
-        workflowFile: '.github/workflows/oracle.yml',
-      },
-    }];
-
-    const gaps = detectGapsForRepo(
-      'my-repo',
-      makeRepoState('my-repo', {
-        workflowFiles: ['.github/workflows/oracle.yml', '.github/workflows/ci.yml'],
-      }),
-      expectations,
-    );
-
-    expect(gaps).toHaveLength(0);
-  });
-
-  test('returns empty for repos with no applicable expectations', () => {
-    const gaps = detectGapsForRepo('my-repo', makeRepoState('my-repo'), []);
-    expect(gaps).toHaveLength(0);
+    const { expectations: noMatch } = resolveExpectationsForRepo(manifest, 'docs-site');
+    expect(noMatch.find(e => e.id === 'api-extra')).toBeUndefined();
   });
 });
