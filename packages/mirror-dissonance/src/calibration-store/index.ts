@@ -68,6 +68,14 @@ export {
   InMemoryCalibrationStoreAdapter,
 } from './adapter-types.js';
 
+// Cohort telemetry (Phase 5B)
+export {
+  CohortTelemetryEmitter,
+  type CohortTelemetryEvent,
+  type CohortTelemetryConfig,
+  type TelemetryListener,
+} from './cohort-telemetry.js';
+
 // Export types
 export type {
   CalibrationResultExtended,
