@@ -3,18 +3,18 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Core Mirror Dissonance Protocol library",
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/src/index.js",
-      "require": "./dist/src/index.js",
-      "types": "./dist/src/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     },
-    "./dist/src/index.js": "./dist/src/index.js",
-    "./dist/src/l0-invariants/index.js": "./dist/src/l0-invariants/index.js",
-    "./dist/src/consent-store/index.js": "./dist/src/consent-store/index.js",
-    "./dist/src/analysis/orchestrator.js": "./dist/src/analysis/orchestrator.js",
+    "./dist/index.js": "./dist/index.js",
+    "./dist/l0-invariants/index.js": "./dist/l0-invariants/index.js",
+    "./dist/consent-store/index.js": "./dist/consent-store/index.js",
+    "./dist/analysis/orchestrator.js": "./dist/analysis/orchestrator.js",
     "./package.json": "./package.json"
   },
   "scripts": {

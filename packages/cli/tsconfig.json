@@ -16,8 +16,8 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "@mirror-dissonance/core": ["../mirror-dissonance/dist/index.js"],
-      "@mirror-dissonance/core/*": ["../mirror-dissonance/dist/*.js"]
+      "@mirror-dissonance/core": ["../mirror-dissonance/dist"],
+      "@mirror-dissonance/core/*": ["../mirror-dissonance/dist/*"]
     },
     "types": [
       "node",

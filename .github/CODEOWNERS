@@ -1,26 +1,27 @@
-# Phase Mirror Code Ownership
-# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# ============================================================
+# Phase Mirror CODEOWNERS — Open-Core Boundary Enforcement
+# ============================================================
 
-# Steward approves all rule changes and governance updates
-packages/mirror-dissonance/src/rules/    @PhaseMirror
-docs/governance/                          @PhaseMirror
+# --- Open Core (Phase Mirror License v1.0) ---
+packages/mirror-dissonance/src/rules/       @PhaseMirror
+docs/governance/                             @PhaseMirror
+packages/mirror-dissonance/src/              @PhaseMirror
+packages/cli/                                @PhaseMirror
+infra/                                       @PhaseMirror
 
-# Lead Architect approves infrastructure and core library
-packages/mirror-dissonance/src/           @PhaseMirror
-packages/cli/                             @PhaseMirror
-packages/mcp-server/                      @PhaseMirror
-infra/                                    @PhaseMirror
+# Security-sensitive paths
+packages/mirror-dissonance/src/redaction/    @PhaseMirror
+packages/mirror-dissonance/src/nonce/        @PhaseMirror
+packages/mirror-dissonance/src/anonymizer/   @PhaseMirror
 
-# Security-sensitive paths require Steward approval
-packages/mirror-dissonance/src/redaction/     @PhaseMirror
-packages/mirror-dissonance/src/nonce/         @PhaseMirror
-packages/mirror-dissonance/src/anonymizer/    @PhaseMirror
-packages/mirror-dissonance/src/consent-store/ @PhaseMirror
+# Schema changes are high-impact
+packages/mirror-dissonance/schemas/          @PhaseMirror
 
-# Schemas and config changes affect all consumers
-schemas/                    @PhaseMirror
-.github/workflows/          @PhaseMirror
-.github/CODEOWNERS          @PhaseMirror
+# --- Proprietary (Phase Mirror Pro License v1.0) ---
+proprietary/                                 @PhaseMirror
 
-# Adapters (cloud provider integrations)
-packages/mirror-dissonance/src/adapters/ @PhaseMirror
+# License files — NEVER changed without explicit review
+LICENSE                                      @PhaseMirror
+packages/mirror-dissonance/LICENSE           @PhaseMirror
+packages/cli/LICENSE                         @PhaseMirror
+proprietary/LICENSE                          @PhaseMirror
