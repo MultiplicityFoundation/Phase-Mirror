@@ -19,22 +19,14 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   const consentStore: ConsentStore = new ConsentStore({
     tableName: 'test-consent',
     region: 'us-east-1',
-    endpoint: LOCALSTACK,
-  });
-
-  const getFPStore = (): DynamoDBFPStore => {
-    if (!fpStore) {
       throw new Error('fpStore has not been initialized. Ensure beforeAll completed successfully.');
     }
-    return fpStore;
+
   };
 
   const getConsentStore = (): ConsentStore => {
     if (!consentStore) {
       throw new Error('consentStore has not been initialized. Ensure beforeAll completed successfully.');
-    }
-    return consentStore;
-  };
 
 
     // 1. Check consent (should be missing)
@@ -102,10 +94,6 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   it('should handle multi-resource consent validation', async () => {
     const orgId = 'MultiResourceOrg';
 
-    // Grant some but not all resources
-    await store.grantConsent(orgId, 'fp_patterns', 'admin');
-    await store.grantConsent(orgId, 'fp_metrics', 'admin');
-
     // Check multiple resources
     const result = await store.checkMultipleResources(orgId, [
     if (!consentStore) {
@@ -130,6 +118,10 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
 
   it('should handle consent expiration', async () => {
     const orgId = 'ExpiringOrg';
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const store = consentStore;
 
     // Grant consent with short expiration
     const expiresAt = new Date(Date.now() + 1000); // 1 second
