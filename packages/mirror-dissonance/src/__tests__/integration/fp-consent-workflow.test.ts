@@ -32,6 +32,14 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   });
 
   it('should enforce consent before FP operations', async () => {
+    if (!fpStore) {
+      throw new Error('fpStore not initialized – beforeAll may have failed');
+    }
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const fpStoreInstance = fpStore;
+    const consentStoreInstance = consentStore;
     const orgId = 'SecureOrg';
 
     // 1. Check consent (should be missing)
@@ -69,23 +77,31 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     expect(window.events).toHaveLength(1);
 
     // 6. Mark as false positive
-    await fpStore.markFalsePositive('workflow-finding-001', 'reviewer', 'TICKET-001');
+    await fpStoreInstance.markFalsePositive('workflow-finding-001', 'reviewer', 'TICKET-001');
 
     // 7. Verify marked
-    const updatedWindow = await fpStore.getWindowByCount('MD-WORKFLOW', 10);
+    const updatedWindow = await fpStoreInstance.getWindowByCount('MD-WORKFLOW', 10);
     expect(updatedWindow.events[0].isFalsePositive).toBe(true);
   });
 
   it('should block operations after consent revoked', async () => {
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const store = consentStore;
     const orgId = 'RevokedOrg';
 
     // Grant then revoke
-    await consentStore.grantConsent(orgId, 'fp_patterns', 'admin');
+    await store.grantConsent(orgId, 'fp_patterns', 'admin');
 
-    await consentStore.revokeConsent(orgId, 'fp_patterns', 'security');
+    await store.revokeConsent(orgId, 'fp_patterns', 'security');
 
     // Should not have valid consent
-    const hasConsent = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
+    const hasConsent = await store.checkResourceConsent(orgId, 'fp_patterns');
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const store = consentStore;
     expect(hasConsent.granted).toBe(false);
     expect(hasConsent.state).toBe('revoked');
 
@@ -96,11 +112,15 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     const orgId = 'MultiResourceOrg';
 
     // Grant some but not all resources
-    await consentStore.grantConsent(orgId, 'fp_patterns', 'admin');
-    await consentStore.grantConsent(orgId, 'fp_metrics', 'admin');
+    await store.grantConsent(orgId, 'fp_patterns', 'admin');
+    await store.grantConsent(orgId, 'fp_metrics', 'admin');
 
     // Check multiple resources
-    const result = await consentStore.checkMultipleResources(orgId, [
+    const result = await store.checkMultipleResources(orgId, [
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const store = consentStore;
       'fp_patterns',
       'fp_metrics',
       'audit_logs',
@@ -118,17 +138,17 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
 
     // Grant consent with short expiration
     const expiresAt = new Date(Date.now() + 1000); // 1 second
-    await consentStore.grantConsent(orgId, 'fp_patterns', 'admin', expiresAt);
+    await store.grantConsent(orgId, 'fp_patterns', 'admin', expiresAt);
 
     // Should have consent immediately
-    const hasConsentBefore = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
+    const hasConsentBefore = await store.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsentBefore.granted).toBe(true);
 
     // Wait for expiration
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     // Should no longer have consent
-    const hasConsentAfter = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
+    const hasConsentAfter = await store.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsentAfter.granted).toBe(false);
     expect(hasConsentAfter.state).toBe('expired');
   });
