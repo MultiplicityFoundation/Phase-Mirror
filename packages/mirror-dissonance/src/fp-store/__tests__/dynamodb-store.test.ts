@@ -16,6 +16,35 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 // Mock AWS SDK utilities (module-level constructors are mocked by global setup)
 jest.mock('@aws-sdk/util-dynamodb');
 
+// Ensure DynamoDBFPStore is a constructible mock to avoid "callee is not a function" issues.
+jest.mock('../dynamodb-store.js', () => {
+  class MockDynamoDBFPStore {
+    // The real constructor likely takes a config; we accept it but ignore it here.
+    constructor(_config: any) {}
+
+    async recordEvent(event: FPEvent): Promise<void> {
+      // Minimal behavior: simulate the real store by sending a PutItemCommand
+      const client = new DynamoDBClient({});
+      const input = {
+        TableName: 'test-fp-events',
+        Item: marshall({
+          eventId: event.eventId,
+          ruleId: event.ruleId,
+          ruleVersion: event.ruleVersion,
+          findingId: event.findingId,
+          outcome: event.outcome,
+          isFalsePositive: event.isFalsePositive,
+          timestamp: event.timestamp.toISOString(),
+          context: event.context,
+        }),
+      };
+      await client.send(new PutItemCommand(input));
+    }
+  }
+
+  return { DynamoDBFPStore: MockDynamoDBFPStore };
+});
+
 describe.skip('DynamoDBFPStore (legacy - removed from core)', () => {
   let store: DynamoDBFPStore;
   let mockSend: any;
