@@ -20,15 +20,13 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     tableName: 'test-consent',
     region: 'us-east-1',
   });
+    tableName: 'test-consent',
+    region: 'us-east-1',
+  });
     region: 'us-east-1',
     endpoint: LOCALSTACK,
   });
     region: 'us-east-1',
-  const consentStore: ConsentStore = new ConsentStore({
-    tableName: 'test-consent',
-    region: 'us-east-1',
-    const consentStoreInstance = consentStore;
-    const orgId = 'SecureOrg';
   const getFPStore = (): DynamoDBFPStore => {
     if (!fpStore) {
       throw new Error('fpStore has not been initialized. Ensure beforeAll completed successfully.');
