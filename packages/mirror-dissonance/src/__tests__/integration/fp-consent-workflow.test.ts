@@ -16,7 +16,10 @@ const LOCALSTACK = process.env.LOCALSTACK_ENDPOINT || 'http://localhost:4566';
 
 describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   let fpStore: DynamoDBFPStore | undefined;
-  let consentStore: ConsentStore | undefined;
+  const consentStore: ConsentStore = new ConsentStore({
+    tableName: 'test-consent',
+    region: 'us-east-1',
+  });
     region: 'us-east-1',
     endpoint: LOCALSTACK,
   });
@@ -24,11 +27,6 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   const consentStore: ConsentStore = new ConsentStore({
     tableName: 'test-consent',
     region: 'us-east-1',
-    }
-    if (!consentStore) {
-      throw new Error('consentStore not initialized – beforeAll may have failed');
-    }
-    const fpStoreInstance = fpStore;
     const consentStoreInstance = consentStore;
     const orgId = 'SecureOrg';
   const getFPStore = (): DynamoDBFPStore => {
