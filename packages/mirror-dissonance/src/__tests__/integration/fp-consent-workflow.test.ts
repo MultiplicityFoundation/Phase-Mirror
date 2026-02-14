@@ -15,20 +15,15 @@ import type { FPEvent } from '../../fp-store/types.js';
 const LOCALSTACK = process.env.LOCALSTACK_ENDPOINT || 'http://localhost:4566';
 
 describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
-  let fpStore: DynamoDBFPStore;
-  let consentStore: ConsentStore;
+  const fpStore: DynamoDBFPStore = new DynamoDBFPStore({
+    tableName: 'test-fp-events',
+    region: 'us-east-1',
+    endpoint: LOCALSTACK,
+  });
 
-  beforeAll(async () => {
-    fpStore = new DynamoDBFPStore({
-      tableName: 'test-fp-events',
-      region: 'us-east-1',
-      endpoint: LOCALSTACK,
-    });
-
-    consentStore = new ConsentStore({
-      tableName: 'test-consent',
-      region: 'us-east-1',
-    });
+  const consentStore: ConsentStore = new ConsentStore({
+    tableName: 'test-consent',
+    region: 'us-east-1',
   });
 
   it('should enforce consent before FP operations', async () => {
