@@ -1,0 +1,146 @@
+name: Schema Sync Check
+
+on:
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: schema-sync-check
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-schema-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Pro repo
+        uses: actions/checkout@v4
+
+      - name: Fetch OSS schema
+        run: |
+          curl -sSfL \
+            "https://raw.githubusercontent.com/MultiplicityFoundation/Phase-Mirror/main/packages/mirror-dissonance/schemas/dissonance-report.schema.json" \
+            -o /tmp/oss-schema.json
+
+      - name: Compute OSS schema hash
+        id: oss-hash
+        run: |
+          OSS_HASH=$(sha256sum /tmp/oss-schema.json | awk '{print $1}')
+          echo "hash=$OSS_HASH" >> "$GITHUB_OUTPUT"
+          echo "OSS schema SHA-256: $OSS_HASH"
+
+      - name: Compute Pro schema hash
+        id: pro-hash
+        run: |
+          PRO_HASH=$(sha256sum schemas/dissonance-report.schema.json | awk '{print $1}')
+          echo "hash=$PRO_HASH" >> "$GITHUB_OUTPUT"
+          echo "Pro schema SHA-256: $PRO_HASH"
+
+      - name: Compare schema hashes
+        id: compare
+        run: |
+          if [ "${{ steps.oss-hash.outputs.hash }}" = "${{ steps.pro-hash.outputs.hash }}" ]; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Schemas are in sync"
+            echo "### ✅ Schema Sync Check Passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "**SHA-256:** \`${{ steps.oss-hash.outputs.hash }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "OSS and Pro schemas match." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+            echo "❌ Schema drift detected!"
+            echo "  OSS: ${{ steps.oss-hash.outputs.hash }}"
+            echo "  Pro: ${{ steps.pro-hash.outputs.hash }}"
+          fi
+
+      - name: Generate diff on mismatch
+        if: steps.compare.outputs.match == 'false'
+        id: diff
+        run: |
+          DIFF=$(diff /tmp/oss-schema.json schemas/dissonance-report.schema.json || true)
+          # Store diff in file to avoid escaping issues
+          echo "$DIFF" > /tmp/schema-diff.txt
+          echo "diff<<DIFF_EOF" >> "$GITHUB_OUTPUT"
+          echo "$DIFF" >> "$GITHUB_OUTPUT"
+          echo "DIFF_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create schema-drift issue
+        if: steps.compare.outputs.match == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ossHash = '${{ steps.oss-hash.outputs.hash }}';
+            const proHash = '${{ steps.pro-hash.outputs.hash }}';
+            const diff = `${{ steps.diff.outputs.diff }}`;
+
+            // Check if an open schema-drift issue already exists
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'schema-drift',
+              state: 'open',
+            });
+
+            if (existingIssues.data.length > 0) {
+              console.log(`Schema-drift issue already exists: #${existingIssues.data[0].number}`);
+              // Add a comment with updated hashes
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues.data[0].number,
+                body: `🔄 Schema drift still detected as of ${new Date().toISOString()}\n\n**OSS hash:** \`${ossHash}\`\n**Pro hash:** \`${proHash}\``,
+              });
+              return;
+            }
+
+            const body = `## 🚨 Schema Drift Detected
+
+            The \`dissonance-report.schema.json\` in this repository no longer matches the OSS canonical version.
+
+            ### Hashes
+
+            | Source | SHA-256 |
+            |--------|---------|
+            | **OSS** | \`${ossHash}\` |
+            | **Pro** | \`${proHash}\` |
+
+            ### Diff
+
+            \`\`\`diff
+            ${diff}
+            \`\`\`
+
+            ### Resolution
+
+            1. Pull the latest schema from OSS:
+               \`\`\`bash
+               curl -sSfL https://raw.githubusercontent.com/MultiplicityFoundation/Phase-Mirror/main/packages/mirror-dissonance/schemas/dissonance-report.schema.json -o schemas/dissonance-report.schema.json
+               \`\`\`
+            2. If the OSS schema added new fields, verify Pro code handles them
+            3. Commit and push
+
+            ### Links
+
+            - [OSS schema file](https://github.com/MultiplicityFoundation/Phase-Mirror/blob/main/packages/mirror-dissonance/schemas/dissonance-report.schema.json)
+            - [Schema sync workflow](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            `.replace(/^            /gm, '');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Schema Drift: dissonance-report.schema.json out of sync with OSS',
+              body,
+              labels: ['schema-drift', 'priority-high'],
+            });
+
+      - name: Fail on drift
+        if: steps.compare.outputs.match == 'false'
+        run: |
+          echo "::error::Schema drift detected! OSS and Pro schemas do not match."
+          exit 1

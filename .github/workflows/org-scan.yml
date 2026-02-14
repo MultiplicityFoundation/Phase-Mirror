@@ -1,0 +1,66 @@
+name: Org Governance Scan
+
+on:
+  schedule:
+    # Every hour at :17 to avoid top-of-hour load spikes
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      orgs:
+        description: 'Comma-separated GitHub org logins to scan (overrides MD_ORGS)'
+        required: false
+        type: string
+
+jobs:
+  org-scan:
+    name: Scan Org Governance
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC -> AWS
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build proprietary package
+        run: pnpm --filter @phase-mirror/pro build
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ORG_SCAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Run org-scan
+        env:
+          MD_ORGS: ${{ inputs.orgs || secrets.MD_ORGS || 'MultiplicityFoundation' }}
+          MD_GOVERNANCE_CACHE_TABLE: ${{ secrets.MD_GOVERNANCE_CACHE_TABLE || 'mirror-governance-cache' }}
+          GITHUB_APP_TOKEN: ${{ secrets.GH_APP_TOKEN }}
+        run: |
+          npx ts-node --esm infra/lambda/org-scan/index.ts
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Org Governance Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Orgs:** ${{ inputs.orgs || secrets.MD_ORGS || 'MultiplicityFoundation' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY

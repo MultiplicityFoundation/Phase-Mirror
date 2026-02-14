@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "orgId": "acme-corp",
+  "updatedAt": "2026-02-10T00:00:00Z",
+  "approvedBy": "security-lead@acme.com",
+  "defaults": [
+    {
+      "id": "bp-main",
+      "name": "Branch protection on main",
+      "category": "branch-protection",
+      "requirement": {
+        "type": "branch-protection",
+        "branch": "main",
+        "requirePullRequest": true,
+        "requiredReviewers": 1,
+        "enforceAdmins": true
+      },
+      "severity": "critical"
+    },
+    {
+      "id": "sc-oracle",
+      "name": "Oracle check required",
+      "category": "status-checks",
+      "requirement": {
+        "type": "status-checks",
+        "branch": "main",
+        "requiredChecks": ["oracle-check"]
+      },
+      "severity": "high"
+    },
+    {
+      "id": "perm-read",
+      "name": "Default permissions read-only",
+      "category": "permissions",
+      "requirement": {
+        "type": "permissions",
+        "maxDefaultPermissions": "read"
+      },
+      "severity": "medium"
+    }
+  ],
+  "classifications": [
+    {
+      "name": "Production Services",
+      "description": "Services handling customer data or processing payments",
+      "match": {
+        "patterns": ["*-service", "api-*"],
+        "topics": ["production"]
+      },
+      "expectations": [
+        {
+          "id": "bp-strict",
+          "name": "Strict branch protection for production services",
+          "category": "branch-protection",
+          "requirement": {
+            "type": "branch-protection",
+            "branch": "main",
+            "requirePullRequest": true,
+            "requiredReviewers": 2,
+            "dismissStaleReviews": true,
+            "requireCodeOwnerReviews": true,
+            "enforceAdmins": true
+          },
+          "severity": "critical"
+        },
+        {
+          "id": "co-security",
+          "name": "CODEOWNERS for security-sensitive paths",
+          "category": "codeowners",
+          "requirement": {
+            "type": "codeowners",
+            "requiredPaths": [".github/workflows/", "src/security/", "infra/"]
+          },
+          "severity": "high"
+        },
+        {
+          "id": "wf-oracle",
+          "name": "Oracle workflow must exist",
+          "category": "workflow-presence",
+          "requirement": {
+            "type": "workflow-presence",
+            "workflowFile": ".github/workflows/oracle.yml",
+            "requiredJobs": ["oracle-check"]
+          },
+          "severity": "high"
+        }
+      ]
+    }
+  ],
+  "exemptions": [
+    {
+      "repo": "docs-site",
+      "expectationIds": ["bp-main", "sc-oracle"],
+      "reason": "Static documentation site — no executable code, no CI/CD deployment pipeline. Only serves rendered HTML via GitHub Pages.",
+      "approvedBy": "security-lead@acme.com",
+      "expiresAt": "2026-06-01T00:00:00Z",
+      "ticket": "GOV-42"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "paths": {
+      "@mirror-dissonance/core": ["../packages/mirror-dissonance/src"],
+      "@mirror-dissonance/core/*": ["../packages/mirror-dissonance/src/*"],
+      "@phase-mirror/pro": ["../proprietary/src"],
+      "@phase-mirror/pro/*": ["../proprietary/src/*"]
+    }
+  },
+  "include": ["lambda/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**"]
+}

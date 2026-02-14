@@ -14,6 +14,7 @@ import { baselineCommand } from './commands/baseline.js';
 import { nonceCommand } from './commands/nonce.js';
 import { verifyCommand } from './commands/verify.js';
 import { reputationCommand } from './commands/reputation.js';
+import { orgScanCommand } from './commands/org-scan.js';
 import { logger } from './utils/logger.js';
 import { handleFatalError } from './lib/errors.js';
 
@@ -517,6 +518,25 @@ stake.command('show')
     try {
       await reputationCommand.showStake({
         orgId: options.orgId
+      });
+    } catch (error) {
+      handleFatalError(error);
+    }
+  });
+
+// Org-scan command (Pro — requires @phase-mirror/pro)
+program
+  .command('org-scan')
+  .description('Scan GitHub org governance state (Pro feature)')
+  .requiredOption('--org <org>', 'GitHub organization login (e.g., PhaseMirror)')
+  .option('--dry-run', 'Print RepoGovernanceState[] JSON instead of writing to DynamoDB', false)
+  .option('--max-repos <count>', 'Limit number of repos scanned (for debugging)', parseInt)
+  .action(async (options) => {
+    try {
+      await orgScanCommand({
+        org: options.org,
+        dryRun: options.dryRun,
+        maxRepos: options.maxRepos,
       });
     } catch (error) {
       handleFatalError(error);

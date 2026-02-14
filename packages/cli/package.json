@@ -29,6 +29,9 @@
     "ora": "^7.0.1",
     "table": "^6.8.1"
   },
+  "optionalDependencies": {
+    "@phase-mirror/pro": "workspace:*"
+  },
   "devDependencies": {
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^29.5.11",

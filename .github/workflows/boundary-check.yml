@@ -1,0 +1,62 @@
+name: Open-Core Boundary Check
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'proprietary/**'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'proprietary/**'
+
+jobs:
+  boundary-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: L0 — Open-core never imports from proprietary
+        run: |
+          echo "Checking that packages/ never imports from proprietary/..."
+
+          VIOLATIONS=$(grep -rn \
+            -e "from.*['\"].*proprietary" \
+            -e "require.*['\"].*proprietary" \
+            -e "from.*['\"]@phase-mirror/pro" \
+            -e "require.*['\"]@phase-mirror/pro" \
+            packages/ || true)
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::L0 INVARIANT VIOLATION: open-core imports from proprietary/"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
+          echo "✅ Boundary check passed"
+
+      - name: L0 — Pro uses workspace dependency
+        run: |
+          if ! grep -q '"workspace:\*"' proprietary/package.json 2>/dev/null; then
+            echo "::warning::proprietary/package.json should use workspace:* for core dependency"
+          fi
+          echo "✅ Workspace dependency check passed"
+
+      - name: L0 — Schemas only in open-core
+        run: |
+          if find proprietary/ -name "*.schema.json" | grep -q .; then
+            echo "::error::Schema files found in proprietary/ — must only exist in packages/mirror-dissonance/schemas/"
+            find proprietary/ -name "*.schema.json"
+            exit 1
+          fi
+          echo "✅ Schema location check passed"
+
+      - name: License header check
+        run: |
+          OSS_VIOLATIONS=$(grep -rln "Phase Mirror Pro License" packages/ || true)
+          if [ -n "$OSS_VIOLATIONS" ]; then
+            echo "::error::Open-core files reference Pro license:"
+            echo "$OSS_VIOLATIONS"
+            exit 1
+          fi
+          echo "✅ License header check passed"

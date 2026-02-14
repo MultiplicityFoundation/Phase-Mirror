@@ -68,3 +68,9 @@ variable "backup_notification_email" {
   type        = string
   default     = ""
 }
+
+variable "org_scan_lambda_zip_path" {
+  description = "Path to the org-scan Lambda deployment package (zip). Build with: cd infra && pnpm build && zip dist/org-scan-lambda.zip dist/lambda/org-scan/index.js"
+  type        = string
+  default     = "dist/org-scan-lambda.zip"
+}
