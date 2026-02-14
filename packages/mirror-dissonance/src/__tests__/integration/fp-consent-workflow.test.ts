@@ -20,15 +20,10 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     region: 'us-east-1',
     endpoint: LOCALSTACK,
   });
-
+    region: 'us-east-1',
   const consentStore: ConsentStore = new ConsentStore({
     tableName: 'test-consent',
     region: 'us-east-1',
-  });
-
-  it('should enforce consent before FP operations', async () => {
-    if (!fpStore) {
-      throw new Error('fpStore not initialized – beforeAll may have failed');
     }
     if (!consentStore) {
       throw new Error('consentStore not initialized – beforeAll may have failed');
