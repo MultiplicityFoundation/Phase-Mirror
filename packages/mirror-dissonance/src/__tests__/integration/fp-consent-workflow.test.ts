@@ -19,22 +19,14 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
   const consentStore: ConsentStore = new ConsentStore({
     tableName: 'test-consent',
     region: 'us-east-1',
-      throw new Error('fpStore has not been initialized. Ensure beforeAll completed successfully.');
-    }
-
-  };
-
   const getConsentStore = (): ConsentStore => {
     if (!consentStore) {
-      throw new Error('consentStore has not been initialized. Ensure beforeAll completed successfully.');
+
 
 
     // 1. Check consent (should be missing)
     const hasConsent = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsent.granted).toBe(false);
-    const hasConsent = await getConsentStore().checkResourceConsent(orgId, 'fp_patterns');
-    // 2. Grant consent
-    await consentStore.grantConsent(orgId, 'fp_patterns', 'admin@secureorg.com');
     await consentStore.grantConsent(orgId, 'fp_metrics', 'admin@secureorg.com');
     await getConsentStore().grantConsent(orgId, 'fp_patterns', 'admin@secureorg.com');
     await getConsentStore().grantConsent(orgId, 'fp_metrics', 'admin@secureorg.com');
@@ -44,11 +36,10 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     // 4. Now FP operations allowed - record event
     const event: FPEvent = {
       eventId: 'workflow-001',
-      ruleId: 'MD-WORKFLOW',
-      ruleVersion: '1.0.0',
-      findingId: 'workflow-finding-001',
-      outcome: 'block',
-      isFalsePositive: false,
+  // 1. Check consent (should be missing)
+  // NOTE: use getConsentStore() to ensure a valid instance
+  const hasConsent = await getConsentStore().checkResourceConsent(orgId, 'fp_patterns');
+  expect(hasConsent.granted).toBe(false);
       timestamp: new Date(),
       context: {
         repo: `${orgId}/test-repo`,
@@ -101,10 +92,6 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     }
     const store = consentStore;
       'fp_patterns',
-      'fp_metrics',
-      'audit_logs',
-    ]);
-
     expect(result.allGranted).toBe(false);
     if (!consentStore) {
       throw new Error('consentStore not initialized – beforeAll may have failed');
@@ -130,6 +117,10 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     // Should have consent immediately
     const hasConsentBefore = await store.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsentBefore.granted).toBe(true);
+    if (!consentStore) {
+      throw new Error('consentStore not initialized – beforeAll may have failed');
+    }
+    const store = consentStore;
 
     // Wait for expiration
     await new Promise((resolve) => setTimeout(resolve, 1500));
