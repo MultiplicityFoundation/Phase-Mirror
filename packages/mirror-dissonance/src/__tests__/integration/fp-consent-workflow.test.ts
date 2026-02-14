@@ -15,8 +15,8 @@ import type { FPEvent } from '../../fp-store/types.js';
 const LOCALSTACK = process.env.LOCALSTACK_ENDPOINT || 'http://localhost:4566';
 
 describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
-  const fpStore: DynamoDBFPStore = new DynamoDBFPStore({
-    tableName: 'test-fp-events',
+  let fpStore: DynamoDBFPStore | undefined;
+  let consentStore: ConsentStore | undefined;
     region: 'us-east-1',
     endpoint: LOCALSTACK,
   });
@@ -31,19 +31,33 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     const fpStoreInstance = fpStore;
     const consentStoreInstance = consentStore;
     const orgId = 'SecureOrg';
+  const getFPStore = (): DynamoDBFPStore => {
+    if (!fpStore) {
+      throw new Error('fpStore has not been initialized. Ensure beforeAll completed successfully.');
+    }
+    return fpStore;
+  };
+
+  const getConsentStore = (): ConsentStore => {
+    if (!consentStore) {
+      throw new Error('consentStore has not been initialized. Ensure beforeAll completed successfully.');
+    }
+    return consentStore;
+  };
+
 
     // 1. Check consent (should be missing)
     const hasConsent = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsent.granted).toBe(false);
-
+    const hasConsent = await getConsentStore().checkResourceConsent(orgId, 'fp_patterns');
     // 2. Grant consent
     await consentStore.grantConsent(orgId, 'fp_patterns', 'admin@secureorg.com');
     await consentStore.grantConsent(orgId, 'fp_metrics', 'admin@secureorg.com');
-
-    // 3. Verify consent granted
+    await getConsentStore().grantConsent(orgId, 'fp_patterns', 'admin@secureorg.com');
+    await getConsentStore().grantConsent(orgId, 'fp_metrics', 'admin@secureorg.com');
     const hasConsentNow = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsentNow.granted).toBe(true);
-
+    const hasConsentNow = await getConsentStore().checkResourceConsent(orgId, 'fp_patterns');
     // 4. Now FP operations allowed - record event
     const event: FPEvent = {
       eventId: 'workflow-001',
@@ -62,17 +76,17 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
 
     await fpStore.recordEvent(event);
 
-    // 5. Query FP window (requires fp_patterns consent)
+    await getFPStore().recordEvent(event);
     const window = await fpStore.getWindowByCount('MD-WORKFLOW', 10);
     expect(window.events).toHaveLength(1);
-
+    const window = await getFPStore().getWindowByCount('MD-WORKFLOW', 10);
     // 6. Mark as false positive
     await fpStoreInstance.markFalsePositive('workflow-finding-001', 'reviewer', 'TICKET-001');
 
-    // 7. Verify marked
+    await getFPStore().markFalsePositive('workflow-finding-001', 'reviewer', 'TICKET-001');
     const updatedWindow = await fpStoreInstance.getWindowByCount('MD-WORKFLOW', 10);
     expect(updatedWindow.events[0].isFalsePositive).toBe(true);
-  });
+    const updatedWindow = await getFPStore().getWindowByCount('MD-WORKFLOW', 10);
 
   it('should block operations after consent revoked', async () => {
     if (!consentStore) {
