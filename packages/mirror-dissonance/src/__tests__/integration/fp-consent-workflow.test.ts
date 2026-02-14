@@ -32,6 +32,9 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
       throw new Error('fpStore has not been initialized. Ensure beforeAll completed successfully.');
     }
     return fpStore;
+    if (!fpStore) {
+      throw new Error('fpStore was not initialized in beforeAll');
+    }
   };
 
   const getConsentStore = (): ConsentStore => {
