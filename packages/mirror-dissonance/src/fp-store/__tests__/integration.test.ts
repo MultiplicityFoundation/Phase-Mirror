@@ -8,7 +8,7 @@
  */
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-import { DynamoDBFPStore } from '../dynamodb-store.js';
+import DynamoDBFPStore from '../dynamodb-store.js';
 import { DynamoDBClient, CreateTableCommand } from '@aws-sdk/client-dynamodb';
 import type { FPEvent } from '../types.js';
 
