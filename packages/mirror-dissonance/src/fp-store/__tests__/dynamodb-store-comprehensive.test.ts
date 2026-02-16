@@ -30,6 +30,10 @@ describe.skip('DynamoDBFPStore - Comprehensive (legacy - removed from core)', ()
     (marshall as jest.Mock).mockImplementation((obj) => obj);
     (unmarshall as jest.Mock).mockImplementation((obj) => obj);
 
+    if (typeof DynamoDBFPStore !== 'function') {
+      throw new Error('DynamoDBFPStore is not a constructor. Ensure it is correctly exported from ../dynamodb-store.js');
+    }
+
     store = new DynamoDBFPStore({
       tableName: 'test-fp-events',
       region: 'us-east-1',
