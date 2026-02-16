@@ -32,6 +32,13 @@ describe.skip('FP & Consent Workflow Integration (LocalStack)', () => {
     await getConsentStore().grantConsent(orgId, 'fp_metrics', 'admin@secureorg.com');
     const hasConsentNow = await consentStore.checkResourceConsent(orgId, 'fp_patterns');
     expect(hasConsentNow.granted).toBe(true);
+    if (!fpStore) {
+      throw new Error('fpStore not initialized in beforeAll');
+    }
+    if (!consentStore) {
+      throw new Error('consentStore not initialized in beforeAll');
+    }
+
     const hasConsentNow = await getConsentStore().checkResourceConsent(orgId, 'fp_patterns');
     // 4. Now FP operations allowed - record event
     const event: FPEvent = {
