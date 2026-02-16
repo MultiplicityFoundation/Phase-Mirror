@@ -48,6 +48,9 @@
   "pnpm": {
     "overrides": {
       "fast-xml-parser": ">=5.3.4"
+    },
+    "patchedDependencies": {
+      "qs@6.14.1": "patches/qs@6.14.1.patch"
     }
   }
 }

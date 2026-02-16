@@ -71,7 +71,11 @@ module.exports = {
   // Module name mapper for internal imports
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^(\\.{1,2}/.*)\\.js$': '$1'
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    // @octokit/rest v22+ is ESM-only; map to a CJS-compatible manual mock
+    // so ts-jest doesn't need to transform the ESM dist. Tests use
+    // constructor DI (octokitOverride) so the real SDK is never exercised.
+    '^@octokit/rest$': '<rootDir>/src/__mocks__/@octokit/rest.ts'
   },
   
   // Transform
@@ -83,9 +87,10 @@ module.exports = {
     }]
   },
   
-  // Allow transformation of @octokit packages (ESM)
+  // @octokit/rest is mapped via moduleNameMapper (see above), so
+  // transformIgnorePatterns does not need an @octokit exclusion.
   transformIgnorePatterns: [
-    'node_modules/(?!(@octokit)/)'
+    'node_modules/'
   ],
   
   // Coverage directory
