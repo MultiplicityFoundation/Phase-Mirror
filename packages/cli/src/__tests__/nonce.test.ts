@@ -6,7 +6,7 @@
 
 import { promises as fs } from 'node:fs';
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { nonceCommand } from '../commands/nonce';
+import { nonceCommand } from '../commands/nonce.js';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
 import { OrganizationIdentity } from '@mirror-dissonance/core';
 

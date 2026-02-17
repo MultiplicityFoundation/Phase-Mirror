@@ -9,7 +9,7 @@ import chalk from 'chalk';
 import { table } from 'table';
 import { NonceBindingService } from '@mirror-dissonance/core';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import { CLIError } from '../lib/errors.js';
 
 /**

@@ -14,8 +14,8 @@ import {
   createLocalTrustAdapters,
 } from '@mirror-dissonance/core';
 import type { OrganizationIdentity } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger';
-import { CLIError } from '../lib/errors';
+import { logger } from '../utils/logger.js';
+import { CLIError } from '../lib/errors.js';
 
 /**
  * Get the data directory for trust adapters
