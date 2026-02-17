@@ -5,11 +5,12 @@
  * dynamic import, dry-run vs. persist behavior. All GitHub + DynamoDB
  * calls are fully mocked.
  */
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 // ─── Mock setup ──────────────────────────────────────────────────────
 
-const mockFetchLiveOrgState = jest.fn();
-const mockPersistOrgState = jest.fn();
+const mockFetchLiveOrgState = jest.fn<() => Promise<any>>();
+const mockPersistOrgState = jest.fn<() => Promise<void>>();
 
 class MockRateLimitError extends Error {
   readonly code = 'GITHUB_RATE_LIMITED' as const;
@@ -21,13 +22,13 @@ class MockRateLimitError extends Error {
   }
 }
 
-jest.mock('@phase-mirror/pro', () => ({
+jest.unstable_mockModule('@phase-mirror/pro', () => ({
   fetchLiveOrgState: mockFetchLiveOrgState,
   persistOrgState: mockPersistOrgState,
   RateLimitError: MockRateLimitError,
 }));
 
-import { orgScanCommand } from '../commands/org-scan.js';
+const { orgScanCommand } = await import('../commands/org-scan.js');
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ function makeRepoState(fullName: string) {
 describe('orgScanCommand', () => {
   let origEnv: NodeJS.ProcessEnv;
   let exitSpy: jest.SpiedFunction<typeof process.exit>;
-  let consoleSpy: jest.SpiedFunction<typeof console.log>;
+  let consoleSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     origEnv = { ...process.env };
