@@ -189,6 +189,7 @@ async function addToGitignore(): Promise<void> {
       await fs.appendFile(gitignorePath, entry);
     }
   } catch (error) {
-    // Ignore gitignore errors
+    // Non-fatal: warn user that .gitignore wasn't updated
+    console.warn(`⚠️  Could not update .gitignore: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

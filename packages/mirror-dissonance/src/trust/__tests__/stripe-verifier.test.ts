@@ -445,13 +445,14 @@ describe('StripeVerifier', () => {
       expect(result).toBe(false);
     });
 
-    it('should return false on API error (fail open)', async () => {
+    it('should throw on API error (fail-closed per ADR-030)', async () => {
       mockStripe.invoices.list.mockRejectedValue(new Error('API error'));
 
       const verifier = createVerifier();
-      const result = await verifier.hasDelinquentInvoices('cus_ERROR123');
 
-      expect(result).toBe(false);
+      await expect(
+        verifier.hasDelinquentInvoices('cus_ERROR123')
+      ).rejects.toThrow('Unable to check delinquent invoices');
     });
   });
 
@@ -494,7 +495,7 @@ describe('StripeVerifier', () => {
       expect(result.metadata.customerName).toBeUndefined();
     });
 
-    it('should handle empty payment history gracefully', async () => {
+    it('should throw on payment API error (fail-closed per ADR-030)', async () => {
       const createdTimestamp = Math.floor(Date.now() / 1000) - (60 * 24 * 60 * 60);
 
       mockStripe.customers.retrieve.mockResolvedValue({
@@ -504,14 +505,14 @@ describe('StripeVerifier', () => {
         deleted: false,
       });
 
-      // API error when fetching payments (fail safe to 0)
+      // API error when fetching payments — should now throw, not return 0
       mockStripe.paymentIntents.list.mockRejectedValue(new Error('API error'));
 
       const verifier = createVerifier();
-      const result = await verifier.verifyCustomer('org-empty', 'cus_EMPTY123');
 
-      expect(result.verified).toBe(false);
-      expect(result.metadata.successfulPaymentCount).toBe(0);
+      await expect(
+        verifier.verifyCustomer('org-empty', 'cus_EMPTY123')
+      ).rejects.toThrow('Unable to count payments');
     });
   });
 });

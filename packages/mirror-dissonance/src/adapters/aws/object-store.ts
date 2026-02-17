@@ -89,8 +89,9 @@ export class AwsObjectStore implements ObjectStoreAdapter {
         }))
         .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     } catch (error: any) {
-      console.error('Failed to list baseline versions:', error);
-      return [];
+      throw new Error(
+        `Failed to list baseline versions for ${repoId}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

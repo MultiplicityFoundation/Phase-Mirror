@@ -5,6 +5,7 @@
 import type { Config } from '../types/cli.js';
 import { resolveSchemaPath, resolveRulesDir } from '../paths.js';
 import { computeFileHash, fileExists } from '../utils/hash.js';
+import { OracleDegradedError } from '@mirror-dissonance/core';
 
 export interface DriftChange {
   file: string;
@@ -137,26 +138,43 @@ export class PhaseOracle {
     reason: string;
     createPattern: boolean;
   }): Promise<void> {
-    // Mark finding as false positive
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'markFalsePositive', findingId: params.findingId },
+      'community',
+    );
   }
 
   async listFalsePositives(params: {
     ruleId?: string;
   }): Promise<any[]> {
-    return [];
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'listFalsePositives', ruleId: params.ruleId },
+      'community',
+    );
   }
 
   async exportFalsePositives(params: {
     anonymize: boolean;
   }): Promise<any> {
-    return {
-      count: 0,
-      patterns: []
-    };
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'exportFalsePositives' },
+      'community',
+    );
   }
 
   async importFalsePositives(data: any): Promise<void> {
-    // Import FP patterns
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'importFalsePositives' },
+      'community',
+    );
   }
 
   private getDefaultConfig(): Config {

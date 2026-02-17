@@ -577,8 +577,9 @@ class GcpObjectStore implements ObjectStoreAdapter {
       const [contents] = await file.download();
       return JSON.parse(contents.toString('utf-8'));
     } catch (error) {
-      console.error('Failed to get baseline:', error);
-      return null;
+      throw new Error(
+        `Baseline store unavailable for ${repoId}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -611,8 +612,9 @@ class GcpObjectStore implements ObjectStoreAdapter {
         }))
         .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     } catch (error) {
-      console.error('Failed to list baseline versions:', error);
-      return [];
+      throw new Error(
+        `Failed to list baseline versions for ${repoId}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }
