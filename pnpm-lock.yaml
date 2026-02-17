@@ -7,6 +7,11 @@ settings:
 overrides:
   fast-xml-parser: '>=5.3.4'
 
+patchedDependencies:
+  qs@6.14.1:
+    hash: 435d06437f587ab4e6954ef9c7da89e04e31b4329b524f28b1139d5309b3262f
+    path: patches/qs@6.14.1.patch
+
 importers:
 
   .:
@@ -5530,7 +5535,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       on-finished: 2.4.1
-      qs: 6.14.1
+      qs: 6.14.1(patch_hash=435d06437f587ab4e6954ef9c7da89e04e31b4329b524f28b1139d5309b3262f)
       raw-body: 3.0.2
       type-is: 2.0.1
     transitivePeerDependencies:
@@ -5959,7 +5964,7 @@ snapshots:
       once: 1.4.0
       parseurl: 1.3.3
       proxy-addr: 2.0.7
-      qs: 6.14.1
+      qs: 6.14.1(patch_hash=435d06437f587ab4e6954ef9c7da89e04e31b4329b524f28b1139d5309b3262f)
       range-parser: 1.2.1
       router: 2.2.0
       send: 1.2.1
@@ -7028,7 +7033,7 @@ snapshots:
 
   pure-rand@6.1.0: {}
 
-  qs@6.14.1:
+  qs@6.14.1(patch_hash=435d06437f587ab4e6954ef9c7da89e04e31b4329b524f28b1139d5309b3262f):
     dependencies:
       side-channel: 1.1.0
 
@@ -7264,7 +7269,7 @@ snapshots:
   stripe@17.7.0:
     dependencies:
       '@types/node': 20.19.30
-      qs: 6.14.1
+      qs: 6.14.1(patch_hash=435d06437f587ab4e6954ef9c7da89e04e31b4329b524f28b1139d5309b3262f)
 
   strnum@2.1.2: {}
 

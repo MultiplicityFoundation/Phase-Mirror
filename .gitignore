@@ -54,6 +54,7 @@ release-artifacts/
 .test-data/
 .example-data/
 .example-data-*/
+.phase-mirror-data/
 packages/google-cloud-sdk/
 mcp-test-output.txt
 mcp-test-results.txt
