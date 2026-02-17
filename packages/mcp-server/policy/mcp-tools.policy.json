@@ -1,0 +1,40 @@
+{
+  "$schema": "./policy-schema.json",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "analyze_dissonance",
+      "x-tier": "authoritative",
+      "x-adr": "ADR-009",
+      "x-visibilityHint": "Primary L1 governance analysis"
+    },
+    {
+      "name": "validate_l0_invariants",
+      "x-tier": "authoritative",
+      "x-adr": "ADR-009",
+      "x-visibilityHint": "L0 foundation checks"
+    },
+    {
+      "name": "check_adr_compliance",
+      "x-tier": "authoritative",
+      "x-adr": "ADR-009",
+      "x-visibilityHint": "ADR compliance validation"
+    },
+    {
+      "name": "check_consent_requirements",
+      "x-tier": "authoritative",
+      "x-adr": "ADR-009",
+      "x-visibilityHint": "Consent requirement checks"
+    },
+    {
+      "name": "query_fp_store",
+      "x-tier": "experimental",
+      "x-visibilityHint": "Advisory FP analytics only"
+    },
+    {
+      "name": "dummy_experimental",
+      "x-tier": "experimental",
+      "x-visibilityHint": "Test tool for governance floor"
+    }
+  ]
+}

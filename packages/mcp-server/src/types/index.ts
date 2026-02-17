@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+export * from "./governance-envelope.js";
+
 /**
  * Environment configuration for MCP server
  */

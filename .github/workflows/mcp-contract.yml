@@ -1,0 +1,118 @@
+name: MCP Contract Enforcement
+
+on:
+  pull_request:
+    paths:
+      - 'packages/mcp-server/**'
+      - 'packages/mirror-dissonance/**'
+  push:
+    branches: [main]
+
+jobs:
+  contract-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build core library
+        run: pnpm --filter mirror-dissonance build
+
+      - name: Build MCP server
+        run: pnpm --filter mcp-server build
+
+      - name: Generate mcp-contract.json
+        run: pnpm --filter mcp-server run build:contract
+
+      - name: Assert contract is up-to-date
+        run: |
+          if ! git diff --exit-code packages/mcp-server/mcp-contract.json; then
+            echo "::error::mcp-contract.json is out of sync with live tools + policy."
+            echo "Run 'pnpm --filter mcp-server run build:contract' locally and commit."
+            exit 1
+          fi
+
+      - name: Enforce tier invariants
+        run: |
+          node -e "
+            const fs = require('fs');
+            const contract = JSON.parse(
+              fs.readFileSync('packages/mcp-server/mcp-contract.json', 'utf-8')
+            );
+
+            // Every authoritative tool must have an x-adr
+            const missing = contract.tools.filter(
+              t => t['x-tier'] === 'authoritative' && !t['x-adr']
+            );
+            if (missing.length) {
+              console.error('FATAL: Authoritative tools without ADR binding:');
+              missing.forEach(t => console.error('  -', t.name));
+              process.exit(1);
+            }
+
+            // No experimental tool may claim blocking semantics
+            const experimental = contract.tools.filter(
+              t => t['x-tier'] === 'experimental'
+            );
+            experimental.forEach(t => {
+              const hint = t['x-visibilityHint'] || '';
+              if (hint.includes('block') || hint.includes('INVARIANT_VIOLATION')) {
+                console.error(t.name + ': experimental tool claims blocking semantics');
+                process.exit(1);
+              }
+            });
+
+            console.log('✓ Tier invariants passed for', contract.tools.length, 'tools.');
+          "
+
+      - name: Run contract tests
+        run: pnpm --filter mcp-server test -- --testPathPattern=contract
+
+      - name: Update MCP health badge
+        if: github.ref == 'refs/heads/main' && always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            COLOR="brightgreen"
+            MSG="passing"
+          else
+            COLOR="red"
+            MSG="failing"
+          fi
+          cat > packages/mcp-server/mcp-health-badge.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "MCP Contract",
+            "message": "$MSG",
+            "color": "$COLOR"
+          }
+          EOF
+          # Prettify
+          node -e "
+            const fs = require('fs');
+            const badge = JSON.parse(fs.readFileSync('packages/mcp-server/mcp-health-badge.json','utf-8'));
+            fs.writeFileSync('packages/mcp-server/mcp-health-badge.json', JSON.stringify(badge, null, 2) + '\n');
+          "
+
+      - name: Commit health badge
+        if: github.ref == 'refs/heads/main' && always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/mcp-server/mcp-health-badge.json
+          git diff --cached --quiet || git commit -m "ci: update MCP health badge [skip ci]"
+          git push || echo "Push failed — badge update skipped"

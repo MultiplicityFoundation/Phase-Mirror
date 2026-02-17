@@ -50,9 +50,35 @@ All configuration uses `COPILOT_MCP_` prefix (automatically provided by GitHub):
 - `COPILOT_MCP_NONCE_PARAMETER_NAME` - SSM parameter for nonce
 - `COPILOT_MCP_LOG_LEVEL` - Logging level (default: info)
 
+## Governance Tiers
+
+Phase Mirror MCP tools are classified into two tiers:
+
+- **Tier 1 (Authoritative)**: Binding governance outcomes. May emit `decision:"block"` when running in cloud mode with real FP/consent stores. Examples: `validate_l0_invariants`, `check_adr_compliance`, `analyze_dissonance`, `check_consent_requirements`.
+
+- **Tier 2 (Experimental)**: Advisory insights only. Never emit blocking decisions or L0-style errors. Examples: `query_fp_store`, exploratory analytics.
+
+See `policy/mcp-tools.policy.json` and [ADR-010](../../docs/adr/ADR-010-mcp-tool-policy.md) for full policy.
+
+## Local vs Cloud Behavior
+
+- **Local mode** (no FP/consent stores): All tools are advisory, `degradedMode:true`, decisions downgraded to `warn`.
+- **Cloud mode** (real stores): Tier 1 tools may emit authoritative blocks.
+
+Always check `tier`, `environment`, and `degradedMode` in responses.
+
+## Adding a New Tool
+
+1. Implement tool in `src/tools/your-tool.ts`.
+2. Add entry to `policy/mcp-tools.policy.json` with `x-tier` and (if Tier 1) `x-adr`.
+3. Register in `src/tool-registry.ts`.
+4. Run `pnpm run build:contract` and commit `mcp-contract.json`.
+5. Add tests (unit + contract if Tier 1).
+6. Open PR — CI will enforce policy compliance.
+
 ## Available Tools
 
-Phase Mirror provides **5 production-ready MCP tools** for governance automation:
+Phase Mirror provides **6 MCP tools** for governance automation:
 
 1. **analyze_dissonance** - Detect governance violations before implementation
 2. **validate_l0_invariants** - Validate foundation-tier governance constraints

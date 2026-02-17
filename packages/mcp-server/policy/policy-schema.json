@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "tools"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "x-tier"],
+        "properties": {
+          "name": { "type": "string" },
+          "x-tier": { "enum": ["authoritative", "experimental"] },
+          "x-adr": { "type": "string", "pattern": "^ADR-\\d+$" },
+          "x-visibilityHint": { "type": "string" }
+        }
+      }
+    }
+  }
+}
