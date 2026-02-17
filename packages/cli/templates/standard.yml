@@ -1,0 +1,45 @@
+# Phase Mirror — Standard Configuration
+# Recommended for most projects. Enables all five core rules
+# with balanced severity, drift detection, and FP management.
+#
+# This is the default template used by: oracle init
+
+version: "1"
+
+rules:
+  enabled:
+    - MD-001  # L0 Invariant: Workflow Integrity
+    - MD-002  # L0 Invariant: Permissions Boundary
+    - MD-003  # L0 Invariant: Baseline Drift
+    - MD-004  # Circuit Breaker Detection
+    - MD-005  # Consent Boundary
+
+  severity:
+    MD-001: critical
+    MD-002: high
+    MD-003: high
+    MD-004: medium
+    MD-005: medium
+
+# L0 Invariants — enabled, non-strict (warn only)
+l0_invariants:
+  enabled: true
+  strict: false
+
+# Drift Detection — 15% threshold
+drift:
+  enabled: true
+  threshold: 0.15
+
+# False Positive Management
+false_positives:
+  enabled: true
+  storage: local  # local | remote
+
+# Fail behavior — block on high and above
+fail_on: high
+
+# Circuit Breaker — disabled by default
+circuit_breaker:
+  enabled: false
+  max_execution_time_ms: 100

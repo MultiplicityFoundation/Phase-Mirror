@@ -151,8 +151,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
     
     logger.info(chalk.dim('\nNext steps:'));
     logger.info(chalk.dim('  1. Review .phase-mirror.yml configuration'));
-    logger.info(chalk.dim('  2. Run: phase-mirror analyze'));
+    logger.info(chalk.dim('  2. Run: oracle analyze'));
     logger.info(chalk.dim('  3. Add to CI/CD with GitHub Action'));
+    logger.info(chalk.dim('\nTemplate files available in: templates/minimal.yml, standard.yml, strict.yml'));
 
   } catch (error) {
     throw error;
