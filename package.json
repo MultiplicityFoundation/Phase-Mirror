@@ -48,10 +48,8 @@
   "pnpm": {
     "overrides": {
       "fast-xml-parser": ">=5.3.4",
-      "ajv": ">=8.18.0"
-    },
-    "patchedDependencies": {
-      "qs@6.14.1": "patches/qs@6.14.1.patch"
+      "ajv": ">=8.18.0",
+      "qs": ">=6.14.2"
     }
   }
 }
