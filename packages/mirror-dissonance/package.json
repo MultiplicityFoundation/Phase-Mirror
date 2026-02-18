@@ -39,7 +39,7 @@
   "optionalDependencies": {
     "@google-cloud/firestore": "^7.0.0",
     "@google-cloud/secret-manager": "^5.0.0",
-    "@google-cloud/storage": "^7.18.0"
+    "@google-cloud/storage": "^7.19.0"
   },
   "peerDependenciesMeta": {
     "@google-cloud/firestore": {
