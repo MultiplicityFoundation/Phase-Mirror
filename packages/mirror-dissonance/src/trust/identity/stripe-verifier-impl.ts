@@ -242,8 +242,11 @@ export class StripeVerifier implements IStripeVerifier {
       );
 
     } catch (error) {
-      // If we can't check, assume no delinquency (fail open)
-      return false;
+      // If we can't check delinquency, fail-closed per ADR-030
+      throw new StripeVerificationError(
+        `Unable to check delinquent invoices for ${stripeCustomerId}: ${error instanceof Error ? error.message : String(error)}`,
+        'API_ERROR'
+      );
     }
   }
 
@@ -287,8 +290,11 @@ export class StripeVerifier implements IStripeVerifier {
       ).length;
 
     } catch (error) {
-      // If we can't fetch payments, return 0 (fail safe)
-      return 0;
+      // Propagate Stripe API errors — never return 0 silently (ADR-030)
+      throw new StripeVerificationError(
+        `Unable to count payments for ${customerId}: ${error instanceof Error ? error.message : String(error)}`,
+        'API_ERROR'
+      );
     }
   }
 
@@ -305,7 +311,11 @@ export class StripeVerifier implements IStripeVerifier {
       return subscriptions.data;
 
     } catch (error) {
-      return [];
+      // Propagate Stripe API errors — never return [] silently (ADR-030)
+      throw new StripeVerificationError(
+        `Unable to fetch subscriptions for ${customerId}: ${error instanceof Error ? error.message : String(error)}`,
+        'API_ERROR'
+      );
     }
   }
 

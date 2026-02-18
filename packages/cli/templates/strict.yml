@@ -1,0 +1,47 @@
+# Phase Mirror — Strict Configuration
+# Maximum governance enforcement. All rules at highest severity,
+# strict L0 mode (violations block CI), tight drift threshold,
+# and circuit-breaker enabled.
+#
+# Recommended for: regulated industries, multi-org trust networks,
+# production deployments that need Zero-Trust CI.
+
+version: "1"
+
+rules:
+  enabled:
+    - MD-001  # L0 Invariant: Workflow Integrity
+    - MD-002  # L0 Invariant: Permissions Boundary
+    - MD-003  # L0 Invariant: Baseline Drift
+    - MD-004  # Circuit Breaker Detection
+    - MD-005  # Consent Boundary
+
+  severity:
+    MD-001: critical
+    MD-002: critical
+    MD-003: critical
+    MD-004: high
+    MD-005: high
+
+# L0 Invariants — strict mode: violations block CI (exit 1)
+l0_invariants:
+  enabled: true
+  strict: true
+
+# Drift Detection — tighter threshold (10%)
+drift:
+  enabled: true
+  threshold: 0.10
+
+# False Positive Management
+false_positives:
+  enabled: true
+  storage: local  # local | remote
+
+# Fail behavior — block on high and above
+fail_on: high
+
+# Circuit Breaker — enforced
+circuit_breaker:
+  enabled: true
+  max_execution_time_ms: 100

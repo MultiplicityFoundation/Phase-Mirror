@@ -91,3 +91,14 @@ export type {
   ContributionRecord,
 } from "./trust/index.js";
 
+// Domain Errors (ADR-030)
+export {
+  OracleDegradedError,
+  L0InvariantViolation,
+} from "./lib/errors.js";
+
+export type {
+  DegradationReason,
+  ServiceTier,
+} from "./lib/errors.js";
+

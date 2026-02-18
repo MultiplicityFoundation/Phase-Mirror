@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Command } from 'commander';
@@ -28,6 +29,23 @@ const __dirname = dirname(__filename);
 /** Schema path resolved relative to compiled output, not CWD. */
 export const schemaPath = join(__dirname, 'schemas', 'dissonance-report.schema.json');
 
+// ── Experimental banner (ADR-029) ──────────────────────────────────────────
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+);
+const cliVersion: string = packageJson.version;
+
+if (cliVersion.startsWith('0.')) {
+  console.log(chalk.yellow('━'.repeat(70)));
+  console.log(chalk.yellow.bold('⚠️  EXPERIMENTAL RELEASE (v' + cliVersion + ')'));
+  console.log(chalk.yellow('This CLI is structurally complete but functionally unvalidated.'));
+  console.log(chalk.yellow('Known gaps: test coverage, drift baseline, error propagation.'));
+  console.log(chalk.yellow('See: https://github.com/MultiplicityFoundation/Phase-Mirror/blob/main/docs/adr/ADR-029-cli-versioning-production-readiness.md'));
+  console.log(chalk.yellow('━'.repeat(70)));
+  console.log();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const program = new Command();
 
 program
@@ -38,7 +56,7 @@ program
     'Surface productive contradictions, name tensions, convert to levers\n\n' +
     chalk.dim('The mirror doesn\'t sell clarity. It sells the cost of avoiding it.')
   )
-  .version('1.0.0')
+  .version('0.9.0')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--debug', 'Enable debug mode')
   .hook('preAction', (thisCommand) => {

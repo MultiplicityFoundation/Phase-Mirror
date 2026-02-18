@@ -31,9 +31,12 @@ oracle init --template standard
 ```
 
 Available templates:
-- `minimal` - Essential rules only (L0 invariants)
-- `standard` - Recommended rules for most projects
-- `strict` - Maximum governance enforcement
+- `minimal` - Essential rules only (L0 invariants, no drift, no FP)
+- `standard` - Recommended rules for most projects (default)
+- `strict` - Maximum governance: strict L0, tight drift threshold, circuit-breaker
+
+Standalone template files are in `templates/minimal.yml`, `standard.yml`, `strict.yml`.
+Copy directly: `cp node_modules/@mirror-dissonance/cli/templates/strict.yml .phase-mirror.yml`
 
 ### Analyze Files
 

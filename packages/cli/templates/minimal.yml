@@ -1,0 +1,31 @@
+# Phase Mirror — Minimal Configuration
+# Essential L0 invariants only. Suitable for initial adoption or
+# open-source projects that need baseline governance without noise.
+#
+# To upgrade: oracle init --template standard
+
+version: "1"
+
+rules:
+  enabled:
+    - MD-001  # L0 Invariant: Workflow Integrity
+    - MD-002  # L0 Invariant: Permissions Boundary
+    - MD-003  # L0 Invariant: Baseline Drift
+
+  severity:
+    MD-001: critical
+    MD-002: high
+    MD-003: high
+
+# L0 Invariants — non-negotiable, always on
+l0_invariants:
+  enabled: true
+  strict: false  # Violations logged but don't block CI
+
+# Drift Detection — disabled in minimal
+drift:
+  enabled: false
+
+# False Positive Management — off until you need it
+false_positives:
+  enabled: false

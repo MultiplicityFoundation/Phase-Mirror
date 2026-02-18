@@ -15,7 +15,7 @@ import {
 import { createFPStore } from '@mirror-dissonance/core';
 import { ReputationEngine } from '@mirror-dissonance/core';
 import { createLocalTrustAdapters } from '@mirror-dissonance/core';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import { CLIError } from '../lib/errors.js';
 
 /**

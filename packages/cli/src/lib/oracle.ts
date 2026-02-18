@@ -4,6 +4,34 @@
  */
 import type { Config } from '../types/cli.js';
 import { resolveSchemaPath, resolveRulesDir } from '../paths.js';
+import { computeFileHash, fileExists } from '../utils/hash.js';
+import { OracleDegradedError } from '@mirror-dissonance/core';
+
+export interface DriftChange {
+  file: string;
+  type: 'modified' | 'added' | 'removed';
+  oldHash?: string;
+  newHash?: string;
+}
+
+export interface DriftResult {
+  driftDetected: boolean;
+  magnitude: number;
+  changes: DriftChange[];
+}
+
+export interface BaselineEntry {
+  path: string;
+  hash: string;
+  exists: boolean;
+}
+
+export interface Baseline {
+  version: string;
+  createdAt: string;
+  files: BaselineEntry[];
+  metadata?: Record<string, unknown>;
+}
 
 export class PhaseOracle {
   private config: Config;
@@ -50,14 +78,51 @@ export class PhaseOracle {
   }
 
   async checkDrift(params: {
-    baseline: any;
+    baseline: Baseline;
     threshold: number;
-  }): Promise<any> {
-    return {
-      driftDetected: false,
-      magnitude: 0,
-      changes: []
-    };
+  }): Promise<DriftResult> {
+    const changes: DriftChange[] = [];
+    const baselineFiles = params.baseline.files || [];
+
+    // Check each file in the baseline
+    for (const entry of baselineFiles) {
+      const exists = fileExists(entry.path);
+
+      if (!exists && entry.exists) {
+        // File was in baseline but is now missing
+        changes.push({
+          file: entry.path,
+          type: 'removed',
+          oldHash: entry.hash,
+        });
+      } else if (exists && entry.exists && entry.hash) {
+        // File exists in both — compare hashes
+        const currentHash = await computeFileHash(entry.path);
+        if (currentHash && currentHash !== entry.hash) {
+          changes.push({
+            file: entry.path,
+            type: 'modified',
+            oldHash: entry.hash,
+            newHash: currentHash,
+          });
+        }
+      } else if (exists && !entry.exists) {
+        // File did not exist in baseline but exists now
+        const currentHash = await computeFileHash(entry.path);
+        changes.push({
+          file: entry.path,
+          type: 'added',
+          newHash: currentHash,
+        });
+      }
+    }
+
+    // magnitude = proportion of tracked files that changed
+    const trackedCount = baselineFiles.length || 1;
+    const magnitude = changes.length / trackedCount;
+    const driftDetected = magnitude > params.threshold;
+
+    return { driftDetected, magnitude, changes };
   }
 
   async generateBaseline(): Promise<any> {
@@ -73,26 +138,43 @@ export class PhaseOracle {
     reason: string;
     createPattern: boolean;
   }): Promise<void> {
-    // Mark finding as false positive
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'markFalsePositive', findingId: params.findingId },
+      'community',
+    );
   }
 
   async listFalsePositives(params: {
     ruleId?: string;
   }): Promise<any[]> {
-    return [];
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'listFalsePositives', ruleId: params.ruleId },
+      'community',
+    );
   }
 
   async exportFalsePositives(params: {
     anonymize: boolean;
   }): Promise<any> {
-    return {
-      count: 0,
-      patterns: []
-    };
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'exportFalsePositives' },
+      'community',
+    );
   }
 
   async importFalsePositives(data: any): Promise<void> {
-    // Import FP patterns
+    throw new OracleDegradedError(
+      'FP_STORE_UNAVAILABLE',
+      true,
+      { operation: 'importFalsePositives' },
+      'community',
+    );
   }
 
   private getDefaultConfig(): Config {
