@@ -1,0 +1,54 @@
+{
+  "$schema": "https://phase-mirror.dev/schemas/icr/v2.0.json",
+  "version": "2.0.0",
+  "created": "2026-03-03",
+  "description": "IntentClass Registry (ICR) — closed enum governing cap.action to intentClass and NRLevel mappings. Adding values requires an ADR. Removing or redefining values is a breaking change requiring a new ICR version. The version string here is embedded verbatim in the signature domain separator: PHASE_MIRROR/WITNESS/v1/icr:2.0.0",
+  "intentClasses": [
+    {
+      "value": "actuation",
+      "description": "State-changing operation; executor is the agent of a side effect"
+    },
+    {
+      "value": "witness",
+      "description": "Observation without state change; audit or trace role"
+    },
+    {
+      "value": "receipt",
+      "description": "Acknowledgement of delivery; no independent state change"
+    },
+    {
+      "value": "trace-atom",
+      "description": "Telemetry or provenance record; evidentiary only"
+    }
+  ],
+  "nrLevels": [
+    {
+      "value": "NR_FULL",
+      "description": "Governance-relevant actuation: regulated, multi-party, or legal accountability context. SPIFFE SVID required for aud.instance. Audit trail non_repudiation = instance-bound."
+    },
+    {
+      "value": "NR_CLASS",
+      "description": "Non-governance actuation: internal, development, or non-regulated context. Class-level DID binding sufficient. Audit trail non_repudiation = class-bound."
+    },
+    {
+      "value": "NR_NONE",
+      "description": "Witness, receipt, or trace-atom operations. No instance binding required. Audit trail non_repudiation = evidentiary-only."
+    }
+  ],
+  "actions": [
+    {
+      "_comment": "Placeholder — initial cap.action entries to be populated via ICR governance process before ADR-032 moves to ACCEPTED. Each entry must specify: action (string), intentClass (enum above), nr_level (enum above), added_by_adr (string), added_date (ISO-8601)."
+    }
+  ],
+  "kidPurposeMap": {
+    "gate-ack": ["actuation"],
+    "witness-key": ["witness", "receipt"],
+    "trace-key": ["trace-atom"]
+  },
+  "governance": {
+    "addingValues": "Requires a separate ADR.",
+    "removingValues": "Breaking change. Requires new ICR version and new ADR.",
+    "redefiningValues": "Breaking change. Requires new ICR version and new ADR.",
+    "nrLevelAssignment": "NRLevel is assigned by the ICR governance process, not by the signer or executor. A signer cannot declare a lower NRLevel than the ICR assigns to the action."
+  }
+}
