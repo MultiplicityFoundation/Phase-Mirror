@@ -88,7 +88,7 @@ export async function execute(
 
   try {
     // Import and use the Analysis Orchestrator for proper file processing
-    const { createOrchestrator } = await import("@mirror-dissonance/core/dist/src/analysis/orchestrator.js");
+    const { createOrchestrator } = await import("@mirror-dissonance/core/dist/analysis/orchestrator.js");
 
     // Map our mode to Oracle mode
     const oracleMode = mode === "issue" ? "pull_request" : mode;

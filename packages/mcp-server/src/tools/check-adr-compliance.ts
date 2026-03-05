@@ -12,7 +12,7 @@ import {
   ADRMatcher,
   ParsedADR,
   ADRComplianceResult
-} from "@mirror-dissonance/core/dist/src/index.js";
+} from "@mirror-dissonance/core/dist/index.js";
 
 /**
  * Input schema for check_adr_compliance tool

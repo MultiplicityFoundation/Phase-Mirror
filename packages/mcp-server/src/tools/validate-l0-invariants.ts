@@ -3,7 +3,7 @@ import {
   L0Validator,
   type L0ValidationInput,
   type L0ValidationResult,
-} from "@mirror-dissonance/core/dist/src/l0-invariants/index.js";
+} from "@mirror-dissonance/core/dist/l0-invariants/index.js";
 import type { ToolContext, ToolResponse } from "../types/index.js";
 import { readFile } from "fs/promises";
 import { resolve } from "path";

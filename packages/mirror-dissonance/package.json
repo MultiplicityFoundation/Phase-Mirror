@@ -60,7 +60,7 @@
     "typescript": "^5.3.0"
   },
   "overrides": {
-    "fast-xml-parser": ">=5.3.4"
+    "fast-xml-parser": ">=5.4.2"
   },
   "license": "Apache-2.0"
 }

@@ -12,8 +12,9 @@ import {
   createFPStoreQuery,
   createConsentStore,
   FPRateResult,
-  FPTrendPoint
-} from "@mirror-dissonance/core/dist/src/index.js";
+  FPTrendPoint,
+  FPPattern
+} from "@mirror-dissonance/core/dist/index.js";
 
 /**
  * Input schema for query_fp_store tool
@@ -254,7 +255,7 @@ export async function execute(
           queryType: "recent_patterns",
           ruleId,
           patternsFound: patterns.length,
-          patterns: patterns.map(p => ({
+          patterns: patterns.map((p: FPPattern) => ({
             contextHash: p.contextHash.substring(0, 12) + "...", // Truncate for privacy
             frequency: p.frequency,
             lastSeen: p.lastSeen.toISOString(),
@@ -309,14 +310,14 @@ export async function execute(
           rulesAnalyzed: comparison.length,
           rules: comparison,
           summary: {
-            needingCalibration: comparison.filter(r => r.needsCalibration).length,
-            averageFPR: comparison.reduce((sum, r) => sum + r.fpr, 0) / comparison.length,
+            needingCalibration: comparison.filter((r: FPRateResult & { needsCalibration: boolean }) => r.needsCalibration).length,
+            averageFPR: comparison.reduce((sum: number, r: FPRateResult & { needsCalibration: boolean }) => sum + r.fpr, 0) / comparison.length,
             highestFPR: comparison[0],
             lowestFPR: comparison[comparison.length - 1],
           },
           recommendations: comparison
-            .filter(r => r.needsCalibration)
-            .map(r => `${r.ruleId}: FPR ${(r.fpr * 100).toFixed(1)}% exceeds threshold. Review rule logic.`),
+            .filter((r: FPRateResult & { needsCalibration: boolean }) => r.needsCalibration)
+            .map((r: FPRateResult & { needsCalibration: boolean }) => `${r.ruleId}: FPR ${(r.fpr * 100).toFixed(1)}% exceeds threshold. Review rule logic.`),
         };
         break;
       }

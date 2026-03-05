@@ -12,7 +12,8 @@ import {
   CONSENT_RESOURCES,
   getRequiredResources,
   CURRENT_CONSENT_POLICY,
-} from "@mirror-dissonance/core/dist/src/consent-store/index.js";
+  ConsentCheckResult,
+} from "@mirror-dissonance/core/dist/consent-store/index.js";
 
 /**
  * Input schema for check_consent_requirements tool
@@ -208,7 +209,7 @@ async function validateConsent(
     needsReconsent: [] as string[],
   };
   
-  for (const [resource, checkResult] of Object.entries(result.results)) {
+  for (const [resource, checkResult] of Object.entries(result.results) as [string, ConsentCheckResult][]) {
     resourceResults[resource] = {
       valid: checkResult.granted,
       state: checkResult.state,
