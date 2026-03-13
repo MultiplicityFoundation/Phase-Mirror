@@ -18,6 +18,15 @@ The Phase Mirror CLI provides a command-line interface to the Mirror Dissonance 
 pnpm install
 pnpm build
 
+## Quickstart (Monorepo canonical)
+
+```bash
+# Run analysis in PR mode (default)
+pnpm oracle:run -- analyze --mode pull_request
+
+# Validate L0 invariants
+pnpm oracle:run -- validate
+
 ## Usage
 
 ### Initialize Configuration
