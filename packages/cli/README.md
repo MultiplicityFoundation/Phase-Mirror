@@ -14,13 +14,9 @@ The Phase Mirror CLI provides a command-line interface to the Mirror Dissonance 
 
 ## Installation
 
-```bash
 # From the monorepo root
 pnpm install
-
-# Build the CLI
-pnpm --filter @mirror-dissonance/cli build
-```
+pnpm build
 
 ## Usage
 
